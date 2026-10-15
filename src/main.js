@@ -107,6 +107,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     topHandle.addEventListener('pointermove', move);
     topHandle.addEventListener('pointerup', up);
   });
+  // top-right corner: both at once
+  const cornerHandle = document.getElementById('chat-resize-handle-corner');
+  cornerHandle?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    cornerHandle.setPointerCapture(e.pointerId);
+    const rect = chatPanel.getBoundingClientRect();
+    const move = (ev) => { setChatW(ev.clientX - rect.left); setChatH(rect.bottom - ev.clientY); chatContainer.scrollTop = chatContainer.scrollHeight; };
+    const up = () => {
+      cornerHandle.removeEventListener('pointermove', move);
+      cornerHandle.removeEventListener('pointerup', up);
+      try {
+        localStorage.setItem('chat_width', String(parseInt(chatPanel.style.width, 10)));
+        localStorage.setItem('chat_height', String(parseInt(chatPanel.style.height, 10)));
+      } catch (e) { /* ignore */ }
+    };
+    cornerHandle.addEventListener('pointermove', move);
+    cornerHandle.addEventListener('pointerup', up);
+  });
   window.addEventListener('resize', () => {
     if (chatPanel?.style.width) setChatW(parseInt(chatPanel.style.width, 10));
     if (chatPanel?.style.height) setChatH(parseInt(chatPanel.style.height, 10));
