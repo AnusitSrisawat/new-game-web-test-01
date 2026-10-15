@@ -522,7 +522,7 @@ body, html {
   position: absolute;
   bottom: 24px;
   left: 16px;
-  width: 320px;
+  width: 400px;
   height: 190px;
   background: rgba(10, 15, 30, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -540,7 +540,8 @@ body, html {
 }
 
 .chat-tab {
-  padding: 4px 10px;
+  padding: 4px 8px;
+  white-space: nowrap;
   background: transparent;
   border: none;
   color: var(--text-dim);
@@ -568,13 +569,47 @@ body, html {
 
 .chat-msg {
   line-height: 1.35;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
 }
+.chat-msg[hidden] { display: none; }
+/* fixed-width channel column so every message starts at the same x; wrapped lines align too */
+.chat-tag {
+  flex: 0 0 3.4em;
+  font-size: 0.66rem;
+  font-weight: 700;
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.chat-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.chat-messages:not([data-tab="all"]) .chat-tag { display: none; }
 
 .chat-msg.system { color: #facc15; }
 .chat-msg.loot { color: #38bdf8; }
 .chat-msg.relic { color: #ec4899; font-weight: 700; }
 .chat-msg.quest { color: #4ade80; }
 .chat-msg.chat { color: #f8fafc; }
+
+.chat-channel-label {
+  align-self: center;
+  padding: 0 4px 0 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #60a5fa;
+  white-space: nowrap;
+}
+.chat-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.chat-resize-handle:hover { background: rgba(96, 165, 250, 0.35); }
 
 .chat-input-row {
   display: flex;

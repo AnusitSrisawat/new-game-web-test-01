@@ -41,22 +41,77 @@ document.addEventListener('DOMContentLoaded', async () => {
   chatIconBtn?.addEventListener('click', () => setChatCollapsed(false));
   try { if (localStorage.getItem('chat_collapsed') === '1') setChatCollapsed(true); } catch (e) { /* ignore */ }
 
+  // ---- Chat channels ----
+  // Every message carries a category: world | map | party | guild | system | monster
+  const CAT_TAG = { world: 'โลก', map: 'แมพ', party: 'ปาร์ตี้', guild: 'กิลด์', system: 'ระบบ', monster: 'มอนฯ' };
+  const PLAYER_CATS = ['world', 'map', 'party', 'guild'];
+  const CAT_LABEL = { world: 'โลก', map: 'แมพ', party: 'ปาร์ตี้', guild: 'กิลด์' };
+  const MAX_MSGS = 200;
+  let chatTab = 'all';
+  // tabs that show several categories ('world' tab = all player chat from everywhere)
+  const tabShows = (tab, cat) => tab === 'all' || (tab === 'world' ? PLAYER_CATS.includes(cat) : tab === cat);
+  const applyChatFilter = () => {
+    chatContainer.dataset.tab = chatTab;
+    chatContainer.querySelectorAll('.chat-msg').forEach(el => {
+      el.hidden = !tabShows(chatTab, el.dataset.cat);
+    });
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    const lbl = document.getElementById('chat-channel-label');
+    if (lbl) lbl.textContent = CAT_LABEL[chatTab] || 'โลก';
+  };
+  // Typing goes to the open channel tab (world for all/system/monster)
+  const sendChannel = () => (PLAYER_CATS.includes(chatTab) ? chatTab : 'world');
+  document.querySelectorAll('.chat-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      chatTab = tab.dataset.tab;
+      applyChatFilter();
+    });
+  });
+
+  // Chat panel can be stretched sideways (width remembered between visits)
+  const MIN_CHAT_W = 280;
+  const clampChatW = (w) => Math.max(MIN_CHAT_W, Math.min(w, window.innerWidth - 40));
+  const setChatW = (w) => { if (chatPanel) chatPanel.style.width = clampChatW(w) + 'px'; };
+  try { const w = parseInt(localStorage.getItem('chat_width'), 10); if (w) setChatW(w); } catch (e) { /* ignore */ }
+  const resizeHandle = document.getElementById('chat-resize-handle');
+  resizeHandle?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    resizeHandle.setPointerCapture(e.pointerId);
+    const left = chatPanel.getBoundingClientRect().left;
+    const move = (ev) => setChatW(ev.clientX - left);
+    const up = () => {
+      resizeHandle.removeEventListener('pointermove', move);
+      resizeHandle.removeEventListener('pointerup', up);
+      try { localStorage.setItem('chat_width', String(parseInt(chatPanel.style.width, 10))); } catch (e) { /* ignore */ }
+    };
+    resizeHandle.addEventListener('pointermove', move);
+    resizeHandle.addEventListener('pointerup', up);
+  });
+  window.addEventListener('resize', () => { if (chatPanel?.style.width) setChatW(parseInt(chatPanel.style.width, 10)); });
+
   // Combat & System Log Callback
-  const addLog = (message, type = 'system') => {
+  const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]));
+  const addLog = (message, type = 'system', cat) => {
     if (!chatContainer) return;
+    // loot / relic drops belong to the monster channel; everything else defaults to system
+    cat = cat || (type === 'loot' || type === 'relic' ? 'monster' : 'system');
+    if (!CAT_TAG[cat]) cat = 'system';
     const msgEl = document.createElement('div');
     msgEl.className = `chat-msg ${type}`;
-    const time = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    msgEl.innerHTML = `<span style="opacity:0.5; font-size:0.7rem;">[${time}]</span> ${String(message).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]))}`;
+    msgEl.dataset.cat = cat;
+    msgEl.hidden = !tabShows(chatTab, cat);
+    msgEl.innerHTML = `<span class="chat-tag">${CAT_TAG[cat]}</span><span class="chat-text">${esc(message)}</span>`;
     chatContainer.appendChild(msgEl);
-    if (chatCollapsed && type !== 'system') {
+    if (chatCollapsed && cat !== 'system') {
       unread++;
       const badge = document.getElementById('chat-unread');
       if (badge) { badge.textContent = unread > 99 ? '99+' : unread; badge.style.display = 'block'; }
     }
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
-    while (chatContainer.children.length > 60) {
+    while (chatContainer.children.length > MAX_MSGS) {
       chatContainer.removeChild(chatContainer.firstChild);
     }
   };
@@ -77,7 +132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const handleSendChat = () => {
     const txt = chatInput.value.trim();
     if (txt) {
-      network.sendChat(txt);
+      network.sendChat(txt, sendChannel());
       chatInput.value = '';
     }
   };
@@ -174,5 +229,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   }, 100);
 
   addLog('🌿 ยินดีต้อนรับสู่ TRIPLE CROWN ONLINE!', 'system');
-  addLog('🕹️ การควบคุม: [WASD] เดิน • [คลิกขวา] ล็อคเป้า • [คลิกซ้าย] โจมตี', 'chat');
+  addLog('🕹️ การควบคุม: [WASD] เดิน • [คลิกขวา] ล็อคเป้า • [คลิกซ้าย] โจมตี', 'system');
 });

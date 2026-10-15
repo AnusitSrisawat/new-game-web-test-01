@@ -94,18 +94,23 @@
       <div class="hud-bottom-left hud-interactive" id="chat-panel">
         <div class="chat-tabs">
           <button class="chat-tab active" data-tab="all">รวม</button>
+          <button class="chat-tab" data-tab="world">แชทโลก</button>
+          <button class="chat-tab" data-tab="map">แชทแมพ</button>
+          <button class="chat-tab" data-tab="party">ปาร์ตี้</button>
+          <button class="chat-tab" data-tab="guild">กิลด์</button>
           <button class="chat-tab" data-tab="system">ระบบ</button>
-          <button class="chat-tab" data-tab="loot">ดรอป</button>
-          <button class="chat-tab" data-tab="relic">สมบัติ</button>
+          <button class="chat-tab" data-tab="monster">มอนสเตอร์</button>
           <button id="chat-collapse-btn" class="chat-collapse-btn" title="ซ่อนแชท (เหลือแค่ไอคอน)">▾</button>
         </div>
         <div class="chat-messages" id="chat-messages-container">
-          <div class="chat-msg system">[ระบบ] ยินดีต้อนรับสู่โลก Cozy MMORPG 2D!</div>
+          
         </div>
         <div class="chat-input-row">
+          <span id="chat-channel-label" class="chat-channel-label">โลก</span>
           <input type="text" id="chat-input" class="chat-input" placeholder="พิมพ์ข้อความคุยในโลก..." />
           <button id="chat-send-btn" class="chat-send-btn">ส่ง</button>
         </div>
+        <div id="chat-resize-handle" class="chat-resize-handle" title="ลากเพื่อขยายแชทไปทางขวา"></div>
       </div>
 
       <!-- BOTTOM-RIGHT: potion slots, Auto, attack -->

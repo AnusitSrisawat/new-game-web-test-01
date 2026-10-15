@@ -9,7 +9,6 @@ export class UIController {
     this.gameEngine = gameEngine;
     this.openWindows = new Set(); // several windows can stay open at once
     this.zCounter = 100;
-    this.chatFilter = 'all';
     this.windowRenderers = {
       'modal-status': () => this.renderStatusModal(),
       'modal-party': () => this.renderPartyModal(),
@@ -160,15 +159,6 @@ export class UIController {
         this.gameEngine.onLog(isMuted ? '🔇 ปิดเสียงเอฟเฟกต์' : '🔊 เปิดเสียงเอฟเฟกต์', 'system');
       });
     }
-
-    // Chat tabs
-    document.querySelectorAll('.chat-tab').forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
-        e.currentTarget.classList.add('active');
-        this.chatFilter = e.currentTarget.dataset.tab;
-      });
-    });
 
     // Monster kill event
     window.addEventListener('monsterKilled', (e) => {

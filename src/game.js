@@ -290,7 +290,7 @@ export class GameEngine {
           });
         }
       } else {
-        this.onLog(`👥 ผู้เล่น [${killerName || 'Adventurer'}] ปราบ [${m.name}]!`, 'chat');
+        this.onLog(`👥 ผู้เล่น [${killerName || 'Adventurer'}] ปราบ [${m.name}]!`, 'system', 'monster');
       }
     }
   }
@@ -338,9 +338,9 @@ export class GameEngine {
     this.player.saveToStorage();
     if (msg.shared) {
       this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 45, `+${msg.exp} EXP [Party]`, '#4ade80', 16);
-      this.onLog(`🤝 [ปาร์ตี้ x${msg.shareCount}] ปราบ [${msg.monsterName}] โดย ${msg.fromName} • ได้ +${msg.exp} EXP, +${msg.gold} G`, 'system');
+      this.onLog(`🤝 [ปาร์ตี้ x${msg.shareCount}] ปราบ [${msg.monsterName}] โดย ${msg.fromName} • ได้ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
     } else {
-      this.onLog(`⚔️ ปราบ [${msg.monsterName}] สำเร็จ! ได้รับ +${msg.exp} EXP, +${msg.gold} G`, 'chat');
+      this.onLog(`⚔️ ปราบ [${msg.monsterName}] สำเร็จ! ได้รับ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
     }
   }
 
@@ -394,7 +394,7 @@ export class GameEngine {
     } else {
       // Safe! Player dodged!
       this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 35, `💨 DODGED!`, '#38bdf8', 16);
-      this.onLog(`💨 คุณใช้ WASD หลบการโจมตีพื้นที่สีแดงของบอสได้สำเร็จ!`, 'chat');
+      this.onLog(`💨 คุณใช้ WASD หลบการโจมตีพื้นที่สีแดงของบอสได้สำเร็จ!`, 'system');
     }
   }
 
