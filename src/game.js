@@ -574,12 +574,15 @@ export class GameEngine {
     const fillEl = document.getElementById('target-monster-hp-fill');
 
     if (!box) return;
+    const wrap = box.parentElement;
 
     if (!monster || monster.isDead) {
       box.style.opacity = '0';
+      if (wrap) wrap.style.display = 'none';
       return;
     }
 
+    if (wrap) wrap.style.display = '';
     box.style.opacity = '1';
     nameEl.textContent = `${monster.name} [Lv.${monster.level}]`;
     textEl.textContent = `${monster.currentHp} / ${monster.maxHp}`;
