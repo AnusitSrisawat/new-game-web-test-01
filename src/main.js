@@ -3,11 +3,43 @@ import { Player } from './player.js';
 import { GameEngine } from './game.js';
 import { UIController } from './ui.js';
 import { NetworkManager } from './network.js';
+import { ZONES, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS } from './data.js';
+import { MAP_DEFS } from './maps.js';
+import { applyOverrides } from './overrides.js';
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Studio edits (names, stats, map colours/sizes...) are layered over the built-in data before anything uses it
+  try {
+    const res = await fetch('/api/overrides', { cache: 'no-store' });
+    if (res.ok) applyOverrides({ ZONES, MAP_DEFS, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS }, await res.json());
+  } catch (e) {
+    console.warn('Could not load Studio overrides:', e);
+  }
+
   const canvas = document.getElementById('gameCanvas');
   const minimapCanvas = document.getElementById('minimapCanvas');
   const chatContainer = document.getElementById('chat-messages-container');
+
+  // Chat can be collapsed to a 💬 icon (remembered between visits)
+  let chatCollapsed = false;
+  let unread = 0;
+  const chatPanel = document.getElementById('chat-panel');
+  const chatIconBtn = document.getElementById('chat-icon-btn');
+  const setChatCollapsed = (collapsed) => {
+    chatCollapsed = collapsed;
+    if (chatPanel) chatPanel.classList.toggle('collapsed', collapsed);
+    if (chatIconBtn) chatIconBtn.style.display = collapsed ? 'block' : 'none';
+    if (!collapsed) {
+      unread = 0;
+      const badge = document.getElementById('chat-unread');
+      if (badge) badge.style.display = 'none';
+      if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    try { localStorage.setItem('chat_collapsed', collapsed ? '1' : '0'); } catch (e) { /* ignore */ }
+  };
+  document.getElementById('chat-collapse-btn')?.addEventListener('click', () => setChatCollapsed(true));
+  chatIconBtn?.addEventListener('click', () => setChatCollapsed(false));
+  try { if (localStorage.getItem('chat_collapsed') === '1') setChatCollapsed(true); } catch (e) { /* ignore */ }
 
   // Combat & System Log Callback
   const addLog = (message, type = 'system') => {
@@ -15,8 +47,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const msgEl = document.createElement('div');
     msgEl.className = `chat-msg ${type}`;
     const time = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    msgEl.innerHTML = `<span style="opacity:0.5; font-size:0.7rem;">[${time}]</span> ${message}`;
+    msgEl.innerHTML = `<span style="opacity:0.5; font-size:0.7rem;">[${time}]</span> ${String(message).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]))}`;
     chatContainer.appendChild(msgEl);
+    if (chatCollapsed && type !== 'system') {
+      unread++;
+      const badge = document.getElementById('chat-unread');
+      if (badge) { badge.textContent = unread > 99 ? '99+' : unread; badge.style.display = 'block'; }
+    }
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
     while (chatContainer.children.length > 60) {
@@ -53,6 +90,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 4. MOUSE CONTROLS: Left Click = Attack / Move, Right Click = Target Selection
   // Prevent context menu from appearing on right click in the game
+  // Zoom: mouse wheel over the game, or +/- keys
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    game.zoomBy(e.deltaY < 0 ? 1.1 : 1 / 1.1);
+  }, { passive: false });
+  document.getElementById('btn-zoom-in')?.addEventListener('click', () => game.zoomBy(1.2));
+  document.getElementById('btn-zoom-out')?.addEventListener('click', () => game.zoomBy(1 / 1.2));
+
   canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
   });
@@ -74,9 +119,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 5. KEYBOARD CONTROLS: WASD to Move, 1 to 9 for Skills & Items
   window.addEventListener('keydown', (e) => {
-    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    if (ui.isTyping()) return; // sliders/checkboxes/buttons with focus must not block movement
 
     const key = e.key.toLowerCase();
+
+    if (key === '+' || key === '=') game.zoomBy(1.2);
+    else if (key === '-' || key === '_') game.zoomBy(1 / 1.2);
 
     // WASD Movement
     if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
@@ -91,7 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.addEventListener('keyup', (e) => {
-    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
 
     const key = e.key.toLowerCase();
     if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
@@ -102,8 +149,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // 6. Periodic UI Sync
   setInterval(() => {
     ui.updateHUD();
+    ui.refreshOpenWindows();
   }, 100);
 
   addLog('🌿 ยินดีต้อนรับสู่ TRIPLE CROWN ONLINE!', 'system');
-  addLog('🕹️ การควบคุม: [WASD] เดิน • [คลิกขวา] ล็อคเป้า • [คลิกซ้าย] โจมตี • [1-9] สกิล', 'chat');
+  addLog('🕹️ การควบคุม: [WASD] เดิน • [คลิกขวา] ล็อคเป้า • [คลิกซ้าย] โจมตี', 'chat');
 });

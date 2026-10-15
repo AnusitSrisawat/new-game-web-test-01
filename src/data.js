@@ -1,174 +1,18 @@
 // Game Master Data & Configurations
 
-export const CLASSES = {
-  // --- SWORDSMAN TREE ---
-  SWORDSMAN: {
-    id: 'swordsman',
-    category: 'swordsman',
-    name: 'Swordsman (นักดาบ)',
-    tier: 1,
-    maxJob: 50,
-    nextClass: 'knight',
-    baseHp: 200,
-    baseAtk: 25,
-    baseDef: 10,
-    aspd: 1.0,
-    range: 75,
-    weaponType: 'sword',
-    color: '#3b82f6',
-    description: 'ผู้ฝึกดาบขั้นต้น เชี่ยวชาญการต่อสู้ระยะประชิด มีพลังป้องกันและความอดทนสูง'
-  },
-  KNIGHT: {
-    id: 'knight',
-    category: 'swordsman',
-    name: 'Knight (อัศวิน)',
-    tier: 2,
-    maxJob: 50,
-    canRebirth: true,
-    baseHp: 650,
-    baseAtk: 75,
-    baseDef: 35,
-    aspd: 1.2,
-    range: 80,
-    weaponType: 'sword',
-    color: '#1d4ed8',
-    description: 'อัศวินผู้พิทักษ์ เชี่ยวชาญดาบใหญ่และโล่ พร้อมเข้าสู่พิธีจุติ (Rebirth)'
-  },
-  HIGH_SWORDSMAN: {
-    id: 'high_swordsman',
-    category: 'swordsman',
-    name: 'High Swordsman (นักดาบจุติ)',
-    tier: 1.5,
-    maxJob: 50,
-    nextClass: 'high_knight',
-    baseHp: 400,
-    baseAtk: 50,
-    baseDef: 25,
-    aspd: 1.15,
-    range: 80,
-    weaponType: 'sword',
-    isReborn: true,
-    color: '#8b5cf6',
-    description: 'ผู้ผ่านการจุติ มีออร่าแห่งวิญญาณสถิตอยู่ พลังพื้นฐานแข็งแกร่งกว่าเดิม'
-  },
-  HIGH_KNIGHT: {
-    id: 'high_knight',
-    category: 'swordsman',
-    name: 'High Knight (อัศวินจุติ)',
-    tier: 2.5,
-    maxJob: 50,
-    nextClass: 'rune_knight',
-    baseHp: 1200,
-    baseAtk: 140,
-    baseDef: 60,
-    aspd: 1.35,
-    range: 85,
-    weaponType: 'sword',
-    isReborn: true,
-    color: '#7c3aed',
-    description: 'อัศวินระดับสูงผู้ปลดล็อกศักยภาพสูงสุด พร้อมเลื่อนขั้นสู่อาชีพคลาส 3'
-  },
-  RUNE_KNIGHT: {
-    id: 'rune_knight',
-    category: 'swordsman',
-    name: 'Rune Knight (รูนไนท์ - Class 3)',
-    tier: 3,
-    maxJob: 50,
-    baseHp: 3000,
-    baseAtk: 320,
-    baseDef: 120,
-    aspd: 1.6,
-    range: 90,
-    weaponType: 'sword',
-    isReborn: true,
-    color: '#f59e0b',
-    description: 'สุดยอดคลาส 3 สลักอักขระรูนโบราณลงบนคมดาบ ปลดปล่อยพลังทำลายล้างมหาศาล!'
-  },
-
-  // --- ARCHER TREE (สายธนู) ---
-  ARCHER: {
-    id: 'archer',
-    category: 'archer',
-    name: 'Archer (นักธนู)',
-    tier: 1,
-    maxJob: 50,
-    nextClass: 'hunter',
-    baseHp: 160,
-    baseAtk: 32,
-    baseDef: 6,
-    aspd: 1.15,
-    range: 240,
-    weaponType: 'bow',
-    color: '#10b981',
-    description: 'ผู้ฝึกหัดยิงธนู เชี่ยวชาญการโจมตีระยะไกล ความแม่นยำสูงและคล่องตัว'
-  },
-  HUNTER: {
-    id: 'hunter',
-    category: 'archer',
-    name: 'Hunter (ฮันเตอร์)',
-    tier: 2,
-    maxJob: 50,
-    canRebirth: true,
-    baseHp: 520,
-    baseAtk: 92,
-    baseDef: 24,
-    aspd: 1.35,
-    range: 260,
-    weaponType: 'bow',
-    color: '#059669',
-    description: 'นายพรานแห่งพงไพร พร้อมเหยี่ยวคู่ใจ เชี่ยวชาญการวางกับดักและยิงระดม'
-  },
-  HIGH_ARCHER: {
-    id: 'high_archer',
-    category: 'archer',
-    name: 'High Archer (นักธนูจุติ)',
-    tier: 1.5,
-    maxJob: 50,
-    nextClass: 'sniper',
-    baseHp: 340,
-    baseAtk: 65,
-    baseDef: 18,
-    aspd: 1.25,
-    range: 260,
-    weaponType: 'bow',
-    isReborn: true,
-    color: '#047857',
-    description: 'นักธนูผู้ผ่านการจุติ คันศรเปล่งประกายออร่าสีเขียวมรกต ยิงทะลวงเป้าหมาย'
-  },
-  SNIPER: {
-    id: 'sniper',
-    category: 'archer',
-    name: 'Sniper (สไนเปอร์)',
-    tier: 2.5,
-    maxJob: 50,
-    nextClass: 'ranger',
-    baseHp: 960,
-    baseAtk: 175,
-    baseDef: 45,
-    aspd: 1.55,
-    range: 280,
-    weaponType: 'bow',
-    isReborn: true,
-    color: '#065f46',
-    description: 'มือปืนศรสังหาร มองเห็นจุดอ่อนศัตรูในพริบตา คริติคอลรุนแรงไร้เทียมทาน'
-  },
-  RANGER: {
-    id: 'ranger',
-    category: 'archer',
-    name: 'Ranger (เรนเจอร์ - Class 3)',
-    tier: 3,
-    maxJob: 50,
-    baseHp: 2400,
-    baseAtk: 380,
-    baseDef: 85,
-    aspd: 1.85,
-    range: 300,
-    weaponType: 'bow',
-    isReborn: true,
-    color: '#14b8a6',
-    description: 'สุดยอดคลาส 3 ผสานพลังธาตุพายุและสัตว์พิทักษ์ ปล่อยศรดั่งพายุคลั่ง!'
-  }
+// Weapon types decide how the basic attack works (range, projectile, damage scaling).
+// There are no classes: playstyle comes from stats, skills and the weapon you hold.
+export const WEAPON_TYPES = {
+  fist:  { id: 'fist',  name: 'มือเปล่า', range: 55,  projectile: null,    scalesWith: 'str' },
+  stick: { id: 'stick', name: 'กิ่งไม้/ไม้',  range: 75,  projectile: null,    scalesWith: 'str' },
+  sword: { id: 'sword', name: 'ดาบ',     range: 80,  projectile: null,    scalesWith: 'str' },
+  bow:   { id: 'bow',   name: 'ธนู',     range: 260, projectile: 'arrow', scalesWith: 'dex' },
+  staff: { id: 'staff', name: 'คฑา',     range: 230, projectile: 'bolt',  scalesWith: 'int' }
 };
+
+// Base values every character starts from (replaces the old per-class numbers)
+export const BASE_STATS = { hp: 150, atk: 12, def: 5, aspd: 1.0 };
+export const STAT_KEYS = ['str', 'agi', 'vit', 'dex', 'int', 'luk'];
 
 export const ZONES = [
   {
@@ -239,7 +83,6 @@ export const MONSTERS = {
     atk: 6,
     def: 2,
     exp: 15,
-    jobExp: 10,
     drops: [
       { itemId: 'sticky_mucus', chance: 0.8 },
       { itemId: 'apple', chance: 0.4 },
@@ -255,7 +98,6 @@ export const MONSTERS = {
     atk: 12,
     def: 4,
     exp: 28,
-    jobExp: 22,
     drops: [
       { itemId: 'green_leaf', chance: 0.75 },
       { itemId: 'plant_stem', chance: 0.35 },
@@ -271,7 +113,6 @@ export const MONSTERS = {
     atk: 18,
     def: 6,
     exp: 55,
-    jobExp: 45,
     drops: [
       { itemId: 'rabbit_fluff', chance: 0.7 },
       { itemId: 'small_horn', chance: 0.4 },
@@ -287,7 +128,6 @@ export const MONSTERS = {
     atk: 32,
     def: 12,
     exp: 110,
-    jobExp: 90,
     drops: [
       { itemId: 'boar_meat', chance: 0.8 },
       { itemId: 'hard_tusk', chance: 0.35 },
@@ -303,7 +143,6 @@ export const MONSTERS = {
     atk: 48,
     def: 18,
     exp: 210,
-    jobExp: 175,
     drops: [
       { itemId: 'wolf_fur', chance: 0.75 },
       { itemId: 'sharp_fang', chance: 0.4 },
@@ -319,7 +158,6 @@ export const MONSTERS = {
     atk: 60,
     def: 30,
     exp: 360,
-    jobExp: 310,
     drops: [
       { itemId: 'ancient_bark', chance: 0.7 },
       { itemId: 'spirit_amber', chance: 0.3 },
@@ -335,7 +173,6 @@ export const MONSTERS = {
     atk: 78,
     def: 35,
     exp: 520,
-    jobExp: 460,
     drops: [
       { itemId: 'rusty_dagger', chance: 0.65 },
       { itemId: 'cloth_scrap', chance: 0.5 },
@@ -351,7 +188,6 @@ export const MONSTERS = {
     atk: 105,
     def: 42,
     exp: 750,
-    jobExp: 680,
     drops: [
       { itemId: 'totem_feather', chance: 0.6 },
       { itemId: 'magic_powder', chance: 0.45 },
@@ -367,7 +203,6 @@ export const MONSTERS = {
     atk: 145,
     def: 60,
     exp: 1200,
-    jobExp: 1100,
     drops: [
       { itemId: 'iron_club_fragment', chance: 0.6 },
       { itemId: 'ogre_blood', chance: 0.4 },
@@ -383,7 +218,6 @@ export const MONSTERS = {
     atk: 170,
     def: 70,
     exp: 1600,
-    jobExp: 1500,
     drops: [
       { itemId: 'crystal_shard', chance: 0.7 },
       { itemId: 'bat_wing', chance: 0.5 },
@@ -399,7 +233,6 @@ export const MONSTERS = {
     atk: 220,
     def: 120,
     exp: 2600,
-    jobExp: 2400,
     drops: [
       { itemId: 'stone_plate', chance: 0.75 },
       { itemId: 'rune_dust', chance: 0.4 },
@@ -415,7 +248,6 @@ export const MONSTERS = {
     atk: 360,
     def: 180,
     exp: 6000,
-    jobExp: 5500,
     drops: [
       { itemId: 'titan_heart', chance: 0.8 },
       { itemId: 'ancient_alloy', chance: 0.6 },
@@ -431,7 +263,6 @@ export const MONSTERS = {
     atk: 580,
     def: 220,
     exp: 50000,
-    jobExp: 45000,
     isMvp: true,
     drops: [
       { itemId: 'dragon_scale_blade', chance: 0.35 },
@@ -475,26 +306,31 @@ export const ITEMS = {
   hp_potion_m: { id: 'hp_potion_m', name: 'Red Potion (M)', price: 60, icon: '🧪', type: 'consumable', heal: 200, desc: 'ยาเพิ่มพลังขนาดกลาง ฟื้นฟู 200 HP' },
   hp_potion_l: { id: 'hp_potion_l', name: 'Red Potion (L)', price: 180, icon: '🧪', type: 'consumable', heal: 600, desc: 'ยาเพิ่มพลังขนาดใหญ่ ฟื้นฟู 600 HP' },
 
+  // Starter & staves
+  wooden_stick: { id: 'wooden_stick', name: 'Wooden Stick (กิ่งไม้)', type: 'weapon', weaponType: 'stick', atk: 3, def: 0, reqLevel: 1, icon: '🌿', desc: 'กิ่งไม้ที่เก็บได้ข้างทาง อาวุธเริ่มต้นของนักผจญภัย' },
+  apprentice_staff: { id: 'apprentice_staff', name: 'Apprentice Staff', type: 'weapon', weaponType: 'staff', atk: 14, def: 0, reqLevel: 8, icon: '🪄', desc: 'คฑาฝึกหัด ยิงลูกพลังเวทได้ไกล (ดาเมจตาม INT)' },
+  sage_staff: { id: 'sage_staff', name: 'Sage Staff', type: 'weapon', weaponType: 'staff', atk: 85, def: 6, reqLevel: 30, icon: '🔮', desc: 'คฑานักปราชญ์ ผลึกเวทขยายพลัง INT' },
+
   // Swords (ดาบ)
-  novice_sword: { id: 'novice_sword', name: 'Novice Wooden Sword', type: 'weapon', weaponType: 'sword', atk: 8, def: 0, icon: '🗡️', desc: 'ดาบไม้เริ่มต้น' },
-  iron_blade: { id: 'iron_blade', name: 'Iron Broadsword', type: 'weapon', weaponType: 'sword', atk: 25, def: 5, icon: '⚔️', desc: 'ดาบเหล็กมาตรฐาน คมกริบและมั่นคง' },
-  wolf_fang_saber: { id: 'wolf_fang_saber', name: 'Fang Saber', type: 'weapon', weaponType: 'sword', atk: 55, def: 8, icon: '🗡️', desc: 'ดาบสลักเขี้ยวหมาป่า ความเร็วโจมตีสูง' },
-  goblin_cleaver: { id: 'goblin_cleaver', name: 'Goblin Cleaver', type: 'weapon', weaponType: 'sword', atk: 95, def: 15, icon: '🪓', desc: 'ดาบฟันขนาดใหญ่ของหัวหน้าก็อบลิน' },
-  rune_claymore: { id: 'rune_claymore', name: 'Rune Greatsword', type: 'weapon', weaponType: 'sword', atk: 180, def: 30, icon: '✨', desc: 'ดาบยักษ์สลักรูนโบราณ พลังทำลายร้ายกาจ' },
-  titan_slayer: { id: 'titan_slayer', name: 'Titan Slayer Edge', type: 'weapon', weaponType: 'sword', atk: 350, def: 60, icon: '⚡', desc: 'สุดยอดดาบปราบไททัน แฝงพลังแห่งปฐพี' },
-  dragon_scale_blade: { id: 'dragon_scale_blade', name: 'Dragon Scale Blade (MVP)', type: 'weapon', weaponType: 'sword', atk: 480, def: 80, icon: '🔥⚔️', desc: 'ดาบมังกรในตำนาน หลอมจากเกล็ดมังกรโบราณ ฟันเปลวเพลิงเผาผลาญ' },
+  novice_sword: { id: 'novice_sword', name: 'Novice Wooden Sword', type: 'weapon', weaponType: 'sword', atk: 8, def: 0, reqLevel: 1, icon: '🗡️', desc: 'ดาบไม้เริ่มต้น' },
+  iron_blade: { id: 'iron_blade', name: 'Iron Broadsword', type: 'weapon', weaponType: 'sword', atk: 25, def: 5, reqLevel: 5, icon: '⚔️', desc: 'ดาบเหล็กมาตรฐาน คมกริบและมั่นคง' },
+  wolf_fang_saber: { id: 'wolf_fang_saber', name: 'Fang Saber', type: 'weapon', weaponType: 'sword', atk: 55, def: 8, reqLevel: 15, icon: '🗡️', desc: 'ดาบสลักเขี้ยวหมาป่า ความเร็วโจมตีสูง' },
+  goblin_cleaver: { id: 'goblin_cleaver', name: 'Goblin Cleaver', type: 'weapon', weaponType: 'sword', atk: 95, def: 15, reqLevel: 30, icon: '🪓', desc: 'ดาบฟันขนาดใหญ่ของหัวหน้าก็อบลิน' },
+  rune_claymore: { id: 'rune_claymore', name: 'Rune Greatsword', type: 'weapon', weaponType: 'sword', atk: 180, def: 30, reqLevel: 45, icon: '✨', desc: 'ดาบยักษ์สลักรูนโบราณ พลังทำลายร้ายกาจ' },
+  titan_slayer: { id: 'titan_slayer', name: 'Titan Slayer Edge', type: 'weapon', weaponType: 'sword', atk: 350, def: 60, reqLevel: 60, icon: '⚡', desc: 'สุดยอดดาบปราบไททัน แฝงพลังแห่งปฐพี' },
+  dragon_scale_blade: { id: 'dragon_scale_blade', name: 'Dragon Scale Blade (MVP)', type: 'weapon', weaponType: 'sword', atk: 480, def: 80, reqLevel: 75, icon: '🔥⚔️', desc: 'ดาบมังกรในตำนาน หลอมจากเกล็ดมังกรโบราณ ฟันเปลวเพลิงเผาผลาญ' },
 
   // Bows (ธนู)
-  wooden_bow: { id: 'wooden_bow', name: 'Novice Wooden Bow', type: 'weapon', weaponType: 'bow', atk: 12, def: 0, icon: '🏹', desc: 'คันธนูไม้ฝึกหัด สำหรับนักธนูเริ่มต้น' },
-  hunter_bow: { id: 'hunter_bow', name: 'Great Hunter Bow', type: 'weapon', weaponType: 'bow', atk: 60, def: 4, icon: '🏹', desc: 'คันธนูพรานป่า ยิงไกลและแม่นยำ' },
-  gale_wind_bow: { id: 'gale_wind_bow', name: 'Gale Wing Bow', type: 'weapon', weaponType: 'bow', atk: 175, def: 15, icon: '🍃🏹', desc: 'คันธนูปีกวายุ ยิงศรดั่งสายลมกรรโชก (+10% ASPD)' },
-  dragon_bone_bow: { id: 'dragon_bone_bow', name: 'Dragonbone Longbow (MVP)', type: 'weapon', weaponType: 'bow', atk: 460, def: 40, icon: '🐉🏹', desc: 'สุดยอดคันธนูกระดูกมังกร ยิงศรเพลิงทะลวงเป้าหมายอย่างไร้ความปราณี' },
+  wooden_bow: { id: 'wooden_bow', name: 'Novice Wooden Bow', type: 'weapon', weaponType: 'bow', atk: 12, def: 0, reqLevel: 1, icon: '🏹', desc: 'คันธนูไม้ฝึกหัด สำหรับนักธนูเริ่มต้น' },
+  hunter_bow: { id: 'hunter_bow', name: 'Great Hunter Bow', type: 'weapon', weaponType: 'bow', atk: 60, def: 4, reqLevel: 10, icon: '🏹', desc: 'คันธนูพรานป่า ยิงไกลและแม่นยำ' },
+  gale_wind_bow: { id: 'gale_wind_bow', name: 'Gale Wing Bow', type: 'weapon', weaponType: 'bow', atk: 175, def: 15, reqLevel: 40, icon: '🍃🏹', desc: 'คันธนูปีกวายุ ยิงศรดั่งสายลมกรรโชก (+10% ASPD)' },
+  dragon_bone_bow: { id: 'dragon_bone_bow', name: 'Dragonbone Longbow (MVP)', type: 'weapon', weaponType: 'bow', atk: 460, def: 40, reqLevel: 75, icon: '🐉🏹', desc: 'สุดยอดคันธนูกระดูกมังกร ยิงศรเพลิงทะลวงเป้าหมายอย่างไร้ความปราณี' },
 
   // Armors
-  leather_armor: { id: 'leather_armor', name: 'Leather Tunic', type: 'armor', atk: 0, def: 12, hp: 50, icon: '🥋', desc: 'ชุดหนังฟอกทนทาน ป้องกันพื้นฐาน' },
-  wolf_plate: { id: 'wolf_plate', name: 'Wolfguard Armor', type: 'armor', atk: 5, def: 32, hp: 160, icon: '🛡️', desc: 'เกราะเสริมหนังหมาป่า น้ำหนักเบาแต่เหนียวแน่น' },
-  knight_cuirass: { id: 'knight_cuirass', name: 'Knight Cuirass', type: 'armor', atk: 12, def: 68, hp: 400, icon: '🦺', desc: 'เกราะอกอัศวินหล่อเหล็กกล้า ป้องกันสูง' },
-  titan_aegis_suit: { id: 'titan_aegis_suit', name: 'Titan Aegis Armor', type: 'armor', atk: 25, def: 130, hp: 1000, icon: '🦾', desc: 'เกราะโลหะโบราณ สร้างจากแก่นหัวใจไททัน' }
+  leather_armor: { id: 'leather_armor', name: 'Leather Tunic', type: 'armor', atk: 0, def: 12, hp: 50, reqLevel: 1, icon: '🥋', desc: 'ชุดหนังฟอกทนทาน ป้องกันพื้นฐาน' },
+  wolf_plate: { id: 'wolf_plate', name: 'Wolfguard Armor', type: 'armor', atk: 5, def: 32, hp: 160, reqLevel: 15, icon: '🛡️', desc: 'เกราะเสริมหนังหมาป่า น้ำหนักเบาแต่เหนียวแน่น' },
+  knight_cuirass: { id: 'knight_cuirass', name: 'Knight Cuirass', type: 'armor', atk: 12, def: 68, hp: 400, reqLevel: 35, icon: '🦺', desc: 'เกราะอกอัศวินหล่อเหล็กกล้า ป้องกันสูง' },
+  titan_aegis_suit: { id: 'titan_aegis_suit', name: 'Titan Aegis Armor', type: 'armor', atk: 25, def: 130, hp: 1000, reqLevel: 60, icon: '🦾', desc: 'เกราะโลหะโบราณ สร้างจากแก่นหัวใจไททัน' }
 };
 
 // Rare Unique Relics (1 from each monster) - Collected in the Treasure Compendium for Permanent Stat Buffs
@@ -620,6 +456,23 @@ export const RELICS = {
 
 // Crafting Recipes
 export const CRAFTING_RECIPES = [
+  {
+    resultItemId: 'apprentice_staff',
+    goldCost: 200,
+    materials: [
+      { itemId: 'green_leaf', count: 5 },
+      { itemId: 'plant_stem', count: 3 }
+    ]
+  },
+  {
+    resultItemId: 'sage_staff',
+    goldCost: 2500,
+    materials: [
+      { itemId: 'ancient_bark', count: 6 },
+      { itemId: 'magic_powder', count: 5 },
+      { itemId: 'spirit_amber', count: 4 }
+    ]
+  },
   {
     resultItemId: 'wooden_bow',
     goldCost: 150,
@@ -777,7 +630,6 @@ export const QUESTS = [
     requiredCount: 5,
     rewardGold: 100,
     rewardExp: 80,
-    rewardJobExp: 60,
     rewardTokens: 1
   },
   {
@@ -788,7 +640,6 @@ export const QUESTS = [
     requiredCount: 8,
     rewardGold: 250,
     rewardExp: 200,
-    rewardJobExp: 180,
     rewardTokens: 1
   },
   {
@@ -799,7 +650,6 @@ export const QUESTS = [
     requiredCount: 10,
     rewardGold: 600,
     rewardExp: 550,
-    rewardJobExp: 450,
     rewardTokens: 2
   },
   {
@@ -810,7 +660,6 @@ export const QUESTS = [
     requiredCount: 12,
     rewardGold: 1500,
     rewardExp: 2400,
-    rewardJobExp: 2000,
     rewardTokens: 3
   },
   {
@@ -821,7 +670,6 @@ export const QUESTS = [
     requiredCount: 15,
     rewardGold: 4000,
     rewardExp: 7500,
-    rewardJobExp: 6800,
     rewardTokens: 5
   },
   {
@@ -832,7 +680,6 @@ export const QUESTS = [
     requiredCount: 1,
     rewardGold: 15000,
     rewardExp: 25000,
-    rewardJobExp: 22000,
     rewardTokens: 10
   }
 ];
@@ -920,3 +767,29 @@ export const PET_TAMING_SPEC = {
   ]
 };
 
+
+// Monster behaviour, run by the server (px/second, px). Anything missing falls back to MONSTER_AI_DEFAULT.
+// speed 0 = never moves (still attacks anyone within attackRange).
+export const MONSTER_AI_DEFAULT = {
+  speed: 60,         // walking/chasing speed
+  aggro: 200,        // sees players within this range and attacks them
+  attackRange: 60,   // distance at which it can hit
+  attackCooldown: 1.6,
+  leash: 650,        // gives up and walks home if it is this far from its spawn
+  wanderRadius: 140  // random strolling around its spawn when idle
+};
+export const MONSTER_AI = {
+  slime:          { speed: 45,  aggro: 150 },
+  sprout:         { speed: 0,   aggro: 0, attackRange: 75 },
+  horned_rabbit:  { speed: 95,  aggro: 220 },
+  wild_boar:      { speed: 110, aggro: 260 },
+  forest_wolf:    { speed: 130, aggro: 300, attackCooldown: 1.3 },
+  treant:         { speed: 50,  aggro: 200, attackRange: 80 },
+  goblin_scout:   { speed: 105, aggro: 260 },
+  goblin_shaman:  { speed: 70,  aggro: 320, attackRange: 220, attackCooldown: 2.2 },
+  ogre:           { speed: 70,  aggro: 240, attackRange: 80 },
+  crystal_bat:    { speed: 150, aggro: 340, attackCooldown: 1.2 },
+  stone_golem:    { speed: 55,  aggro: 220, attackRange: 85 },
+  ancient_golem:  { speed: 50,  aggro: 300, attackRange: 100, attackCooldown: 2.0 },
+  ancient_dragon: { speed: 0,   aggro: 700, attackRange: 140, attackCooldown: 1.2 }
+};

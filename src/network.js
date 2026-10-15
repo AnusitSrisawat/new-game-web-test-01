@@ -8,6 +8,7 @@ export class NetworkManager {
     this.isConnected = false;
     this.otherPlayers = new Map(); // { [playerId]: playerState }
     this.currentParty = null;
+    this.partyList = [];
 
     this.connect();
   }
@@ -23,8 +24,10 @@ export class NetworkManager {
         this.isConnected = true;
         this.game.onLog('🌐 เชื่อมต่อเซิร์ฟเวอร์ MMORPG สำเร็จ (Online Sync)', 'system');
         
-        // Send initial player profile to server
+        // Send initial player profile, then keep level/HP/weapon in sync
         this.sendProfileUpdate();
+        clearInterval(this.profileTimer);
+        this.profileTimer = setInterval(() => this.sendProfileUpdate(), 1500);
       };
 
       this.ws.onmessage = (event) => {
@@ -33,6 +36,7 @@ export class NetworkManager {
 
       this.ws.onclose = () => {
         this.isConnected = false;
+        clearInterval(this.profileTimer);
         this.game.onLog('⚠️ ขาดการเชื่อมต่อกับเซิร์ฟเวอร์... กำลังพยายามต่อใหม่ใน 3 วินาที', 'system');
         setTimeout(() => this.connect(), 3000);
       };
@@ -130,8 +134,36 @@ export class NetworkManager {
         }
         break;
 
-      case 'party_reward_share':
-        this.game.onPartyRewardShared(msg);
+      case 'reload_data':
+        this.game.onLog('🛠️ ข้อมูลเกมถูกอัปเดตจาก Studio — กำลังโหลดใหม่...', 'system');
+        setTimeout(() => window.location.reload(), 1200);
+        break;
+
+      case 'monsters_sync':
+        this.game.onMonstersSync(msg.list || []);
+        break;
+
+      case 'monster_attack':
+        this.game.onMonsterAttackFromServer(msg);
+        break;
+
+      case 'reward':
+        this.game.onRewardFromServer(msg);
+        break;
+
+      case 'boss_aoe_result':
+        this.game.onBossAoeResult(msg);
+        break;
+
+      case 'party_list':
+        this.partyList = msg.parties || [];
+        if (this.game.uiController) this.game.uiController.onPartyListReceived(this.partyList);
+        break;
+
+      case 'party_join_request':
+        if (this.game.uiController) {
+          this.game.uiController.showJoinRequestToast(msg.partyId, msg.requesterId, msg.requesterName, msg.requesterLevel);
+        }
         break;
 
       case 'chat':
@@ -170,7 +202,7 @@ export class NetworkManager {
   sendAttackAction(opts = {}) {
     this.send({
       type: 'attack_action',
-      weaponType: opts.weaponType || 'sword',
+      weaponType: opts.weaponType || this.player.weaponInfo.type,
       skillId: opts.skillId || null,
       skillName: opts.skillName || null,
       targetId: opts.targetId || null,
@@ -179,36 +211,66 @@ export class NetworkManager {
     });
   }
 
-  sendMonsterHit(monsterId, damage, isCrit = false, exp = 35) {
+  sendMonsterHit(monsterId, damage, isCrit = false) {
     this.send({
       type: 'hit_monster',
       monsterId: monsterId,
       damage: damage,
-      isCrit: isCrit,
-      exp: exp
+      isCrit: isCrit
     });
   }
 
   sendProfileUpdate() {
-    const weaponType = (this.player.equipment.weapon && this.player.equipment.weapon.includes('bow')) ? 'bow' : 'sword';
     this.send({
       type: 'update_profile',
       name: this.player.name,
       level: this.player.baseLevel,
-      classId: this.player.classId,
-      weaponType: weaponType,
-      rebirthCount: this.player.rebirthCount,
+      weaponType: this.player.weaponInfo.type,
+      def: this.player.defense,
       hp: this.player.currentHp,
       maxHp: this.player.maxHp,
       currentMap: this.game ? this.game.currentZone.id : 'meadows'
     });
   }
 
-  sendCreateParty(partyName) {
+  sendCreateParty(partyName, settings = {}) {
     this.send({
       type: 'party_create',
-      partyName
+      partyName,
+      settings
     });
+  }
+
+  sendDeclineParty(partyId) {
+    this.send({ type: 'party_decline', partyId });
+  }
+
+  sendKickMember(targetPlayerId) {
+    this.send({ type: 'party_kick', targetPlayerId });
+  }
+
+  sendTransferLeader(targetPlayerId) {
+    this.send({ type: 'party_transfer_leader', targetPlayerId });
+  }
+
+  sendRenameParty(name) {
+    this.send({ type: 'party_rename', name });
+  }
+
+  sendPartySettings(settings) {
+    this.send({ type: 'party_settings', settings });
+  }
+
+  sendPartyListRequest(filter = {}) {
+    this.send({ type: 'party_list_request', ...filter });
+  }
+
+  sendJoinRequest(partyId) {
+    this.send({ type: 'party_join_request', partyId });
+  }
+
+  sendJoinResponse(requesterId, accept) {
+    this.send({ type: 'party_join_response', requesterId, accept });
   }
 
   sendInviteParty(targetPlayerId) {

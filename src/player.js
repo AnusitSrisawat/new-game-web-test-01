@@ -1,31 +1,39 @@
-// Player State & Logic Handler
-import { CLASSES, ITEMS, RELICS } from './data.js';
+// Player State & Logic Handler (classless: power comes from stats, weapon and (later) skills)
+import { ITEMS, RELICS, WEAPON_TYPES, BASE_STATS, STAT_KEYS } from './data.js';
+
+export const HP_POTION_IDS = ['hp_potion_s', 'apple', 'hp_potion_m', 'boar_meat', 'hp_potion_l']; // weakest first
+
+const SAVE_KEY = 'cozy_rpg_save_v2';
+const OLD_SAVE_KEY = 'cozy_rpg_save_v1';
+const HOTBAR_SIZE = 9;
+
+// No login yet: every new character gets a random name (kept in the save)
+const NAME_ADJ = ['Brave', 'Swift', 'Lucky', 'Calm', 'Wild', 'Merry', 'Bold', 'Tiny', 'Sunny', 'Misty'];
+const NAME_NOUN = ['Fox', 'Owl', 'Wolf', 'Bear', 'Hare', 'Crow', 'Deer', 'Lynx', 'Wren', 'Otter'];
+export function randomName() {
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  return `${pick(NAME_ADJ)}${pick(NAME_NOUN)}${Math.floor(10 + Math.random() * 90)}`;
+}
 
 export class Player {
   constructor() {
-    this.name = 'Novice Adventurer';
-    this.classId = 'swordsman';
+    this.name = randomName();
     this.baseLevel = 1;
     this.baseExp = 0;
-    this.jobLevel = 1;
-    this.jobExp = 0;
 
     // Stat points
     this.stats = {
-      str: 5, // Increases ATK
-      agi: 5, // Increases ASPD & Flee
-      vit: 5, // Increases HP & DEF
-      dex: 5, // Increases Accuracy & Min Damage
-      luk: 5  // Increases Crit Rate & Drop chance
+      str: 5, // melee ATK (stick/sword/fist)
+      agi: 5, // attack speed & flee
+      vit: 5, // max HP & DEF
+      dex: 5, // bow ATK & accuracy
+      int: 5, // staff (magic) ATK
+      luk: 5  // crit rate & drop luck
     };
     this.statPoints = 0;
 
-    // Rebirth counts & bonuses
-    this.rebirthCount = 0;
-    this.rebirthBonusStats = 0;
-
     // Current HP
-    this.currentHp = 200;
+    this.currentHp = 150;
 
     // Currencies
     this.gold = 500;
@@ -39,9 +47,12 @@ export class Player {
 
     // Equipment: item id or null
     this.equipment = {
-      weapon: 'novice_sword',
+      weapon: 'wooden_stick',
       armor: null
     };
+
+    // Hotbar slots 1-9: skill/item ids the player assigns (empty for now)
+    this.hotbar = new Array(HOTBAR_SIZE).fill(null);
 
     // Costumes: cosmetic ids
     this.costumes = {
@@ -59,16 +70,35 @@ export class Player {
     this.questProgress = {};
 
     // Settings
-    this.autoPotion = true;
-    this.autoPotionThreshold = 0.45; // 45% hp
     this.autoBattle = true;
+    // Auto-hunt settings (range is in tiles / "ช่อง")
+    this.auto = {
+      range: 12,               // search radius in tiles
+      disabledMonsters: {},    // templateId -> true means "don't attack"
+      hpPotion: { enabled: true, percent: 45, itemId: null } // itemId null = cheapest usable potion
+    };
+    // Quick potion slot for HP (SP slot arrives together with skills)
+    this.hpPotionSlot = null;
 
     // Load saved data if exists
     this.loadFromStorage();
   }
 
-  get currentClass() {
-    return CLASSES[this.classId.toUpperCase()] || CLASSES.SWORDSMAN;
+  // What the equipped weapon lets you do (range, projectile, which stat it scales with)
+  get weaponInfo() {
+    const item = ITEMS[this.equipment.weapon];
+    const type = (item && item.weaponType) || 'fist';
+    const def = WEAPON_TYPES[type] || WEAPON_TYPES.fist;
+    return {
+      type: def.id,
+      range: item && item.range ? item.range : def.range,
+      projectile: def.projectile,
+      scalesWith: def.scalesWith
+    };
+  }
+
+  get attackRange() {
+    return this.weaponInfo.range;
   }
 
   // Calculate Base EXP needed for next level
@@ -76,58 +106,39 @@ export class Player {
     return Math.floor(60 * Math.pow(this.baseLevel, 1.5) + this.baseLevel * 25);
   }
 
-  // Calculate Job EXP needed for next level (Max job is 50)
-  get maxJobExp() {
-    if (this.jobLevel >= 50) return Infinity;
-    return Math.floor(40 * Math.pow(this.jobLevel, 1.45) + this.jobLevel * 20);
-  }
-
   // Calculate Total Combined Stats
   get maxHp() {
-    let hp = this.currentClass.baseHp + (this.baseLevel * 25) + (this.stats.vit * 18);
-    // Relic Bonuses
+    let hp = BASE_STATS.hp + (this.baseLevel * 25) + (this.stats.vit * 18);
     this.collectedRelics.forEach(id => {
       const relic = RELICS[id];
       if (relic && relic.statBonus.hp) hp += relic.statBonus.hp;
     });
-    // Armor bonus
     if (this.equipment.armor && ITEMS[this.equipment.armor]) {
       hp += (ITEMS[this.equipment.armor].hp || 0);
-    }
-    // Rebirth bonus
-    if (this.rebirthCount > 0) {
-      hp = Math.floor(hp * (1 + this.rebirthCount * 0.15));
     }
     return Math.floor(hp);
   }
 
   get attack() {
-    const isArcher = this.currentClass.category === 'archer';
-    const mainStat = isArcher ? (this.stats.dex * 3 + this.stats.str * 1) : (this.stats.str * 3 + this.stats.dex * 1);
-    let atk = this.currentClass.baseAtk + mainStat + Math.floor(this.baseLevel * 1.5);
-    // Weapon bonus
+    const main = this.weaponInfo.scalesWith;
+    const sub = main === 'dex' ? 'str' : 'dex';
+    let atk = BASE_STATS.atk + (this.stats[main] * 3) + this.stats[sub] + Math.floor(this.baseLevel * 1.5);
     if (this.equipment.weapon && ITEMS[this.equipment.weapon]) {
       atk += (ITEMS[this.equipment.weapon].atk || 0);
     }
     if (this.equipment.armor && ITEMS[this.equipment.armor]) {
       atk += (ITEMS[this.equipment.armor].atk || 0);
     }
-    // Relic bonus
     this.collectedRelics.forEach(id => {
       const relic = RELICS[id];
       if (relic && relic.statBonus.atk) atk += relic.statBonus.atk;
     });
-    // Costume bonus
     if (this.costumes.back === 'costume_angel_wings') atk = Math.floor(atk * 1.05);
-    // Rebirth bonus
-    if (this.rebirthCount > 0) {
-      atk = Math.floor(atk * (1 + this.rebirthCount * 0.15));
-    }
     return Math.floor(atk);
   }
 
   get defense() {
-    let def = this.currentClass.baseDef + (this.stats.vit * 1.5);
+    let def = BASE_STATS.def + (this.stats.vit * 1.5);
     if (this.equipment.weapon && ITEMS[this.equipment.weapon]) {
       def += (ITEMS[this.equipment.weapon].def || 0);
     }
@@ -142,7 +153,7 @@ export class Player {
   }
 
   get aspd() {
-    let speed = this.currentClass.aspd + (this.stats.agi * 0.015);
+    let speed = BASE_STATS.aspd + (this.stats.agi * 0.015);
     this.collectedRelics.forEach(id => {
       const relic = RELICS[id];
       if (relic && relic.statBonus.aspd) speed += relic.statBonus.aspd;
@@ -160,14 +171,12 @@ export class Player {
     return Math.min(0.75, rate);
   }
 
-  // Gain EXP
-  gainExp(baseExp, jobExp) {
-    let levelUps = { base: false, job: false };
+  // Gain EXP (levels gate rare gear; each level gives stat points)
+  gainExp(baseExp) {
+    let leveledUp = false;
 
-    // Costume Exp bonus
     if (this.costumes.head === 'costume_straw_hat') {
       baseExp = Math.floor(baseExp * 1.02);
-      jobExp = Math.floor(jobExp * 1.02);
     }
 
     this.baseExp += baseExp;
@@ -176,24 +185,11 @@ export class Player {
       this.baseLevel++;
       this.statPoints += 4;
       this.currentHp = this.maxHp;
-      levelUps.base = true;
-    }
-
-    if (this.jobLevel < 50) {
-      this.jobExp += jobExp;
-      while (this.jobLevel < 50 && this.jobExp >= this.maxJobExp) {
-        this.jobExp -= this.maxJobExp;
-        this.jobLevel++;
-        levelUps.job = true;
-        if (this.jobLevel === 50) {
-          this.jobExp = 0; // Maxed
-          break;
-        }
-      }
+      leveledUp = true;
     }
 
     this.saveToStorage();
-    return levelUps;
+    return { base: leveledUp };
   }
 
   // Allocate Stat
@@ -205,77 +201,6 @@ export class Player {
       return true;
     }
     return false;
-  }
-
-  // Advance Class (Supports both Swordsman and Archer branches)
-  canAdvanceClass() {
-    if (this.jobLevel < 50) return false;
-    // Swordsman tree
-    if (this.classId === 'swordsman') return 'knight';
-    if (this.classId === 'high_swordsman') return 'high_knight';
-    if (this.classId === 'high_knight') return 'rune_knight';
-    // Archer tree
-    if (this.classId === 'archer') return 'hunter';
-    if (this.classId === 'high_archer') return 'sniper';
-    if (this.classId === 'sniper') return 'ranger';
-    return null;
-  }
-
-  advanceClass() {
-    const nextClassId = this.canAdvanceClass();
-    if (nextClassId) {
-      this.classId = nextClassId;
-      this.jobLevel = 1;
-      this.jobExp = 0;
-      this.currentHp = this.maxHp;
-      this.saveToStorage();
-      return true;
-    }
-    return false;
-  }
-
-  // Can Rebirth
-  canRebirth() {
-    if (this.jobLevel < 50) return false;
-    return this.classId === 'knight' || this.classId === 'hunter';
-  }
-
-  rebirth() {
-    if (!this.canRebirth()) return false;
-    this.rebirthCount++;
-    const isArcher = this.classId === 'hunter';
-    this.classId = isArcher ? 'high_archer' : 'high_swordsman';
-    this.baseLevel = 1;
-    this.baseExp = 0;
-    this.jobLevel = 1;
-    this.jobExp = 0;
-    this.stats = { str: 10, agi: 10, vit: 10, dex: 10, luk: 10 };
-    this.statPoints = 25; // Bonus stat points on rebirth
-    this.currentHp = this.maxHp;
-    this.saveToStorage();
-    return true;
-  }
-
-  // Switch between Swordsman and Archer branch
-  switchClassBranch(category) {
-    if (category === 'archer') {
-      this.classId = 'archer';
-      if (!this.inventory.wooden_bow && this.equipment.weapon !== 'wooden_bow') {
-        this.addItem('wooden_bow', 1);
-      }
-      this.equipment.weapon = 'wooden_bow';
-    } else {
-      this.classId = 'swordsman';
-      if (!this.inventory.novice_sword && this.equipment.weapon !== 'novice_sword') {
-        this.addItem('novice_sword', 1);
-      }
-      this.equipment.weapon = 'novice_sword';
-    }
-    this.jobLevel = 1;
-    this.jobExp = 0;
-    this.currentHp = this.maxHp;
-    this.saveToStorage();
-    return true;
   }
 
   // Inventory Management
@@ -310,55 +235,61 @@ export class Player {
     return false;
   }
 
+  // Returns { ok, reason }. Rare gear needs a minimum character level.
   equipItem(itemId) {
     const item = ITEMS[itemId];
-    if (!item) return false;
+    if (!item || (item.type !== 'weapon' && item.type !== 'armor')) return { ok: false, reason: 'ไม่ใช่อุปกรณ์' };
+    if (item.reqLevel && this.baseLevel < item.reqLevel) {
+      return { ok: false, reason: `ต้องการเลเวล ${item.reqLevel} ขึ้นไป (ตอนนี้ Lv.${this.baseLevel})` };
+    }
     if (item.type === 'weapon') {
       this.equipment.weapon = itemId;
-    } else if (item.type === 'armor') {
+    } else {
       this.equipment.armor = itemId;
     }
     this.saveToStorage();
-    return true;
+    return { ok: true };
   }
 
-  usePotion() {
-    const potions = ['hp_potion_l', 'hp_potion_m', 'hp_potion_s', 'apple', 'boar_meat'];
-    for (const potId of potions) {
-      if (this.inventory[potId] && this.inventory[potId] > 0) {
-        const item = ITEMS[potId];
-        this.removeItem(potId, 1);
-        const healAmt = item.heal || 50;
-        this.currentHp = Math.min(this.maxHp, this.currentHp + healAmt);
-        return { healed: healAmt, itemName: item.name };
-      }
-    }
-    return null;
+  // HP potions currently in the bag (weakest first)
+  ownedHpPotions() {
+    return HP_POTION_IDS.filter(id => this.inventory[id] > 0 && ITEMS[id]);
+  }
+
+  // Drink a specific potion, or the weakest one owned when itemId is not given/owned
+  usePotion(itemId = null) {
+    const id = (itemId && this.inventory[itemId] > 0) ? itemId : this.ownedHpPotions()[0];
+    if (!id) return null;
+    const item = ITEMS[id];
+    this.removeItem(id, 1);
+    const healAmt = item.heal || 50;
+    this.currentHp = Math.min(this.maxHp, this.currentHp + healAmt);
+    return { healed: healAmt, itemName: item.name, itemId: id };
   }
 
   // Save / Load
   saveToStorage() {
     const data = {
       name: this.name,
-      classId: this.classId,
       baseLevel: this.baseLevel,
       baseExp: this.baseExp,
-      jobLevel: this.jobLevel,
-      jobExp: this.jobExp,
       stats: this.stats,
       statPoints: this.statPoints,
-      rebirthCount: this.rebirthCount,
       gold: this.gold,
       gachaTokens: this.gachaTokens,
       inventory: this.inventory,
       equipment: this.equipment,
+      hotbar: this.hotbar,
+      auto: this.auto,
+      hpPotionSlot: this.hpPotionSlot,
+      autoBattle: this.autoBattle,
       costumes: this.costumes,
       unlockedCostumes: this.unlockedCostumes,
       collectedRelics: this.collectedRelics,
       questProgress: this.questProgress
     };
     try {
-      localStorage.setItem('cozy_rpg_save_v1', JSON.stringify(data));
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     } catch (e) {
       console.warn('Storage save error:', e);
     }
@@ -366,19 +297,45 @@ export class Player {
 
   loadFromStorage() {
     try {
-      const raw = localStorage.getItem('cozy_rpg_save_v1');
+      // v1 saves (class based) are migrated: stats/gear/items are kept, class + job data dropped
+      const raw = localStorage.getItem(SAVE_KEY) || localStorage.getItem(OLD_SAVE_KEY);
       if (raw) {
-        const data = JSON.parse(raw);
-        Object.assign(this, data);
+        const d = JSON.parse(raw);
+        const keep = ['name', 'baseLevel', 'baseExp', 'statPoints', 'gold', 'gachaTokens', 'inventory',
+          'costumes', 'unlockedCostumes', 'collectedRelics', 'questProgress', 'hpPotionSlot', 'autoBattle'];
+        keep.forEach(k => { if (d[k] !== undefined) this[k] = d[k]; });
+        if (d.stats) STAT_KEYS.forEach(k => { if (typeof d.stats[k] === 'number') this.stats[k] = d.stats[k]; });
+        if (d.auto) {
+          const a = d.auto;
+          if (typeof a.range === 'number') this.auto.range = Math.min(400, Math.max(1, a.range));
+          if (a.disabledMonsters && typeof a.disabledMonsters === 'object') this.auto.disabledMonsters = a.disabledMonsters;
+          if (a.hpPotion) Object.assign(this.auto.hpPotion, a.hpPotion);
+        }
+        if (d.equipment) this.equipment = { weapon: d.equipment.weapon ?? null, armor: d.equipment.armor ?? null };
+        if (Array.isArray(d.hotbar)) this.hotbar = d.hotbar.slice(0, HOTBAR_SIZE).concat(new Array(Math.max(0, HOTBAR_SIZE - d.hotbar.length)).fill(null));
+        // Gear that no longer exists, or is above the player's level, goes back to the bag
+        ['weapon', 'armor'].forEach(slot => {
+          const id = this.equipment[slot];
+          const item = id && ITEMS[id];
+          if (id && (!item || (item.reqLevel && item.reqLevel > this.baseLevel))) {
+            if (item) this.inventory[id] = (this.inventory[id] || 0) + 1;
+            this.equipment[slot] = null;
+          }
+        });
+        if (!this.equipment.weapon && !this.inventory.wooden_stick) this.inventory.wooden_stick = 1;
         this.currentHp = this.maxHp;
       }
+      // Old saves carried the placeholder name; give those a random one too
+      if (!this.name || this.name === 'Novice Adventurer') this.name = randomName();
+      this.saveToStorage();
     } catch (e) {
       console.warn('Storage load error:', e);
     }
   }
 
   resetProgress() {
-    localStorage.removeItem('cozy_rpg_save_v1');
+    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(OLD_SAVE_KEY);
     window.location.reload();
   }
 }

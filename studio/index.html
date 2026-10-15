@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Studio — Cozy MMORPG</title>
+  <link rel="stylesheet" href="/studio/studio.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">🛠️ Studio <span>ตั้งค่าข้อมูลเกม (dev)</span></div>
+    <div class="top-right">
+      <span id="dirty" class="dirty" hidden>● มีการแก้ไขที่ยังไม่ได้บันทึก</span>
+      <button id="btn-save" class="btn primary" disabled>💾 บันทึก & โหลดเกมใหม่</button>
+      <button id="btn-logout" class="btn" hidden>ออก</button>
+    </div>
+  </header>
+
+  <!-- Login -->
+  <section id="login" class="login">
+    <h2>เข้าสู่ Studio</h2>
+    <p>ใส่ token ที่แสดงในหน้าต่าง terminal ตอนรัน <code>npm start</code> (หรือค่าจาก <code>STUDIO_TOKEN</code>)</p>
+    <form id="login-form">
+      <input id="token" type="password" placeholder="Studio token" autocomplete="off">
+      <button class="btn primary" type="submit">เข้าสู่ระบบ</button>
+    </form>
+    <p id="login-error" class="error"></p>
+  </section>
+
+  <!-- App -->
+  <div id="app" class="app" hidden>
+    <nav id="tabs" class="tabs"></nav>
+    <main id="panel" class="panel"></main>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/studio/studio.js"></script>
+</body>
+</html>
