@@ -26,11 +26,11 @@ export const WEAPON_SPRITES = {
   ],
   "bone_cleaver": [
     58,
-    114
+    115
   ],
   "rune_claymore": [
-    61,
-    230
+    54,
+    128
   ],
   "shadow_dagger": [
     60,

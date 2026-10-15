@@ -109,3 +109,10 @@ export function pruneItems({ MONSTERS, ITEMS, CRAFTING_RECIPES }) {
   const usable = CRAFTING_RECIPES.filter(r => ITEMS[r.resultItemId] && r.materials.every(mt => ITEMS[mt.itemId]));
   CRAFTING_RECIPES.splice(0, CRAFTING_RECIPES.length, ...usable);
 }
+
+// Which way each monster's picture looks (default 'left'). The game flips it to match the walking direction.
+// 'right' = the art looks right, 'none' = never flip. Editable per monster in Studio.
+const FACING = { skeleton_archer: 'right' };
+export function applyFacing(MONSTERS) {
+  for (const [id, f] of Object.entries(FACING)) if (MONSTERS[id]) MONSTERS[id].facing = f;
+}

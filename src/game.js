@@ -234,6 +234,7 @@ export class GameEngine {
         exp: template.exp,
         size: template.size || 92,
         faceRight: false,
+        facing: template.facing || 'left',
         drops: template.drops,
         isMvp: !!template.isMvp,
         x: sm.x,
@@ -1215,7 +1216,7 @@ export class GameEngine {
       if (m.attackFlash > 0) m.attackFlash -= dt;
       const k = Math.min(1, dt * 10);
       const mdx = m.tx - m.x;
-      if (Math.abs(mdx) > 0.5) m.faceRight = mdx > 0; // sprites are drawn facing left
+      if (Math.abs(mdx) > 0.5) m.faceRight = mdx > 0; // walking direction
       m.x += mdx * k;
       m.y += (m.ty - m.y) * k;
       m.bobTimer += dt * 5;
@@ -2006,7 +2007,9 @@ export class GameEngine {
 
     ctx.save();
     ctx.translate(x, y);
-    ctx.scale(scaleX * (m.faceRight ? -1 : 1), scaleY);
+    // The picture looks `facing` (left/right) in the sheet: mirror it when the monster walks the other way
+    const mirror = m.facing === 'none' ? false : (m.facing === 'right' ? !m.faceRight : m.faceRight);
+    ctx.scale(scaleX * (mirror ? -1 : 1), scaleY);
 
     const isFlashing = m.flashTimer > 0;
     const sp = monsterSprite(m.templateId);

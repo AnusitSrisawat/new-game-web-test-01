@@ -1,4 +1,4 @@
-import { installCatalog, pruneItems } from './catalog.js';
+import { installCatalog, pruneItems, applyFacing } from './catalog.js';
 
 // Game Master Data & Configurations
 
@@ -688,3 +688,4 @@ export const MONSTER_AI = {
 
 installCatalog({ MONSTERS, ITEMS, MONSTER_AI });
 pruneItems({ MONSTERS, ITEMS, CRAFTING_RECIPES });
+applyFacing(MONSTERS);
