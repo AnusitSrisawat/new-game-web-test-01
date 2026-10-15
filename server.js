@@ -646,6 +646,8 @@ wss.on('connection', (ws) => {
             broadcast({
               type: 'monster_killed',
               monsterId: m.id,
+              damage,
+              isCrit,
               killerId: playerId,
               killerName: p.name
             });

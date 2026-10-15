@@ -120,7 +120,7 @@ export class NetworkManager {
         break;
 
       case 'monster_killed':
-        this.game.onMonsterKilledFromServer(msg.monsterId, msg.killerId, msg.killerName);
+        this.game.onMonsterKilledFromServer(msg.monsterId, msg.killerId, msg.killerName, msg.damage, msg.isCrit);
         break;
 
       case 'monster_respawned':

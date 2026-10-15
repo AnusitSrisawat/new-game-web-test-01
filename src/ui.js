@@ -143,7 +143,7 @@ export class UIController {
             this.gameEngine.updateTargetHUD(live[0]);
           }
         } else {
-          this.gameEngine.performPlayerAttack(this.gameEngine.selectedTarget);
+          this.gameEngine.tryPlayerAttack(this.gameEngine.selectedTarget);
         }
       });
     }
@@ -825,7 +825,8 @@ export class UIController {
         <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
           <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
             <span style="font-weight:700;">📊 จัดสรรค่าสเตตัส</span>
-            <span style="color:#f59e0b; font-size:0.85rem;">แต้มคงเหลือ: <b>${pl.statPoints}</b></span>
+            <span style="color:#f59e0b; font-size:0.85rem;">แต้มคงเหลือ: <b>${pl.statPoints}</b>
+              <button id="btn-stat-reset" style="margin-left:8px; padding:2px 8px; background:#7f1d1d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">🔄 รีสเตตัส (ฟรี)</button></span>
           </div>
           ${STAT_KEYS.map(k => `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05);" title="${statHelp[k]}">
@@ -851,9 +852,18 @@ export class UIController {
       </div>
     `;
 
+    const resetBtn = body.querySelector('#btn-stat-reset');
+    if (resetBtn) resetBtn.addEventListener('click', () => {
+      if (!confirm('ยืนยันรีเซ็ตสเตตัสทั้งหมด? แต้มที่อัพไว้จะคืนให้นำไปจัดสรรใหม่ (ฟรี)')) return;
+      this.player.resetStats();
+      this.renderStatusModal();
+      this.updateHUD();
+    });
+
     body.querySelectorAll('.btn-stat-add').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const k = e.currentTarget.dataset.stat;
+        if (!confirm(`ยืนยันอัพ ${k.toUpperCase()} +1 ใช่หรือไม่?`)) return;
         if (this.player.allocateStat(k)) {
           this.renderStatusModal();
           this.updateHUD();
