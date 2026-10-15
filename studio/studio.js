@@ -91,12 +91,15 @@
       return null;
     }
     const cur = valueOf(col, id, key);
-    const input = h('input', {
-      type: spec.type === 'number' ? 'number' : spec.type === 'color' ? 'color' : 'text',
-      value: cur ?? '',
-      min: spec.min, max: spec.max, step: spec.step, maxlength: spec.max && spec.type === 'text' ? spec.max : undefined,
-      class: isChanged(col, id, key) ? 'changed' : ''
-    });
+    const input = spec.type === 'select'
+      ? h('select', { class: isChanged(col, id, key) ? 'changed' : '' },
+          ...spec.options.map(o => h('option', { value: o.value, selected: o.value === cur }, o.label)))
+      : h('input', {
+          type: spec.type === 'number' ? 'number' : spec.type === 'color' ? 'color' : 'text',
+          value: cur ?? '',
+          min: spec.min, max: spec.max, step: spec.step, maxlength: spec.max && spec.type === 'text' ? spec.max : undefined,
+          class: isChanged(col, id, key) ? 'changed' : ''
+        });
     const resetBtn = h('button', { class: 'reset', title: `คืนค่าเดิม (${def})`, hidden: !isChanged(col, id, key), type: 'button' }, '↺');
     const refresh = () => {
       const changed = isChanged(col, id, key);
@@ -274,7 +277,7 @@
       h('div', { class: 'group-title' }, 'ไอเทมที่ดรอป (ตั้ง % ได้ เพิ่ม/ลบได้)'),
       dropsEditor(id),
       h('div', { class: 'group-title' }, 'ค่าพลัง'),
-      h('div', { class: 'fields' }, ...fieldsFor('monsters', id, ['name', 'level', 'hp', 'atk', 'def', 'exp', 'size'])),
+      h('div', { class: 'fields' }, ...fieldsFor('monsters', id, ['name', 'level', 'hp', 'atk', 'def', 'exp', 'size', 'facing'])),
       h('div', { class: 'group-title' }, 'พฤติกรรม'),
       h('div', { class: 'fields' }, ...fieldsFor('ai', id, ['speed', 'aggro', 'attackRange', 'attackCooldown', 'leash', 'wanderRadius']))
     ));

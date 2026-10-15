@@ -4,7 +4,7 @@
 // overrides = {
 //   zones:    { [zoneId]:    { name, desc, reqLevel } },
 //   maps:     { [zoneId]:    { size, floor, wall } },
-//   monsters: { [monsterId]: { name, level, hp, atk, def, exp, size } },
+//   monsters: { [monsterId]: { name, level, hp, atk, def, exp, size, facing } },   // facing: which way the picture looks: left | right | none (never flip)
 //   ai:       { [monsterId]: { speed, aggro, attackRange, attackCooldown, leash, wanderRadius } },
 //   items:    { [itemId]:    { name, price, atk, def, hp, heal, reqLevel, desc } },
 //   quests:   { [questId]:   { title, desc, requiredCount, rewardGold, rewardExp, rewardTokens } },
@@ -15,6 +15,7 @@
 const text = (label, max) => ({ type: 'text', label, max });
 const num = (label, min, max, step = 1) => ({ type: 'number', label, min, max, step });
 const color = (label) => ({ type: 'color', label });
+const select = (label, options) => ({ type: 'select', label, options });
 
 // Which fields can be edited per collection. Studio builds its forms from this.
 export const SCHEMA = {
@@ -42,7 +43,12 @@ export const SCHEMA = {
       atk: num('ATK', 0, 100000),
       def: num('DEF', 0, 100000),
       exp: num('EXP ที่ได้', 0, 100000000),
-      size: num('ขนาดรูป (px กว้าง, ปกติ 92)', 30, 400)
+      size: num('ขนาดรูป (px กว้าง, ปกติ 92)', 30, 400),
+      facing: select('รูปต้นฉบับหันไปทาง', [
+        { value: 'left', label: 'ซ้าย (กลับด้านตอนเดินไปขวา)' },
+        { value: 'right', label: 'ขวา (กลับด้านตอนเดินไปซ้าย)' },
+        { value: 'none', label: 'ไม่กลับด้าน' }
+      ])
     }
   },
   ai: {
@@ -98,6 +104,9 @@ function cleanValue(def, v) {
     if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
     const clamped = Math.min(def.max, Math.max(def.min, v));
     return def.step && def.step < 1 ? Math.round(clamped * 10) / 10 : Math.round(clamped);
+  }
+  if (def.type === 'select') {
+    return def.options.some(o => o.value === v) ? v : undefined;
   }
   if (def.type === 'color') {
     return typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v.toLowerCase() : undefined;
@@ -167,7 +176,7 @@ export function snapshotEditable(data) {
     snap.maps[id] = { size: def.width, floor: def.floor, wall: def.wall };
   }
   for (const [id, m] of Object.entries(data.MONSTERS)) {
-    snap.monsters[id] = { size: 92, ...pick(m, SCHEMA.monsters.fields) };
+    snap.monsters[id] = { size: 92, facing: 'left', ...pick(m, SCHEMA.monsters.fields) };
     snap.ai[id] = { ...data.MONSTER_AI_DEFAULT, ...(data.MONSTER_AI[id] || {}) };
     snap.drops[id] = (m.drops || []).map(d => ({ itemId: d.itemId, chance: d.chance }));
   }
