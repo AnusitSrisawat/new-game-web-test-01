@@ -1,1 +1,25 @@
-{}
+{
+  "maps": {
+    "meadows": {
+      "size": 3000
+    },
+    "town": {
+      "size": 3000
+    },
+    "misty_forest": {
+      "size": 3000
+    },
+    "goblin_caverns": {
+      "size": 3000
+    },
+    "volcano": {
+      "size": 3000
+    },
+    "bone_crypt": {
+      "size": 3000
+    },
+    "boss_lair": {
+      "size": 3000
+    }
+  }
+}
