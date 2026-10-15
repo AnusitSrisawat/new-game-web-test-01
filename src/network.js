@@ -180,7 +180,8 @@ export class NetworkManager {
         break;
 
       case 'chat':
-        this.game.onLog(msg.text, msg.channel || 'chat');
+        // channel: world | map | party | guild (player chat) or system
+        this.game.onLog(msg.text, msg.channel && msg.channel !== 'system' ? 'chat' : 'system', msg.channel || 'world');
         break;
     }
   }
@@ -306,10 +307,11 @@ export class NetworkManager {
     });
   }
 
-  sendChat(text) {
+  sendChat(text, channel = 'world') {
     this.send({
       type: 'chat',
-      text: text
+      text: text,
+      channel: channel
     });
   }
 }

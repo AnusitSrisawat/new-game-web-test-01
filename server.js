@@ -844,7 +844,18 @@ wss.on('connection', (ws) => {
         case 'chat': {
           const text = cleanText(data.text, 200);
           if (!text || !takeToken(limits.chat, now, CHAT_PER_SECOND, CHAT_BURST)) break;
-          broadcast({ type: 'chat', text: `[${p.name}]: ${text}`, channel: 'chat' });
+          const line = `[${p.name}]: ${text}`;
+          const ch = data.channel;
+          if (ch === 'map') {
+            sendToMap(p.currentMap, { type: 'chat', text: line, channel: 'map' });
+          } else if (ch === 'party') {
+            if (p.partyId && parties.has(p.partyId)) broadcastToParty(p.partyId, { type: 'chat', text: line, channel: 'party' });
+            else safeSend(ws, { type: 'chat', text: '⚠️ คุณยังไม่ได้อยู่ในปาร์ตี้', channel: 'system' });
+          } else if (ch === 'guild') {
+            safeSend(ws, { type: 'chat', text: '⚠️ ระบบกิลด์ยังไม่เปิดใช้งาน', channel: 'system' });
+          } else {
+            broadcast({ type: 'chat', text: line, channel: 'world' });
+          }
           break;
         }
       }
