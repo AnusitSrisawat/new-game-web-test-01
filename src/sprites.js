@@ -4,12 +4,12 @@
 // Monster cell k drops the items in cells 3k..3k+2 of the matching item sheet.
 
 export const SHEETS = {
-  starter:  { monsters: 'assets/monsters_sheet.jpg' },
-  beasts:   { monsters: 'assets/monsters_beasts.jpg',   items: 'assets/items/items_beasts.jpg' },
-  bandits:  { monsters: 'assets/monsters_bandits.jpg',  items: 'assets/items/items_bandits.jpg' },
-  fantasy:  { monsters: 'assets/monsters_fantasy.jpg',  items: 'assets/items/items_fantasy.jpg' },
-  others:   { monsters: 'assets/monsters_others.jpg',   items: 'assets/items/items_others.jpg' },
-  skeleton: { monsters: 'assets/monsters_skeleton.jpg', items: 'assets/items/items_skeleton.jpg' }
+  starter:  { monsters: 'assets/monsters/monsters_sheet.jpg', items: 'assets/items/items_sheet.jpg' },
+  beasts:   { monsters: 'assets/monsters/monsters_beasts.jpg',   items: 'assets/items/items_beasts.jpg' },
+  bandits:  { monsters: 'assets/monsters/monsters_bandits.jpg',  items: 'assets/items/items_bandits.jpg' },
+  fantasy:  { monsters: 'assets/monsters/monsters_fantasy.jpg',  items: 'assets/items/items_fantasy.jpg' },
+  others:   { monsters: 'assets/monsters/monsters_others.jpg',   items: 'assets/items/items_others.jpg' },
+  skeleton: { monsters: 'assets/monsters/monsters_skeleton.jpg', items: 'assets/items/items_skeleton.jpg' }
 };
 
 // monsterId -> [sheet, cell 0..3]
@@ -25,6 +25,8 @@ export const MONSTER_SPRITES = {
 
 // Item ids in sheet order (cell 0..11), 3 per monster
 export const ITEM_SHEET_IDS = {
+  starter: ['sticky_mucus', 'bouncy_core', 'relic_slime_core', 'poison_stinger', 'gossamer_wing', 'royal_honeycomb',
+    'rabbit_fluff', 'small_horn', 'relic_golden_carrot', 'stone_plate', 'golem_core_gem', 'relic_golem_core'],
   beasts: ['wolf_fur', 'sharp_fang', 'alpha_eye_gem', 'boar_meat', 'hard_tusk', 'boar_leather_harness',
     'venom_vial', 'emerald_snake_scale', 'viper_fang_dagger', 'sharp_bear_claw', 'heavy_fur_coat', 'wild_honey_pot'],
   bandits: ['rogue_face_mask', 'serrated_dagger', 'lockpick_set', 'poacher_bandana', 'hunting_arrow_quiver', 'composite_shortbow',
