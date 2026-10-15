@@ -24,6 +24,12 @@ export const MAP_DEFS = {
     spawn: { x: 2400, y: 2400 },
     objects: []
   },
+  bandit_hideout: {
+    width: 4800, height: 4800,
+    floor: '#a8895a', grid: 'rgba(0,0,0,0.10)', wall: '#422006',
+    spawn: { x: 2400, y: 2400 },
+    objects: []
+  },
   goblin_caverns: {
     width: 4800, height: 4800,
     floor: '#a16207', grid: 'rgba(0,0,0,0.10)', wall: '#451a03',
@@ -39,6 +45,12 @@ export const MAP_DEFS = {
   bone_crypt: {
     width: 4800, height: 4800,
     floor: '#57534e', grid: 'rgba(0,0,0,0.12)', wall: '#1c1917',
+    spawn: { x: 2400, y: 2400 },
+    objects: []
+  },
+  haunted_ruins: {
+    width: 4800, height: 4800,
+    floor: '#6366a8', grid: 'rgba(0,0,0,0.12)', wall: '#1e1b4b',
     spawn: { x: 2400, y: 2400 },
     objects: []
   },

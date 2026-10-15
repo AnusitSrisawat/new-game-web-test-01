@@ -43,7 +43,16 @@ export const ZONES = [
     reqLevel: 15,
     bgColor: '#94a3b8',
     floorColor: '#475569',
-    monsterIds: ['wild_boar', 'jungle_viper', 'forest_wolf', 'claw_bear', 'treant', 'mossy_golem']
+    monsterIds: ['wild_boar', 'jungle_viper', 'forest_wolf', 'claw_bear']
+  },
+  {
+    id: 'bandit_hideout',
+    name: '🏴‍☠️ Bandit Hideout (ซ่องโจรป่าเขา)',
+    desc: 'ค่ายซ่องโจรกลางหุบเขา เหล่าโจร นักธนู และหัวหน้าโจรคอยซุ่มดักผู้มาเยือน',
+    reqLevel: 34,
+    bgColor: '#fde68a',
+    floorColor: '#92400e',
+    monsterIds: ['bandit_rogue', 'bandit_archer', 'bandit_brute', 'bandit_leader']
   },
   {
     id: 'goblin_caverns',
@@ -52,7 +61,7 @@ export const ZONES = [
     reqLevel: 30,
     bgColor: '#fed7aa',
     floorColor: '#b45309',
-    monsterIds: ['goblin_scout', 'bandit_rogue', 'bandit_archer', 'bandit_brute', 'chest_mimic', 'bandit_leader']
+    monsterIds: ['goblin_scout', 'chest_mimic', 'treant', 'mossy_golem']
   },
   {
     id: 'volcano',
@@ -61,7 +70,7 @@ export const ZONES = [
     reqLevel: 50,
     bgColor: '#fecaca',
     floorColor: '#dc2626',
-    monsterIds: ['fire_imp', 'baby_fire_wyrm', 'floating_eye', 'stone_golem', 'ancient_golem']
+    monsterIds: ['fire_imp', 'floating_eye', 'baby_fire_wyrm', 'stone_golem']
   },
   {
     id: 'bone_crypt',
@@ -70,7 +79,16 @@ export const ZONES = [
     reqLevel: 55,
     bgColor: '#d6d3d1',
     floorColor: '#57534e',
-    monsterIds: ['skeleton_warrior', 'skeleton_archer', 'skeleton_mage', 'skeleton_knight', 'spectral_armor']
+    monsterIds: ['skeleton_warrior', 'skeleton_archer', 'skeleton_mage', 'skeleton_knight']
+  },
+  {
+    id: 'haunted_ruins',
+    name: '🏛️ Haunted Ruins (ซากปรักหักพังต้องสาป)',
+    desc: 'ซากวิหารโบราณที่เกราะวิญญาณและโกเลมไททันเฝ้าสมบัติมานับพันปี',
+    reqLevel: 62,
+    bgColor: '#c7d2fe',
+    floorColor: '#4338ca',
+    monsterIds: ['spectral_armor', 'ancient_golem']
   },
   {
     id: 'boss_lair',
