@@ -6,10 +6,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
 import crypto from 'crypto';
-import { MONSTERS, RELICS, ZONES, WEAPON_TYPES, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS } from './src/data.js';
+import { MONSTERS, RELICS, ZONES, WEAPON_TYPES, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS, SKILLS } from './src/data.js';
 import { getMapDef, MAP_DEFS, OBJECT_TYPES, MAX_OBJECTS_PER_MAP } from './src/maps.js';
 import { monsterSprite, itemSprite } from './src/sprites.js';
-import { SCHEMA, sanitizeOverrides, snapshotEditable, applyOverrides, validateSpawns } from './src/overrides.js';
+import { SCHEMA, sanitizeOverrides, snapshotEditable, applyOverrides, restoreDefaults, validateSpawns } from './src/overrides.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,7 +72,7 @@ const server = http.createServer((req, res) => {
 const DATA_DIR = path.join(__dirname, 'data');
 const OVERRIDES_FILE = path.join(DATA_DIR, 'overrides.json');
 const SPAWNS_FILE = path.join(DATA_DIR, 'spawns.json');
-const gameData = { ZONES, MAP_DEFS, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS };
+const gameData = { ZONES, MAP_DEFS, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS, SKILLS };
 const DEFAULTS = snapshotEditable(gameData); // untouched values, to restore before re-applying overrides
 const KNOWN = {
   zones: new Set(ZONES.map(z => z.id)),
@@ -271,7 +271,7 @@ async function handleApi(req, res, reqPath) {
       writeJsonAtomic(SPAWNS_FILE, newSpawns);
       overrides = newOverrides;
       spawns = newSpawns;
-      applyOverrides(gameData, DEFAULTS);   // back to defaults...
+      restoreDefaults(gameData, DEFAULTS);  // back to defaults...
       applyOverrides(gameData, overrides);  // ...then the new edits
       buildMonsters();
       for (const [ws, pl] of players.entries()) {

@@ -64,11 +64,11 @@
   // ---- value helpers ----
   const defaultOf = (col, id, key) => state.defaults[col]?.[id]?.[key];
   const valueOf = (col, id, key) => ov[col]?.[id]?.[key] ?? defaultOf(col, id, key);
-  const isChanged = (col, id, key) => !state.schema[col].freeForm && ov[col]?.[id]?.[key] !== undefined && ov[col][id][key] !== defaultOf(col, id, key);
+  const isChanged = (col, id, key) => defaultOf(col, id, key) !== undefined && ov[col]?.[id]?.[key] !== undefined && ov[col][id][key] !== defaultOf(col, id, key);
 
   function setValue(col, id, key, value) {
     const def = defaultOf(col, id, key);
-    if (value === def && !state.schema[col].freeForm) {
+    if (def !== undefined && value === def) {
       if (ov[col]?.[id]) {
         delete ov[col][id][key];
         if (!Object.keys(ov[col][id]).length) delete ov[col][id];
@@ -85,7 +85,7 @@
   // One editable field
   function field(col, id, key, opts = {}) {
     const spec = state.schema[col].fields[key];
-    const def = state.schema[col].freeForm ? undefined : defaultOf(col, id, key);
+    const def = defaultOf(col, id, key);
     if (!state.schema[col].freeForm && def === undefined) {
       // this row has no such property (e.g. a weapon has no "heal")
       return null;
@@ -118,6 +118,7 @@
       }
       setValue(col, id, key, v);
       refresh();
+      if (col === 'skills' && (key === 'kind' || key === 'effect')) renderList(); // the shown fields depend on these
     });
     resetBtn.addEventListener('click', () => {
       setValue(col, id, key, def);
@@ -140,7 +141,7 @@
     { id: 'spawns', icon: '🌱', label: 'การเกิดของมอนสเตอร์', sub: 'จำนวน + เวลาเกิดใหม่' },
     { id: 'items', icon: '🎒', label: 'ไอเทม', sub: 'อาวุธ เกราะ ยา' },
     { id: 'quests', icon: '📜', label: 'เควสต์', sub: 'ชื่อ เป้าหมาย รางวัล' },
-    { id: 'skills', icon: '✨', label: 'สกิล', sub: 'รายชื่อ (ยังไม่ผูกกับเกม)' }
+    { id: 'skills', icon: '✨', label: 'สกิล', sub: 'Active/Passive + สมุด/กาชา (ข้อมูลล่วงหน้า)' }
   ];
 
   function renderTabs() {
@@ -528,28 +529,71 @@
     ));
   }
 
+  // ---- skills (data only for now: see docs/SKILLS.md) ----
+  const SKILL_TEMPLATE = {
+    kind: 'active', rarity: 'common', weapon: 'any', target: 'enemy', effect: 'damage', power: 100, hits: 1, scalesWith: 'none',
+    statCoef: 0, radius: 0, range: 0, spCost: 10, cooldown: 5, duration: 0, slowPct: 0, stunSec: 0, bookSellPrice: 100, gachaWeight: 30
+  };
+  const RARITY_COLOR = { common: '#94a3b8', uncommon: '#34d399', rare: '#60a5fa', epic: '#c084fc' };
+  const skillIds = () => [...new Set([...Object.keys(state.defaults.skills || {}), ...Object.keys(ov.skills || {})])];
+  const skillVal = (id, key) => valueOf('skills', id, key);
+
   function panelSkills() {
-    const newId = h('input', { placeholder: 'id เช่น power_strike', pattern: '[a-z0-9_]+', maxlength: 40 });
+    const newId = h('input', { placeholder: 'id เช่น poison_arrow', pattern: '[a-z0-9_]+', maxlength: 40 });
     return [
       h('h2', {}, 'สกิล'),
-      h('p', { class: 'hint' }, 'เริ่มจดรายชื่อและคำอธิบายสกิลไว้ก่อนได้ ข้อมูลจะถูกเก็บในไฟล์ แต่ ยังไม่ผูกกับตัวเกม (เกมยังไม่มีระบบสกิล)'),
+      h('p', { class: 'hint' }, 'ข้อมูลสกิล Active/Passive — ได้มาจาก "สมุดสกิล" ที่สุ่มจากตู้กาชา (ใช้เรียนได้ถ้ายังไม่เคยเรียน ขายสมุดได้) ตอนนี้ยังเป็นข้อมูลล่วงหน้า เกมยังไม่ได้ใช้ รายละเอียดกติกาดู docs/SKILLS.md'),
       h('div', { class: 'toolbar' }, newId, h('button', { class: 'btn', onclick: () => {
         const id = newId.value.trim();
         if (!/^[a-z0-9_]{1,40}$/.test(id)) { toast('id ใช้ได้เฉพาะ a-z 0-9 _', true); return; }
-        if (ov.skills?.[id]) { toast('มี id นี้แล้ว', true); return; }
+        if (skillIds().includes(id)) { toast('มี id นี้แล้ว', true); return; }
         setValue('skills', id, 'name', id);
+        for (const [k, v] of Object.entries(SKILL_TEMPLATE)) setValue('skills', id, k, v);
         newId.value = '';
         renderList();
       } }, '+ เพิ่มสกิล')),
       (listHost = h('div'))
     ];
   }
+
   function buildSkills() {
-    return Object.keys(ov.skills || {}).map(id => h('div', { class: 'card' },
-      h('h3', {}, ov.skills[id].name || id, h('small', {}, id),
-        h('button', { class: 'btn small danger', onclick: () => { delete ov.skills[id]; if (!Object.keys(ov.skills).length) delete ov.skills; setDirty(true); renderList(); } }, 'ลบ')),
-      h('div', { class: 'fields' }, ...['name', 'desc'].map(k => field('skills', id, k)))
-    ));
+    const ids = skillIds();
+    const totalW = ids.reduce((n, id) => n + (Number(skillVal(id, 'gachaWeight')) || 0), 0);
+    const active = ids.filter(id => skillVal(id, 'kind') !== 'passive').length;
+    const summary = h('div', { class: 'card' },
+      h('h3', {}, `ทั้งหมด ${ids.length} สกิล`, h('small', {}, `Active ${active} • Passive ${ids.length - active} • น้ำหนักกาชารวม ${totalW}`)));
+    const cards = ids.map(id => {
+      const isActive = skillVal(id, 'kind') !== 'passive';
+      const effect = skillVal(id, 'effect');
+      const isDefault = state.defaults.skills?.[id] !== undefined;
+      const rar = skillVal(id, 'rarity');
+      const chance = totalW > 0 ? (Number(skillVal(id, 'gachaWeight')) || 0) / totalW * 100 : 0;
+      const F = (keys) => h('div', { class: 'fields' }, ...keys.map(k => field('skills', id, k)).filter(Boolean));
+      const bonuses = ['bonusAtkPct', 'bonusDefPct', 'bonusHpPct', 'bonusAspdPct', 'bonusCritPct', 'bonusSpPct', 'bonusMovePct'];
+      const body = [
+        h('div', { class: 'group-title' }, 'ทั่วไป'), F(['name', 'desc', 'kind', 'rarity', 'weapon'])
+      ];
+      if (isActive) {
+        body.push(h('div', { class: 'group-title' }, 'การใช้'), F(['target', 'effect', 'spCost', 'cooldown', 'range', 'radius']));
+        if (effect === 'damage' || effect === 'heal' || effect === 'debuff') {
+          body.push(h('div', { class: 'group-title' }, effect === 'heal' ? 'การฟื้น HP' : 'ดาเมจ / ผลต่อศัตรู'),
+            F(['power', 'hits', 'scalesWith', 'statCoef', 'slowPct', 'stunSec', 'duration']));
+        }
+        if (effect === 'buff') body.push(h('div', { class: 'group-title' }, 'บัฟ (ระหว่างที่ออกฤทธิ์)'), F(['duration', ...bonuses]));
+      } else {
+        body.push(h('div', { class: 'group-title' }, 'โบนัสถาวรเมื่อเรียนแล้ว'), F(bonuses));
+      }
+      body.push(h('div', { class: 'group-title' }, 'สมุดสกิล / กาชา'), F(['bookSellPrice', 'gachaWeight']));
+      return h('div', { class: 'card' },
+        h('h3', {}, skillVal(id, 'name') || id, h('small', {}, id),
+          h('small', { style: `color:${RARITY_COLOR[rar] || '#94a3b8'};font-weight:700` }, `${rar} • ${isActive ? 'Active' : 'Passive'}`),
+          h('small', {}, `กาชาออก ~${chance.toFixed(1)}%`),
+          isDefault ? null : h('button', { class: 'btn small danger', onclick: () => {
+            delete ov.skills[id]; if (!Object.keys(ov.skills).length) delete ov.skills; setDirty(true); renderList();
+          } }, 'ลบ')),
+        ...body);
+    });
+    return [summary, ...cards];
   }
 
   const PANELS = {
