@@ -230,8 +230,7 @@ export class GameEngine {
 
       const isMe = this.network && this.network.myPlayerId === killerId;
       if (isMe) {
-        const result = this.player.gainExp(m.exp, m.jobExp);
-        this.onLog(`⚔️ ปราบ [${m.name}] สำเร็จ! ได้รับ +${m.exp} Base EXP, +${m.jobExp} Job EXP`, 'chat');
+        // EXP / gold arrive separately from the server as a 'reward' message.
 
         // Quest Progress Sync
         QUESTS.forEach(q => {
@@ -287,12 +286,17 @@ export class GameEngine {
     }
   }
 
-  // Handle Shared Party Rewards
-  onPartyRewardShared(msg) {
-    this.player.gainExp(msg.sharedExp, msg.sharedExp);
-    this.player.gold += msg.sharedGold;
-    this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 45, `+${msg.sharedExp} EXP [Party +25%]`, '#4ade80', 16);
-    this.onLog(`🤝 [ปาร์ตี้โบนัส +25%] ได้รับ +${msg.sharedExp} EXP, +${msg.sharedGold} G จากการร่วมสู้ของ ${msg.fromKillerName}`, 'system');
+  // Server-calculated EXP / gold reward (solo kill or party share)
+  onRewardFromServer(msg) {
+    this.player.gainExp(msg.exp, msg.jobExp);
+    this.player.gold += msg.gold || 0;
+    this.player.saveToStorage();
+    if (msg.shared) {
+      this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 45, `+${msg.exp} EXP [Party]`, '#4ade80', 16);
+      this.onLog(`🤝 [ปาร์ตี้ x${msg.shareCount}] ปราบ [${msg.monsterName}] โดย ${msg.fromName} • ได้ +${msg.exp} Base EXP, +${msg.jobExp} Job EXP, +${msg.gold} G`, 'system');
+    } else {
+      this.onLog(`⚔️ ปราบ [${msg.monsterName}] สำเร็จ! ได้รับ +${msg.exp} Base EXP, +${msg.jobExp} Job EXP, +${msg.gold} G`, 'chat');
+    }
   }
 
   // Handle Telegraphed Boss AoE Danger Zones
@@ -312,16 +316,22 @@ export class GameEngine {
   }
 
   // Detonate Boss AoE after warning timer expires
-  detonateBossAoe(aoe) {
+  onBossAoeResult(msg) {
+    const idx = this.telegraphedAoEs.findIndex(a => Math.hypot(a.x - msg.x, a.y - msg.y) < 1);
+    const aoe = idx >= 0 ? this.telegraphedAoEs.splice(idx, 1)[0] : { x: msg.x, y: msg.y, radius: msg.radius };
+    aoe.damage = msg.damage;
+    this.detonateBossAoe(aoe, msg.hit);
+  }
+
+  detonateBossAoe(aoe, hit) {
     // Massive explosion at (aoe.x, aoe.y)
     this.triggerScreenShake(12);
     this.addShockwave(aoe.x, aoe.y, '#ef4444', aoe.radius * 1.3);
     this.addParticle(aoe.x, aoe.y, '#f97316', 50);
     soundEngine.playDragonRoar();
 
-    // Check if player is inside the danger circle
-    const distToPlayer = Math.hypot(this.playerEntity.x - aoe.x, this.playerEntity.y - aoe.y);
-    if (distToPlayer <= aoe.radius) {
+    // Hit/dodge is decided by the server
+    if (hit) {
       // HIT! Heavy damage!
       let def = this.player.defense;
       if (this.playerEntity.buffs.def > 0) def += 60;
@@ -1244,8 +1254,9 @@ export class GameEngine {
     for (let i = this.telegraphedAoEs.length - 1; i >= 0; i--) {
       const aoe = this.telegraphedAoEs[i];
       aoe.duration -= dt;
-      if (aoe.duration <= 0) {
-        this.detonateBossAoe(aoe);
+      // The server decides hit/dodge at detonation (see onBossAoeResult); this only
+      // drops the warning ring if the result message never arrives.
+      if (aoe.duration <= -1) {
         this.telegraphedAoEs.splice(i, 1);
       }
     }
@@ -1486,7 +1497,7 @@ export class GameEngine {
     const time = Date.now() / 200;
 
     for (const aoe of this.telegraphedAoEs) {
-      const prog = 1 - (aoe.duration / aoe.maxDuration); // 0 to 1
+      const prog = 1 - (Math.max(0, aoe.duration) / aoe.maxDuration); // 0 to 1
       const pulse = 0.5 + Math.sin(time * 3) * 0.2;
 
       // Outer Red Warning Border
@@ -1515,7 +1526,7 @@ export class GameEngine {
       ctx.fillStyle = '#fef08a';
       ctx.shadowColor = 'rgba(0,0,0,0.95)';
       ctx.shadowBlur = 6;
-      ctx.fillText(`⚠️ DANGER ZONE! [${aoe.duration.toFixed(1)}s]`, aoe.x, aoe.y - aoe.radius - 12);
+      ctx.fillText(`⚠️ DANGER ZONE! [${Math.max(0, aoe.duration).toFixed(1)}s]`, aoe.x, aoe.y - aoe.radius - 12);
       ctx.font = 'bold 11px sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText(`[กด WASD หลบด่วน!]`, aoe.x, aoe.y - aoe.radius + 4);

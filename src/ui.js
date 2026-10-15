@@ -57,6 +57,8 @@ export class UIController {
 
     document.getElementById('btn-party-decline')?.addEventListener('click', () => {
       const toast = document.getElementById('party-invite-toast');
+      const partyId = toast ? toast.dataset.partyId : null;
+      if (partyId && this.gameEngine.network) this.gameEngine.network.sendDeclineParty(partyId);
       if (toast) toast.style.display = 'none';
     });
 
@@ -994,171 +996,181 @@ export class UIController {
     const body = document.getElementById('modal-party-body');
     if (!body) return;
 
-    const party = this.gameEngine.network ? this.gameEngine.network.currentParty : null;
-    const myId = this.gameEngine.network ? this.gameEngine.network.myPlayerId : null;
+    // Don't wipe what the user is typing when a background party update arrives
+    const active = document.activeElement;
+    if (active && body.contains(active) && /^(INPUT|SELECT)$/.test(active.tagName)) return;
+
+    const net = this.gameEngine.network;
+    const party = net ? net.currentParty : null;
+    const myId = net ? net.myPlayerId : null;
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const zoneName = (id) => { const z = ZONES.find(zz => zz.id === id); return z ? z.name : (id || '-'); };
+    const box = 'background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px; margin-bottom:12px;';
+    const inp = 'padding:6px 8px; background:rgba(15,23,42,0.8); border:1px solid #475569; border-radius:6px; color:#fff; font-size:0.82rem;';
+    const btn = (bg) => `padding:5px 10px; background:${bg}; color:#fff; border:none; border-radius:5px; cursor:pointer; font-size:0.75rem; font-weight:600;`;
+
+    const settingsFields = (s, disabled) => `
+      <div style="display:grid; grid-template-columns:auto 1fr; gap:6px 10px; align-items:center; font-size:0.8rem; color:#cbd5e1;">
+        <label>การแบ่ง EXP</label>
+        <select id="ps-expShare" ${disabled ? 'disabled' : ''} style="${inp}">
+          <option value="share" ${s.expShare === 'share' ? 'selected' : ''}>หาร EXP ทั้งตี้ (+25% โบนัส)</option>
+          <option value="killer" ${s.expShare === 'killer' ? 'selected' : ''}>ใครฆ่าคนนั้นได้</option>
+        </select>
+        <label>รับสมาชิกอัตโนมัติ</label>
+        <label><input type="checkbox" id="ps-autoAccept" ${s.autoAccept ? 'checked' : ''} ${disabled ? 'disabled' : ''}> เปิด (ไม่ต้องรอหัวหน้าอนุมัติ)</label>
+        <label>เงื่อนไขเลเวล</label>
+        <span><input type="number" id="ps-minLevel" min="1" max="999" value="${s.minLevel}" ${disabled ? 'disabled' : ''} style="${inp} width:64px;"> ถึง
+        <input type="number" id="ps-maxLevel" min="1" max="999" value="${s.maxLevel}" ${disabled ? 'disabled' : ''} style="${inp} width:64px;"></span>
+      </div>`;
+    const readSettings = () => ({
+      expShare: document.getElementById('ps-expShare').value,
+      autoAccept: document.getElementById('ps-autoAccept').checked,
+      minLevel: Number(document.getElementById('ps-minLevel').value) || 1,
+      maxLevel: Number(document.getElementById('ps-maxLevel').value) || 999
+    });
 
     if (!party) {
-      // Not in a party: Show create party form + list of other players
-      let playersHtml = '';
-      if (this.gameEngine.network && this.gameEngine.network.otherPlayers) {
-        this.gameEngine.network.otherPlayers.forEach((op, pid) => {
-          playersHtml += `
-            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:8px 12px; border-radius:6px; margin-bottom:6px;">
-              <div>
-                <b style="color:#38bdf8;">${op.name || 'Adventurer'}</b>
-                <span style="font-size:0.75rem; color:#94a3b8; margin-left:6px;">(Lv.${op.baseLevel || 1} ${op.classId ? op.classId.toUpperCase() : 'SWORDSMAN'})</span>
-              </div>
-              <button class="btn-invite-player" data-target="${pid}" style="padding:4px 10px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">✉️ ชวนเข้าปาร์ตี้</button>
-            </div>
-          `;
-        });
-      }
-
-      if (!playersHtml) {
-        playersHtml = '<p style="color:#94a3b8; font-size:0.8rem;">ยังไม่มีผู้เล่นอื่นออนไลน์อยู่ในขณะนี้</p>';
-      }
-
+      const zoneOpts = ZONES.map(z => `<option value="${z.id}">${esc(z.name)}</option>`).join('');
       body.innerHTML = `
-        <div style="background:rgba(30,41,59,0.5); border:1px solid rgba(59,130,246,0.3); border-radius:8px; padding:12px; margin-bottom:14px;">
-          <h4 style="color:#60a5fa; margin-bottom:6px;">⚔️ สิทธิประโยชน์ระบบปาร์ตี้ (Party Benefits)</h4>
-          <ul style="font-size:0.8rem; color:#cbd5e1; margin-left:18px; line-height:1.5;">
-            <li><b>โบนัสแชร์ EXP +25%:</b> เมื่อสมาชิกในปาร์ตี้กำจัดมอนสเตอร์ ทุกคนจะได้รับค่าประสบการณ์เพิ่มขึ้น 25%!</li>
-            <li><b>แชร์ Gold สม่ำเสมอ:</b> ได้รับเหรียญรางวัลแบ่งปันช่วยเพื่อนลงดันเจี้ยน</li>
-            <li><b>แท็กทีมสู้ World Boss:</b> รวมพลังโค่นมังกรยักษ์ Ancient Red Dragon MVP ใน Boss Lair ได้ง่ายขึ้น!</li>
-          </ul>
+        <div style="${box}">
+          <h4 style="margin-bottom:8px;">🚩 สร้างปาร์ตี้ใหม่</h4>
+          <div style="margin-bottom:8px;"><input type="text" id="input-party-name" maxlength="24" style="${inp} width:100%;" value="กิลด์ผู้กล้า" placeholder="ชื่อปาร์ตี้"></div>
+          ${settingsFields({ expShare: 'share', autoAccept: false, minLevel: 1, maxLevel: 999 }, false)}
+          <button id="btn-create-party-submit" style="${btn('linear-gradient(135deg,#3b82f6,#2563eb)')} margin-top:10px; padding:7px 16px;">สร้างปาร์ตี้</button>
         </div>
-
-        <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px; margin-bottom:14px;">
-          <h4 style="margin-bottom:8px;">🚩 สร้างปาร์ตี้ใหม่ (Create Party)</h4>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="input-party-name" placeholder="ตั้งชื่อปาร์ตี้ (เช่น กิลด์ผู้กล้า)" style="flex:1; padding:7px 10px; background:rgba(15,23,42,0.8); border:1px solid #475569; border-radius:6px; color:#fff; font-size:0.85rem;" value="กิลด์ผู้กล้า">
-            <button id="btn-create-party-submit" style="padding:7px 16px; background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; font-weight:700; border:none; border-radius:6px; cursor:pointer;">สร้างปาร์ตี้</button>
+        <div style="${box}">
+          <h4 style="margin-bottom:8px;">🔎 ค้นหาปาร์ตี้</h4>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:0.8rem; color:#cbd5e1; margin-bottom:8px;">
+            เลเวลหัวหน้า <input type="number" id="pf-min" min="1" value="1" style="${inp} width:60px;"> -
+            <input type="number" id="pf-max" min="1" value="999" style="${inp} width:60px;">
+            แมพ <select id="pf-map" style="${inp}"><option value="">ทุกแมพ</option>${zoneOpts}</select>
+            <button id="btn-party-search" style="${btn('#0ea5e9')}">ค้นหา</button>
           </div>
-        </div>
+          <div id="party-search-results" style="font-size:0.8rem; color:#94a3b8;">กด “ค้นหา” เพื่อดูปาร์ตี้ที่เปิดอยู่</div>
+        </div>`;
 
-        <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px;">
-          <h4 style="margin-bottom:8px;">👥 ผู้เล่นออนไลน์ในเซิร์ฟเวอร์</h4>
-          ${playersHtml}
-        </div>
-      `;
-
-      const createBtn = document.getElementById('btn-create-party-submit');
-      if (createBtn) {
-        createBtn.addEventListener('click', () => {
-          const input = document.getElementById('input-party-name');
-          const pName = (input && input.value.trim()) || `${this.player.name}'s Party`;
-          if (this.gameEngine.network) {
-            this.gameEngine.network.sendCreateParty(pName);
-          }
-        });
-      }
-
-      body.querySelectorAll('.btn-invite-player').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const targetId = e.currentTarget.dataset.target;
-          if (this.gameEngine.network) {
-            this.gameEngine.network.sendInviteParty(targetId);
-            this.gameEngine.onLog('✉️ ส่งคำเชิญเข้าร่วมปาร์ตี้เรียบร้อยแล้ว', 'system');
-          }
-        });
+      document.getElementById('btn-create-party-submit').addEventListener('click', () => {
+        const name = document.getElementById('input-party-name').value.trim() || `${this.player.name}'s Party`;
+        net?.sendCreateParty(name, readSettings());
       });
-
-    } else {
-      // In a party: Show current party status and members
-      const isLeader = party.leaderId === myId;
-      const memCount = party.members.length;
-
-      let membersHtml = '';
-      party.members.forEach(m => {
-        const isMe = m.id === myId;
-        const isMemLeader = m.id === party.leaderId;
-        membersHtml += `
-          <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); border:1px solid ${isMemLeader ? '#fbbf24' : 'rgba(255,255,255,0.08)'}; padding:10px 12px; border-radius:6px; margin-bottom:8px;">
-            <div>
-              <div style="display:flex; align-items:center; gap:6px;">
-                ${isMemLeader ? '👑' : '🛡️'}
-                <b style="color:${isMe ? '#38bdf8' : '#fff'}; font-size:0.88rem;">${m.name} ${isMe ? '(คุณ)' : ''}</b>
-                <span style="font-size:0.75rem; color:#94a3b8;">Lv.${m.level || 1} [${m.classId ? m.classId.toUpperCase() : 'KNIGHT'}]</span>
-              </div>
-              <div style="font-size:0.72rem; color:#34d399; margin-top:3px;">
-                🗺️ แผนที่: ${m.currentMap || 'ทุ่งหญ้า'} • HP: ${m.hp || 100}/${m.maxHp || 100}
-              </div>
-            </div>
-          </div>
-        `;
+      const search = () => net?.sendPartyListRequest({
+        minLevel: Number(document.getElementById('pf-min').value) || 1,
+        maxLevel: Number(document.getElementById('pf-max').value) || 999,
+        map: document.getElementById('pf-map').value || undefined
       });
-
-      let inviteSection = '';
-      if (memCount < 4) {
-        let candidateHtml = '';
-        if (this.gameEngine.network && this.gameEngine.network.otherPlayers) {
-          this.gameEngine.network.otherPlayers.forEach((op, pid) => {
-            const alreadyInParty = party.members.some(mem => mem.id === pid);
-            if (!alreadyInParty) {
-              candidateHtml += `
-                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:6px 10px; border-radius:6px; margin-bottom:6px;">
-                  <span style="font-size:0.8rem; color:#cbd5e1;">${op.name || 'Adventurer'} (Lv.${op.baseLevel || 1})</span>
-                  <button class="btn-party-invite-more" data-target="${pid}" style="padding:3px 8px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.72rem;">✉️ ชวนเข้าตี้</button>
-                </div>
-              `;
-            }
-          });
-        }
-        if (candidateHtml) {
-          inviteSection = `
-            <div style="margin-top:14px; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">
-              <h5 style="margin-bottom:6px; font-size:0.82rem; color:#94a3b8;">ชวนผู้เล่นอื่นเข้าร่วมปาร์ตี้ (${memCount}/4):</h5>
-              ${candidateHtml}
-            </div>
-          `;
-        }
-      }
-
-      body.innerHTML = `
-        <div style="background:linear-gradient(135deg,rgba(59,130,246,0.25),rgba(245,158,11,0.15)); border:1px solid #3b82f6; border-radius:8px; padding:12px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <h4 style="color:#60a5fa; margin-bottom:3px;">🚩 ปาร์ตี้: ${party.name}</h4>
-            <div style="font-size:0.78rem; color:#cbd5e1;">หัวหน้า: <b>${party.leaderName}</b> • สมาชิก: <b>${memCount}/4 คน</b></div>
-            <div style="font-size:0.75rem; color:#fbbf24; margin-top:2px;">✨ ปาร์ตี้เปิดใช้งาน: โบนัสแชร์ EXP & Gold +25%!</div>
-          </div>
-          <button id="btn-party-leave-action" style="padding:6px 14px; background:#ef4444; color:#fff; font-weight:700; border:none; border-radius:6px; cursor:pointer; font-size:0.8rem;">ออกจากปาร์ตี้</button>
-        </div>
-
-        <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px;">
-          <h4 style="margin-bottom:10px;">👥 สมาชิกในปาร์ตี้ (${memCount}/4)</h4>
-          ${membersHtml}
-        </div>
-
-        ${inviteSection}
-      `;
-
-      document.getElementById('btn-party-leave-action')?.addEventListener('click', () => {
-        if (confirm('ยืนยันออกจากปาร์ตี้?')) {
-          if (this.gameEngine.network) {
-            this.gameEngine.network.sendLeaveParty();
-          }
-        }
-      });
-
-      body.querySelectorAll('.btn-party-invite-more').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const targetId = e.currentTarget.dataset.target;
-          if (this.gameEngine.network) {
-            this.gameEngine.network.sendInviteParty(targetId);
-            this.gameEngine.onLog('✉️ ส่งคำเชิญเข้าร่วมปาร์ตี้แล้ว', 'system');
-          }
-        });
-      });
+      document.getElementById('btn-party-search').addEventListener('click', search);
+      if (net && net.partyList && net.partyList.length) this.onPartyListReceived(net.partyList);
+      return;
     }
+
+    // ---- In a party ----
+    const isLeader = party.leaderId === myId;
+    const s = party.settings || { expShare: 'share', autoAccept: false, minLevel: 1, maxLevel: 999 };
+    const memCount = party.members.length;
+
+    const membersHtml = party.members.map(m => {
+      const isMe = m.id === myId;
+      const isMemLeader = m.id === party.leaderId;
+      const actions = isLeader && !isMe ? `
+        <button class="btn-pm-leader" data-id="${esc(m.id)}" style="${btn('#d97706')}">👑 มอบหัวหน้า</button>
+        <button class="btn-pm-kick" data-id="${esc(m.id)}" style="${btn('#dc2626')}">เตะ</button>` : '';
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; background:rgba(255,255,255,0.03); border:1px solid ${isMemLeader ? '#fbbf24' : 'rgba(255,255,255,0.08)'}; padding:8px 12px; border-radius:6px; margin-bottom:6px;">
+          <div>
+            <b style="color:${isMe ? '#38bdf8' : '#fff'}; font-size:0.88rem;">${isMemLeader ? '👑' : '🛡️'} ${esc(m.name)} ${isMe ? '(คุณ)' : ''}</b>
+            <span style="font-size:0.75rem; color:#94a3b8;">Lv.${m.level || 1}</span>
+            <div style="font-size:0.72rem; color:#34d399; margin-top:2px;">🗺️ ${esc(zoneName(m.map))} • HP ${m.hp ?? 0}/${m.maxHp ?? 0}</div>
+          </div>
+          <div style="display:flex; gap:6px;">${actions}</div>
+        </div>`;
+    }).join('');
+
+    let inviteHtml = '';
+    if (isLeader && memCount < 6 && net) {
+      const rows = [];
+      net.otherPlayers.forEach((op, pid) => {
+        if (op.partyId || party.members.some(m => m.id === pid)) return;
+        rows.push(`<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:0.8rem; color:#cbd5e1;">
+          <span>${esc(op.name || 'Adventurer')} (Lv.${op.level || 1}) • ${esc(zoneName(op.currentMap))}</span>
+          <button class="btn-party-invite-more" data-target="${esc(pid)}" style="${btn('#2563eb')}">✉️ ชวน</button></div>`);
+      });
+      inviteHtml = `<div style="${box}"><h5 style="margin-bottom:6px; font-size:0.82rem; color:#94a3b8;">ชวนผู้เล่นอื่น (${memCount}/6)</h5>${rows.join('') || '<span style="font-size:0.78rem; color:#94a3b8;">ไม่มีผู้เล่นที่ว่างอยู่</span>'}</div>`;
+    }
+
+    body.innerHTML = `
+      <div style="background:linear-gradient(135deg,rgba(59,130,246,0.25),rgba(245,158,11,0.15)); border:1px solid #3b82f6; border-radius:8px; padding:12px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <div>
+          <h4 style="color:#60a5fa; margin-bottom:3px;">🚩 ${esc(party.name)}</h4>
+          <div style="font-size:0.78rem; color:#cbd5e1;">หัวหน้า: <b>${esc(party.leaderName)}</b> • สมาชิก: <b>${memCount}/6</b></div>
+        </div>
+        <button id="btn-party-leave-action" style="${btn('#ef4444')} padding:6px 14px;">ออกจากปาร์ตี้</button>
+      </div>
+      ${isLeader ? `<div style="${box}"><h4 style="margin-bottom:8px;">✏️ ชื่อปาร์ตี้</h4>
+        <div style="display:flex; gap:8px;"><input type="text" id="input-rename" maxlength="24" style="${inp} flex:1;" value="${esc(party.name)}">
+        <button id="btn-party-rename" style="${btn('#2563eb')}">เปลี่ยนชื่อ</button></div></div>` : ''}
+      <div style="${box}"><h4 style="margin-bottom:8px;">⚙️ ตั้งค่าปาร์ตี้ ${isLeader ? '' : '(เฉพาะหัวหน้าแก้ได้)'}</h4>
+        ${settingsFields(s, !isLeader)}
+        ${isLeader ? `<button id="btn-party-save-settings" style="${btn('#16a34a')} margin-top:10px;">บันทึกการตั้งค่า</button>` : ''}
+      </div>
+      <div style="${box}"><h4 style="margin-bottom:10px;">👥 สมาชิก (${memCount}/6)</h4>${membersHtml}</div>
+      ${inviteHtml}`;
+
+    document.getElementById('btn-party-leave-action').addEventListener('click', () => {
+      if (confirm('ยืนยันออกจากปาร์ตี้?')) net?.sendLeaveParty();
+    });
+    document.getElementById('btn-party-rename')?.addEventListener('click', () => {
+      net?.sendRenameParty(document.getElementById('input-rename').value);
+    });
+    document.getElementById('btn-party-save-settings')?.addEventListener('click', () => {
+      net?.sendPartySettings(readSettings());
+    });
+    body.querySelectorAll('.btn-pm-leader').forEach(b => b.addEventListener('click', e => {
+      if (confirm('มอบหัวหน้าปาร์ตี้ให้คนนี้?')) net?.sendTransferLeader(e.currentTarget.dataset.id);
+    }));
+    body.querySelectorAll('.btn-pm-kick').forEach(b => b.addEventListener('click', e => {
+      if (confirm('เตะสมาชิกคนนี้ออกจากปาร์ตี้?')) net?.sendKickMember(e.currentTarget.dataset.id);
+    }));
+    body.querySelectorAll('.btn-party-invite-more').forEach(b => b.addEventListener('click', e => {
+      net?.sendInviteParty(e.currentTarget.dataset.target);
+    }));
+  }
+
+  // Party finder results
+  onPartyListReceived(list) {
+    const el = document.getElementById('party-search-results');
+    if (!el) return;
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    if (!list.length) {
+      el.innerHTML = 'ไม่พบปาร์ตี้ที่ตรงกับเงื่อนไข';
+      return;
+    }
+    const myLevel = this.player.baseLevel;
+    el.innerHTML = list.map(p => {
+      const s = p.settings;
+      const ok = myLevel >= s.minLevel && myLevel <= s.maxLevel && p.count < p.max;
+      const z = ZONES.find(zz => zz.id === p.leaderMap);
+      return `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:8px 10px; border-radius:6px; margin-bottom:6px;">
+        <div style="color:#e2e8f0;">
+          <b>${esc(p.name)}</b> <span style="color:#94a3b8;">(${p.count}/${p.max})</span>
+          <div style="font-size:0.72rem; color:#94a3b8;">หัวหน้า ${esc(p.leaderName)} Lv.${p.leaderLevel} • ${esc(z ? z.name : '-')}<br>
+          รับเลเวล ${s.minLevel}-${s.maxLevel} • ${s.expShare === 'share' ? 'หาร EXP' : 'ใครฆ่าได้'} • ${s.autoAccept ? '✅ รับอัตโนมัติ' : '📨 ต้องรออนุมัติ'}</div>
+        </div>
+        <button class="btn-party-join" data-id="${esc(p.id)}" ${ok ? '' : 'disabled'} style="padding:5px 12px; background:${ok ? '#16a34a' : '#475569'}; color:#fff; border:none; border-radius:5px; cursor:${ok ? 'pointer' : 'not-allowed'}; font-size:0.75rem;">${ok ? 'ขอเข้าร่วม' : 'เข้าไม่ได้'}</button>
+      </div>`;
+    }).join('');
+    el.querySelectorAll('.btn-party-join:not([disabled])').forEach(b => b.addEventListener('click', e => {
+      this.gameEngine.network?.sendJoinRequest(e.currentTarget.dataset.id);
+    }));
   }
 
   // Update Party HUD widget on left side
   updatePartyHUD(party) {
     const listEl = document.getElementById('party-members-list');
     if (!listEl) return;
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     if (!party || !party.members || party.members.length === 0) {
-      listEl.innerHTML = '<div style="font-size:0.7rem; color:#94a3b8; padding:4px 6px;">ยังไม่มีปาร์ตี้ (กด [P] เพื่อสร้าง/ชวน)</div>';
+      listEl.innerHTML = '<div style="font-size:0.7rem; color:#94a3b8; padding:4px 6px;">ยังไม่มีปาร์ตี้ (กด [P] เพื่อสร้าง/ค้นหา)</div>';
       if (this.activeModal === 'modal-party') this.renderPartyModal();
       return;
     }
@@ -1168,14 +1180,14 @@ export class UIController {
     party.members.forEach(m => {
       const isLeader = m.id === party.leaderId;
       const isMe = m.id === myId;
-      const curHp = isMe ? this.player.hp : (m.hp || 100);
-      const maxHp = isMe ? this.player.maxHp : (m.maxHp || 100);
+      const curHp = isMe ? this.player.currentHp : (m.hp || 0);
+      const maxHp = isMe ? this.player.maxHp : (m.maxHp || 1);
       const hpPct = Math.min(100, Math.max(0, (curHp / maxHp) * 100));
 
       html += `
         <div class="party-member-row">
           <div class="party-member-info">
-            <span class="party-member-name">${isLeader ? '👑 ' : ''}${m.name} ${isMe ? '(คุณ)' : ''}</span>
+            <span class="party-member-name">${isLeader ? '👑 ' : ''}${esc(m.name)} ${isMe ? '(คุณ)' : ''}</span>
             <span class="party-member-lvl">Lv.${m.level || 1}</span>
           </div>
           <div class="party-member-hp-track">
@@ -1202,5 +1214,31 @@ export class UIController {
       toast.style.display = 'block';
     }
   }
-}
 
+  // Leader sees this when someone asks to join (auto-accept off)
+  showJoinRequestToast(partyId, requesterId, requesterName, requesterLevel) {
+    const host = document.getElementById('game-viewport');
+    if (!host) return;
+    const el = document.createElement('div');
+    el.className = 'party-invite-popup';
+    el.style.display = 'block';
+    el.style.top = `${180 + document.querySelectorAll('.party-join-toast').length * 110}px`;
+    el.classList.add('party-join-toast');
+    el.innerHTML = `
+      <div class="invite-header">📨 ขอเข้าร่วมปาร์ตี้</div>
+      <div class="invite-desc"></div>
+      <div class="invite-actions">
+        <button class="btn-invite-accept">รับเข้าตี้</button>
+        <button class="btn-invite-decline">ปฏิเสธ</button>
+      </div>`;
+    el.querySelector('.invite-desc').textContent = `${requesterName} (Lv.${requesterLevel}) ขอเข้าร่วมปาร์ตี้ของคุณ`;
+    const answer = (accept) => {
+      this.gameEngine.network?.sendJoinResponse(requesterId, accept);
+      el.remove();
+    };
+    el.querySelector('.btn-invite-accept').addEventListener('click', () => answer(true));
+    el.querySelector('.btn-invite-decline').addEventListener('click', () => answer(false));
+    host.appendChild(el);
+    setTimeout(() => el.remove(), 60000);
+  }
+}

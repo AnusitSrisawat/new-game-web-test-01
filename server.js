@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
+import { MONSTERS, ZONES } from './src/data.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -107,16 +108,65 @@ const monsters = FIXED_MONSTERS_DATA.map(m => ({
   spawnY: m.y
 }));
 
+// ---------------------------------------------------------------------------
+// Validation helpers & limits (the client is never trusted for combat numbers)
+// ---------------------------------------------------------------------------
+const WORLD_W = 3200;
+const WORLD_H = 2400;
+const ZONE_IDS = new Set(ZONES.map(z => z.id));
+const MAX_PARTY_SIZE = 6;
+const PARTY_EXP_BONUS = 1.25;
+const MAX_HIT_RANGE = 700;      // px between player and monster for a hit to count
+const HITS_PER_SECOND = 14;     // sustained hit-message budget per player
+const HIT_BURST = 24;
+const CHAT_PER_SECOND = 1;
+const CHAT_BURST = 5;
+
+function num(v, fallback = 0) {
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+function clampInt(v, min, max, fallback = min) {
+  return Math.min(max, Math.max(min, Math.floor(num(v, fallback))));
+}
+function cleanText(v, maxLen, fallback = '') {
+  if (typeof v !== 'string') return fallback;
+  const t = v.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, maxLen);
+  return t || fallback;
+}
+// Generous per-hit ceiling derived from the (client-reported) level. It is not
+// real authority yet (stats still live on the client) but it stops absurd values.
+function maxDamageForLevel(level) {
+  return 500 + level * 60;
+}
+function takeToken(bucket, now, perSecond, burst) {
+  bucket.tokens = Math.min(burst, bucket.tokens + (now - bucket.last) * perSecond);
+  bucket.last = now;
+  if (bucket.tokens < 1) return false;
+  bucket.tokens -= 1;
+  return true;
+}
+function monsterGold(template, isMvp) {
+  return isMvp ? 5000 : 5 + (template.level || 1) * 2;
+}
+
 // Connected Players: ws -> playerState
 const players = new Map();
 
-// Active Parties: partyId -> { id, name, leaderId, leaderName, members: [{ id, name, classId, level, hp, maxHp }] }
+// Parties
+// party: { id, name, leaderId, leaderName, members: [{id,name,classId,level,hp,maxHp,map}],
+//          settings: { expShare: 'share'|'killer', autoAccept, minLevel, maxLevel } }
 const parties = new Map();
 let nextPartyId = 1;
+const invites = new Map();       // targetPlayerId -> Set<partyId>
+const joinRequests = new Map();  // partyId -> Set<requesterPlayerId>
 
 // 3. WebSocket Server
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, maxPayload: 16 * 1024 });
 let nextPlayerId = 1;
+
+function safeSend(ws, data) {
+  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
+}
 
 function broadcast(data, excludeWs = null) {
   const msg = JSON.stringify(data);
@@ -127,13 +177,22 @@ function broadcast(data, excludeWs = null) {
   });
 }
 
+function findWs(playerId) {
+  for (const [ws, p] of players.entries()) {
+    if (p.id === playerId) return ws;
+  }
+  return null;
+}
+
 function sendToPlayer(targetPlayerId, data) {
+  const ws = findWs(targetPlayerId);
+  if (ws) safeSend(ws, data);
+}
+
+function sendToMap(mapId, data) {
   const msg = JSON.stringify(data);
   for (const [ws, p] of players.entries()) {
-    if (p.id === targetPlayerId && ws.readyState === WebSocket.OPEN) {
-      ws.send(msg);
-      break;
-    }
+    if (p.currentMap === mapId && ws.readyState === WebSocket.OPEN) ws.send(msg);
   }
 }
 
@@ -148,10 +207,134 @@ function broadcastToParty(partyId, data) {
   }
 }
 
+function partyNotice(partyId, text) {
+  broadcastToParty(partyId, { type: 'chat', text, channel: 'system' });
+}
+
+function pushParty(party) {
+  broadcastToParty(party.id, { type: 'party_update', party });
+}
+
+function syncMember(p) {
+  if (!p.partyId) return;
+  const party = parties.get(p.partyId);
+  const mem = party && party.members.find(m => m.id === p.id);
+  if (!mem) return;
+  mem.name = p.name;
+  mem.classId = p.classId;
+  mem.level = p.level;
+  mem.hp = p.hp;
+  mem.maxHp = p.maxHp;
+  mem.map = p.currentMap;
+  if (party.leaderId === p.id) party.leaderName = p.name;
+  pushParty(party);
+}
+
+function levelAllowed(party, level) {
+  return level >= party.settings.minLevel && level <= party.settings.maxLevel;
+}
+
+function addToParty(party, p) {
+  p.partyId = party.id;
+  party.members.push({
+    id: p.id, name: p.name, classId: p.classId, level: p.level,
+    hp: p.hp, maxHp: p.maxHp, map: p.currentMap
+  });
+  invites.get(p.id)?.delete(party.id);
+  joinRequests.get(party.id)?.delete(p.id);
+  pushParty(party);
+  partyNotice(party.id, `🤝 [${p.name}] ได้เข้าร่วมปาร์ตี้ [${party.name}] (${party.members.length}/${MAX_PARTY_SIZE})`);
+}
+
+// Remove a player from their party; leadership passes to the next member.
+function removeFromParty(p, reason = 'leave') {
+  if (!p.partyId) return;
+  const party = parties.get(p.partyId);
+  p.partyId = null;
+  sendToPlayer(p.id, { type: 'party_update', party: null });
+  if (!party) return;
+
+  party.members = party.members.filter(m => m.id !== p.id);
+  if (party.members.length === 0) {
+    parties.delete(party.id);
+    joinRequests.delete(party.id);
+    return;
+  }
+  const verb = reason === 'kick' ? 'ถูกเตะออกจากปาร์ตี้' : 'ได้ออกจากปาร์ตี้';
+  partyNotice(party.id, `👋 [${p.name}] ${verb}`);
+  if (party.leaderId === p.id) {
+    const next = party.members[0];
+    party.leaderId = next.id;
+    party.leaderName = next.name;
+    partyNotice(party.id, `👑 [${next.name}] ได้เป็นหัวหน้าปาร์ตี้คนใหม่`);
+  }
+  pushParty(party);
+}
+
+function partySummary(party) {
+  const leader = party.members.find(m => m.id === party.leaderId) || party.members[0];
+  return {
+    id: party.id,
+    name: party.name,
+    leaderName: party.leaderName,
+    leaderLevel: leader ? leader.level : 1,
+    leaderMap: leader ? leader.map : null,
+    count: party.members.length,
+    max: MAX_PARTY_SIZE,
+    settings: party.settings
+  };
+}
+
+function applySettings(party, raw = {}) {
+  const s = party.settings;
+  if (raw.expShare === 'share' || raw.expShare === 'killer') s.expShare = raw.expShare;
+  if (typeof raw.autoAccept === 'boolean') s.autoAccept = raw.autoAccept;
+  if (raw.minLevel !== undefined) s.minLevel = clampInt(raw.minLevel, 1, 999, 1);
+  if (raw.maxLevel !== undefined) s.maxLevel = clampInt(raw.maxLevel, 1, 999, 999);
+  if (s.minLevel > s.maxLevel) s.minLevel = s.maxLevel;
+}
+
+// Server-side reward calculation and delivery
+function rewardKill(killer, m) {
+  const template = MONSTERS[m.templateId] || {};
+  const exp = template.exp || 35;
+  const jobExp = template.jobExp || 20;
+  const gold = monsterGold(template, !!m.isMvp);
+
+  const party = killer.partyId ? parties.get(killer.partyId) : null;
+  let recipients = [killer];
+  let shared = false;
+  if (party && party.settings.expShare === 'share') {
+    const nearby = [];
+    for (const [, pl] of players.entries()) {
+      if (pl.partyId === party.id && pl.currentMap === m.map) nearby.push(pl);
+    }
+    if (nearby.length > 1) {
+      recipients = nearby;
+      shared = true;
+    }
+  }
+
+  const n = recipients.length;
+  const mult = shared ? PARTY_EXP_BONUS / n : 1;
+  for (const r of recipients) {
+    sendToPlayer(r.id, {
+      type: 'reward',
+      monsterId: m.id,
+      monsterName: m.name,
+      exp: Math.max(1, Math.floor(exp * mult)),
+      jobExp: Math.max(1, Math.floor(jobExp * mult)),
+      gold: Math.floor(gold * mult),
+      shared,
+      shareCount: n,
+      fromName: killer.name
+    });
+  }
+}
+
 wss.on('connection', (ws) => {
   const playerId = `player_${nextPlayerId++}`;
 
-  // Initialize player state
   const playerState = {
     id: playerId,
     name: `Adventurer #${Math.floor(100 + Math.random() * 900)}`,
@@ -170,138 +353,113 @@ wss.on('connection', (ws) => {
     partyId: null,
     isAttacking: false
   };
+  const limits = {
+    hits: { tokens: HIT_BURST, last: performance.now() / 1000 },
+    chat: { tokens: CHAT_BURST, last: performance.now() / 1000 }
+  };
 
   players.set(ws, playerState);
 
-  // Send Initial Welcome & World State
-  ws.send(JSON.stringify({
+  safeSend(ws, {
     type: 'init',
     playerId: playerId,
     you: playerState,
     monsters: monsters,
     otherPlayers: Array.from(players.values()).filter(p => p.id !== playerId)
-  }));
+  });
 
-  // Notify other players
-  broadcast({
-    type: 'player_joined',
-    player: playerState
-  }, ws);
-
+  broadcast({ type: 'player_joined', player: playerState }, ws);
   broadcast({
     type: 'chat',
     text: `🌟 ผู้เล่น [${playerState.name}] ก้าวเข้าสู่โลก TRIPLE CROWN ONLINE!`,
     channel: 'system'
   });
 
-  // Handle incoming messages
   ws.on('message', (raw) => {
     try {
       const data = JSON.parse(raw);
       const p = players.get(ws);
-      if (!p) return;
+      if (!p || !data || typeof data !== 'object') return;
+      const now = performance.now() / 1000;
 
-      if (data.type === 'update_profile') {
-        if (data.name) p.name = data.name;
-        if (data.level) p.level = data.level;
-        if (data.classId) p.classId = data.classId;
-        if (data.weaponType) p.weaponType = data.weaponType;
-        if (data.rebirthCount !== undefined) p.rebirthCount = data.rebirthCount;
-        if (data.maxHp) p.maxHp = data.maxHp;
-        if (data.hp !== undefined) p.hp = data.hp;
-        if (data.currentMap) p.currentMap = data.currentMap;
-
-        // If player is in party, update party member record
-        if (p.partyId && parties.has(p.partyId)) {
-          const party = parties.get(p.partyId);
-          const mem = party.members.find(m => m.id === p.id);
-          if (mem) {
-            mem.name = p.name;
-            mem.classId = p.classId;
-            mem.level = p.level;
-            mem.hp = p.hp;
-            mem.maxHp = p.maxHp;
-            broadcastToParty(p.partyId, { type: 'party_update', party });
-          }
+      switch (data.type) {
+        case 'update_profile': {
+          if (data.name !== undefined) p.name = cleanText(data.name, 16, p.name);
+          if (data.level !== undefined) p.level = clampInt(data.level, 1, 999, p.level);
+          if (typeof data.classId === 'string') p.classId = cleanText(data.classId, 32, p.classId);
+          if (data.weaponType === 'sword' || data.weaponType === 'bow') p.weaponType = data.weaponType;
+          if (data.rebirthCount !== undefined) p.rebirthCount = clampInt(data.rebirthCount, 0, 10, 0);
+          if (data.maxHp !== undefined) p.maxHp = clampInt(data.maxHp, 1, 500000, p.maxHp);
+          if (data.hp !== undefined) p.hp = clampInt(data.hp, 0, p.maxHp, p.hp);
+          p.hp = Math.min(p.hp, p.maxHp);
+          if (ZONE_IDS.has(data.currentMap)) p.currentMap = data.currentMap;
+          syncMember(p);
+          broadcast({ type: 'player_profile_updated', player: p }, ws);
+          break;
         }
 
-        broadcast({ type: 'player_profile_updated', player: p }, ws);
+        case 'move': {
+          p.x = Math.min(WORLD_W, Math.max(0, num(data.x, p.x)));
+          p.y = Math.min(WORLD_H, Math.max(0, num(data.y, p.y)));
+          p.facing = data.facing === -1 ? -1 : 1;
+          p.isMoving = !!data.isMoving;
+          p.walkFrame = clampInt(data.walkFrame, 0, 1000, 0);
+          if (ZONE_IDS.has(data.currentMap) && data.currentMap !== p.currentMap) {
+            p.currentMap = data.currentMap;
+            syncMember(p);
+          }
+          break;
+        }
 
-      } else if (data.type === 'move') {
-        p.x = data.x;
-        p.y = data.y;
-        p.facing = data.facing || 1;
-        p.isMoving = !!data.isMoving;
-        p.walkFrame = data.walkFrame || 0;
-        if (data.currentMap) p.currentMap = data.currentMap;
+        case 'change_map': {
+          if (!ZONE_IDS.has(data.mapId)) break;
+          p.currentMap = data.mapId;
+          p.x = Math.min(WORLD_W, Math.max(0, num(data.x, 1600)));
+          p.y = Math.min(WORLD_H, Math.max(0, num(data.y, 1200)));
+          broadcast({ type: 'player_changed_map', playerId: p.id, mapId: p.currentMap, x: p.x, y: p.y });
+          syncMember(p);
+          break;
+        }
 
-      } else if (data.type === 'change_map') {
-        p.currentMap = data.mapId;
-        p.x = data.x || 1600;
-        p.y = data.y || 1200;
-        broadcast({
-          type: 'player_changed_map',
-          playerId: p.id,
-          mapId: p.currentMap,
-          x: p.x,
-          y: p.y
-        });
+        case 'attack_action': {
+          p.isAttacking = true;
+          broadcast({
+            type: 'player_attack_effect',
+            playerId: p.id,
+            classId: p.classId,
+            weaponType: data.weaponType === 'bow' ? 'bow' : (data.weaponType === 'sword' ? 'sword' : p.weaponType),
+            x: p.x,
+            y: p.y,
+            facing: p.facing,
+            skillId: cleanText(data.skillId, 40) || null,
+            skillName: cleanText(data.skillName, 60) || null,
+            targetId: cleanText(data.targetId, 40) || null,
+            targetX: data.targetX === null || data.targetX === undefined ? null : num(data.targetX, 0),
+            targetY: data.targetY === null || data.targetY === undefined ? null : num(data.targetY, 0)
+          }, ws);
+          break;
+        }
 
-      } else if (data.type === 'attack_action') {
-        p.isAttacking = true;
-        // Rich attack payload broadcast for realistic visual animations
-        broadcast({
-          type: 'player_attack_effect',
-          playerId: p.id,
-          classId: p.classId,
-          weaponType: data.weaponType || p.weaponType || 'sword',
-          x: p.x,
-          y: p.y,
-          facing: p.facing,
-          skillId: data.skillId || null,
-          skillName: data.skillName || null,
-          targetId: data.targetId || null,
-          targetX: data.targetX || null,
-          targetY: data.targetY || null
-        }, ws);
+        case 'hit_monster': {
+          if (!takeToken(limits.hits, now, HITS_PER_SECOND, HIT_BURST)) break;
+          const m = monsters.find(item => item.id === data.monsterId);
+          if (!m || m.isDead || m.map !== p.currentMap) break;
+          if (Math.hypot(m.x - p.x, m.y - p.y) > MAX_HIT_RANGE) break;
+          const damage = clampInt(data.damage, 1, maxDamageForLevel(p.level), 1);
+          const isCrit = data.isCrit === true;
 
-      } else if (data.type === 'hit_monster') {
-        const m = monsters.find(item => item.id === data.monsterId);
-        if (m && !m.isDead) {
-          m.currentHp = Math.max(0, m.currentHp - data.damage);
-
+          m.currentHp = Math.max(0, m.currentHp - damage);
           if (m.currentHp <= 0) {
             m.isDead = true;
-            // Boss takes 60 seconds to respawn, normal monsters 8 seconds
             m.respawnTimer = m.isMvp ? 60 : 8;
-
-            const expReward = data.exp || (m.isMvp ? 50000 : 35);
-            const goldReward = m.isMvp ? 5000 : 80;
-
             broadcast({
               type: 'monster_killed',
               monsterId: m.id,
               killerId: playerId,
               killerName: p.name,
-              isMvp: !!m.isMvp,
-              exp: expReward
+              isMvp: !!m.isMvp
             });
-
-            // PARTY EXP & GOLD SHARING BONUS (+25% BONUS!)
-            if (p.partyId && parties.has(p.partyId)) {
-              const party = parties.get(p.partyId);
-              const sharedExp = Math.floor(expReward * 1.25);
-              const sharedGold = Math.floor(goldReward * 1.25);
-
-              broadcastToParty(p.partyId, {
-                type: 'party_reward_share',
-                fromKillerName: p.name,
-                monsterName: m.name,
-                sharedExp,
-                sharedGold
-              });
-            }
-
+            rewardKill(p, m);
             if (m.isMvp) {
               broadcast({
                 type: 'chat',
@@ -310,107 +468,203 @@ wss.on('connection', (ws) => {
               });
             }
           } else {
-            broadcast({
-              type: 'monster_damaged',
-              monsterId: m.id,
-              damage: data.damage,
-              currentHp: m.currentHp,
-              isCrit: data.isCrit
-            });
+            broadcast({ type: 'monster_damaged', monsterId: m.id, damage, currentHp: m.currentHp, isCrit });
           }
+          break;
         }
 
-      } else if (data.type === 'party_create') {
-        // Create new Party
-        const partyId = `party_${nextPartyId++}`;
-        const newParty = {
-          id: partyId,
-          name: data.partyName || `${p.name}'s Party`,
-          leaderId: p.id,
-          leaderName: p.name,
-          members: [{
-            id: p.id,
-            name: p.name,
-            classId: p.classId,
-            level: p.level,
-            hp: p.hp,
-            maxHp: p.maxHp
-          }]
-        };
-        parties.set(partyId, newParty);
-        p.partyId = partyId;
+        // ------------------------------ PARTY ------------------------------
+        case 'party_create': {
+          if (p.partyId) {
+            safeSend(ws, { type: 'chat', text: '⚠️ คุณอยู่ในปาร์ตี้แล้ว ต้องออกก่อนจึงจะสร้างใหม่ได้', channel: 'system' });
+            break;
+          }
+          const partyId = `party_${nextPartyId++}`;
+          const party = {
+            id: partyId,
+            name: cleanText(data.partyName, 24, `${p.name}'s Party`),
+            leaderId: p.id,
+            leaderName: p.name,
+            members: [],
+            settings: { expShare: 'share', autoAccept: false, minLevel: 1, maxLevel: 999 }
+          };
+          applySettings(party, data.settings || {});
+          parties.set(partyId, party);
+          addToParty(party, p);
+          safeSend(ws, {
+            type: 'chat',
+            text: `🚩 ปาร์ตี้ [${party.name}] ถูกสร้างแล้ว! เชิญเพื่อนหรือรอคนมาขอเข้าร่วม`,
+            channel: 'system'
+          });
+          break;
+        }
 
-        ws.send(JSON.stringify({ type: 'party_update', party: newParty }));
-        ws.send(JSON.stringify({
-          type: 'chat',
-          text: `🚩 ปาร์ตี้ [${newParty.name}] ถูกสร้างแล้ว! เชิญเพื่อนร่วมทีมเพื่อรับโบนัส EXP +25%`,
-          channel: 'system'
-        }));
-
-      } else if (data.type === 'party_invite') {
-        // Send invite to target player
-        const targetWs = Array.from(players.entries()).find(([w, pl]) => pl.id === data.targetPlayerId);
-        if (targetWs && p.partyId && parties.has(p.partyId)) {
-          const party = parties.get(p.partyId);
-          targetWs[0].send(JSON.stringify({
+        case 'party_invite': {
+          const party = p.partyId && parties.get(p.partyId);
+          if (!party) break;
+          if (party.leaderId !== p.id) {
+            safeSend(ws, { type: 'chat', text: '⚠️ เฉพาะหัวหน้าปาร์ตี้เท่านั้นที่เชิญได้', channel: 'system' });
+            break;
+          }
+          if (party.members.length >= MAX_PARTY_SIZE) break;
+          const target = Array.from(players.values()).find(pl => pl.id === data.targetPlayerId);
+          if (!target || target.partyId || target.id === p.id) break;
+          if (!levelAllowed(party, target.level)) {
+            safeSend(ws, {
+              type: 'chat',
+              text: `⚠️ [${target.name}] เลเวลไม่ตรงเงื่อนไขปาร์ตี้ (Lv.${party.settings.minLevel}-${party.settings.maxLevel})`,
+              channel: 'system'
+            });
+            break;
+          }
+          if (!invites.has(target.id)) invites.set(target.id, new Set());
+          invites.get(target.id).add(party.id);
+          sendToPlayer(target.id, {
             type: 'party_invitation',
             partyId: party.id,
             partyName: party.name,
             leaderName: p.name
-          }));
+          });
+          safeSend(ws, { type: 'chat', text: `💌 ส่งคำเชิญไปยัง [${target.name}] แล้ว`, channel: 'system' });
+          break;
         }
 
-      } else if (data.type === 'party_accept') {
-        const party = parties.get(data.partyId);
-        if (party && party.members.length < 6) {
-          p.partyId = party.id;
-          party.members.push({
-            id: p.id,
-            name: p.name,
-            classId: p.classId,
-            level: p.level,
-            hp: p.hp,
-            maxHp: p.maxHp
-          });
-          broadcastToParty(party.id, { type: 'party_update', party });
-          broadcastToParty(party.id, {
-            type: 'chat',
-            text: `🤝 [${p.name}] ได้เข้าร่วมปาร์ตี้ [${party.name}] เรียบร้อยแล้ว!`,
-            channel: 'system'
-          });
+        case 'party_accept': {
+          const party = parties.get(data.partyId);
+          if (!party || p.partyId) break;
+          if (!invites.get(p.id)?.has(party.id)) break; // must have been invited
+          if (party.members.length >= MAX_PARTY_SIZE) {
+            safeSend(ws, { type: 'chat', text: '⚠️ ปาร์ตี้เต็มแล้ว', channel: 'system' });
+            break;
+          }
+          if (!levelAllowed(party, p.level)) {
+            safeSend(ws, { type: 'chat', text: '⚠️ เลเวลของคุณไม่ตรงเงื่อนไขปาร์ตี้นี้', channel: 'system' });
+            break;
+          }
+          addToParty(party, p);
+          break;
         }
 
-      } else if (data.type === 'party_leave') {
-        if (p.partyId && parties.has(p.partyId)) {
-          const party = parties.get(p.partyId);
-          party.members = party.members.filter(m => m.id !== p.id);
-          p.partyId = null;
-          ws.send(JSON.stringify({ type: 'party_update', party: null }));
+        case 'party_decline': {
+          invites.get(p.id)?.delete(data.partyId);
+          break;
+        }
 
-          if (party.members.length === 0 || party.leaderId === p.id) {
-            // Disband party if leader left or empty
-            parties.delete(party.id);
-            party.members.forEach(m => {
-              sendToPlayer(m.id, { type: 'party_update', party: null });
-              sendToPlayer(m.id, { type: 'chat', text: `🚩 หัวหน้าปาร์ตี้ออกจากกลุ่ม ปาร์ตี้ถูกยุบแล้ว`, channel: 'system' });
-            });
-          } else {
-            broadcastToParty(party.id, { type: 'party_update', party });
-            broadcastToParty(party.id, {
+        case 'party_leave': {
+          removeFromParty(p, 'leave');
+          break;
+        }
+
+        case 'party_kick': {
+          const party = p.partyId && parties.get(p.partyId);
+          if (!party || party.leaderId !== p.id) break;
+          const target = Array.from(players.values()).find(pl => pl.id === data.targetPlayerId);
+          if (!target || target.id === p.id || target.partyId !== party.id) break;
+          removeFromParty(target, 'kick');
+          break;
+        }
+
+        case 'party_transfer_leader': {
+          const party = p.partyId && parties.get(p.partyId);
+          if (!party || party.leaderId !== p.id) break;
+          const mem = party.members.find(m => m.id === data.targetPlayerId);
+          if (!mem || mem.id === p.id) break;
+          party.leaderId = mem.id;
+          party.leaderName = mem.name;
+          pushParty(party);
+          partyNotice(party.id, `👑 [${p.name}] มอบหัวหน้าปาร์ตี้ให้ [${mem.name}]`);
+          break;
+        }
+
+        case 'party_rename': {
+          const party = p.partyId && parties.get(p.partyId);
+          if (!party || party.leaderId !== p.id) break;
+          const name = cleanText(data.name, 24);
+          if (!name) break;
+          party.name = name;
+          pushParty(party);
+          partyNotice(party.id, `✏️ ปาร์ตี้เปลี่ยนชื่อเป็น [${name}]`);
+          break;
+        }
+
+        case 'party_settings': {
+          const party = p.partyId && parties.get(p.partyId);
+          if (!party || party.leaderId !== p.id) break;
+          applySettings(party, data.settings || {});
+          pushParty(party);
+          const s = party.settings;
+          partyNotice(
+            party.id,
+            `⚙️ ตั้งค่าปาร์ตี้: ${s.expShare === 'share' ? 'หาร EXP (+25%)' : 'ใครฆ่าคนนั้นได้'} • ` +
+            `รับอัตโนมัติ: ${s.autoAccept ? 'เปิด' : 'ปิด'} • เลเวล ${s.minLevel}-${s.maxLevel}`
+          );
+          break;
+        }
+
+        case 'party_list_request': {
+          const minLv = data.minLevel === undefined ? 1 : clampInt(data.minLevel, 1, 999, 1);
+          const maxLv = data.maxLevel === undefined ? 999 : clampInt(data.maxLevel, 1, 999, 999);
+          const map = ZONE_IDS.has(data.map) ? data.map : null;
+          const list = Array.from(parties.values())
+            .map(partySummary)
+            .filter(s => s.leaderLevel >= minLv && s.leaderLevel <= maxLv && (!map || s.leaderMap === map));
+          safeSend(ws, { type: 'party_list', parties: list.slice(0, 50) });
+          break;
+        }
+
+        case 'party_join_request': {
+          const party = parties.get(data.partyId);
+          if (!party || p.partyId) break;
+          if (party.members.length >= MAX_PARTY_SIZE) {
+            safeSend(ws, { type: 'chat', text: '⚠️ ปาร์ตี้เต็มแล้ว', channel: 'system' });
+            break;
+          }
+          if (!levelAllowed(party, p.level)) {
+            safeSend(ws, {
               type: 'chat',
-              text: `👋 [${p.name}] ได้ออกจากปาร์ตี้แล้ว`,
+              text: `⚠️ ปาร์ตี้นี้รับเลเวล ${party.settings.minLevel}-${party.settings.maxLevel} เท่านั้น`,
               channel: 'system'
             });
+            break;
           }
+          if (party.settings.autoAccept) {
+            addToParty(party, p);
+            break;
+          }
+          if (!joinRequests.has(party.id)) joinRequests.set(party.id, new Set());
+          joinRequests.get(party.id).add(p.id);
+          sendToPlayer(party.leaderId, {
+            type: 'party_join_request',
+            partyId: party.id,
+            requesterId: p.id,
+            requesterName: p.name,
+            requesterLevel: p.level
+          });
+          safeSend(ws, { type: 'chat', text: `📨 ส่งคำขอเข้าร่วมปาร์ตี้ [${party.name}] แล้ว รอหัวหน้าตอบรับ`, channel: 'system' });
+          break;
         }
 
-      } else if (data.type === 'chat') {
-        if (data.text) {
-          broadcast({
-            type: 'chat',
-            text: `[${p.name}]: ${data.text}`,
-            channel: 'chat'
-          });
+        case 'party_join_response': {
+          const party = p.partyId && parties.get(p.partyId);
+          if (!party || party.leaderId !== p.id) break;
+          const reqSet = joinRequests.get(party.id);
+          if (!reqSet || !reqSet.has(data.requesterId)) break;
+          reqSet.delete(data.requesterId);
+          const requester = Array.from(players.values()).find(pl => pl.id === data.requesterId);
+          if (!requester || requester.partyId) break;
+          if (data.accept === true && party.members.length < MAX_PARTY_SIZE && levelAllowed(party, requester.level)) {
+            addToParty(party, requester);
+          } else {
+            sendToPlayer(requester.id, { type: 'chat', text: `❌ หัวหน้าปาร์ตี้ [${party.name}] ปฏิเสธคำขอของคุณ`, channel: 'system' });
+          }
+          break;
+        }
+
+        case 'chat': {
+          const text = cleanText(data.text, 200);
+          if (!text || !takeToken(limits.chat, now, CHAT_PER_SECOND, CHAT_BURST)) break;
+          broadcast({ type: 'chat', text: `[${p.name}]: ${text}`, channel: 'chat' });
+          break;
         }
       }
     } catch (e) {
@@ -418,21 +672,11 @@ wss.on('connection', (ws) => {
     }
   });
 
-  // Client disconnect
   ws.on('close', () => {
     const p = players.get(ws);
     if (p) {
-      // Clean up party membership
-      if (p.partyId && parties.has(p.partyId)) {
-        const party = parties.get(p.partyId);
-        party.members = party.members.filter(m => m.id !== p.id);
-        if (party.members.length === 0) {
-          parties.delete(p.partyId);
-        } else {
-          broadcastToParty(p.partyId, { type: 'party_update', party });
-        }
-      }
-
+      removeFromParty(p, 'leave');
+      invites.delete(p.id);
       players.delete(ws);
       broadcast({ type: 'player_left', playerId: p.id });
       broadcast({
@@ -445,16 +689,15 @@ wss.on('connection', (ws) => {
 });
 
 // 4. Server Game Loop (20 FPS / 50ms)
-// Handles Monster Respawn, Boss Telegraphed AoE Danger Attacks & Position Sync
 let lastTick = performance.now();
 let bossAoeTimer = 0;
+const pendingAoes = []; // server-resolved boss danger zones
 
 setInterval(() => {
   const now = performance.now();
   const dt = (now - lastTick) / 1000;
   lastTick = now;
 
-  // Handle Monster Respawns
   monsters.forEach(m => {
     if (m.isDead) {
       m.respawnTimer -= dt;
@@ -463,10 +706,7 @@ setInterval(() => {
         m.currentHp = m.maxHp;
         m.x = m.spawnX;
         m.y = m.spawnY;
-        broadcast({
-          type: 'monster_respawned',
-          monster: m
-        });
+        broadcast({ type: 'monster_respawned', monster: m });
         if (m.isMvp) {
           broadcast({
             type: 'chat',
@@ -478,46 +718,52 @@ setInterval(() => {
     }
   });
 
-  // Handle World Boss Telegraphed AoE Danger Zones
+  // Boss telegraphed AoE: server picks the target, the timer AND the hit result.
   const dragon = monsters.find(m => m.id === 'm_dragon_mvp');
   if (dragon && !dragon.isDead) {
     bossAoeTimer += dt;
-    // Broadcast a new Telegraphed AoE Danger Attack every 8 seconds
     if (bossAoeTimer >= 8.0) {
       bossAoeTimer = 0;
-      // Check if any player is currently in boss_lair
-      const playersInBossLair = Array.from(players.values()).filter(p => p.currentMap === 'boss_lair');
-      if (playersInBossLair.length > 0) {
-        // Pick target location (near a player or dragon arena center)
-        const targetPlayer = playersInBossLair[Math.floor(Math.random() * playersInBossLair.length)];
-        const aoeX = targetPlayer ? targetPlayer.x + (Math.random() - 0.5) * 50 : 1600;
-        const aoeY = targetPlayer ? targetPlayer.y + (Math.random() - 0.5) * 50 : 1100;
-
-        broadcast({
-          type: 'boss_aoe_telegraph',
+      const inLair = Array.from(players.values()).filter(p => p.currentMap === 'boss_lair');
+      if (inLair.length > 0) {
+        const target = inLair[Math.floor(Math.random() * inLair.length)];
+        const aoe = {
           bossId: 'm_dragon_mvp',
           skillName: '🔥 DRAGON BREATH & METEOR',
-          x: Math.round(aoeX),
-          y: Math.round(aoeY),
+          x: Math.round(target.x + (Math.random() - 0.5) * 50),
+          y: Math.round(target.y + (Math.random() - 0.5) * 50),
           radius: 170,
-          duration: 2.2, // 2.2s warning time to dodge with WASD!
+          duration: 2.2,
           damage: 180
-        });
+        };
+        pendingAoes.push({ ...aoe, timeLeft: aoe.duration });
+        sendToMap('boss_lair', { type: 'boss_aoe_telegraph', ...aoe });
       }
     }
   }
 
-  // Broadcast player positions to all clients
+  for (let i = pendingAoes.length - 1; i >= 0; i--) {
+    const aoe = pendingAoes[i];
+    aoe.timeLeft -= dt;
+    if (aoe.timeLeft > 0) continue;
+    pendingAoes.splice(i, 1);
+    for (const [ws, p] of players.entries()) {
+      if (p.currentMap !== 'boss_lair') continue;
+      const hit = Math.hypot(p.x - aoe.x, p.y - aoe.y) <= aoe.radius;
+      safeSend(ws, {
+        type: 'boss_aoe_result',
+        x: aoe.x, y: aoe.y, radius: aoe.radius,
+        hit,
+        damage: hit ? aoe.damage : 0
+      });
+    }
+  }
+
   if (players.size > 0) {
-    const playerArray = Array.from(players.values());
-    broadcast({
-      type: 'world_sync',
-      players: playerArray
-    });
+    broadcast({ type: 'world_sync', players: Array.from(players.values()) });
   }
 }, 50);
 
-// Start Server
 server.listen(PORT, () => {
   console.log(`===============================================`);
   console.log(`⚔️ TRIPLE CROWN MMORPG Server Running!`);

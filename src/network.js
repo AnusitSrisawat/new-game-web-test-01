@@ -8,6 +8,7 @@ export class NetworkManager {
     this.isConnected = false;
     this.otherPlayers = new Map(); // { [playerId]: playerState }
     this.currentParty = null;
+    this.partyList = [];
 
     this.connect();
   }
@@ -130,8 +131,23 @@ export class NetworkManager {
         }
         break;
 
-      case 'party_reward_share':
-        this.game.onPartyRewardShared(msg);
+      case 'reward':
+        this.game.onRewardFromServer(msg);
+        break;
+
+      case 'boss_aoe_result':
+        this.game.onBossAoeResult(msg);
+        break;
+
+      case 'party_list':
+        this.partyList = msg.parties || [];
+        if (this.game.uiController) this.game.uiController.onPartyListReceived(this.partyList);
+        break;
+
+      case 'party_join_request':
+        if (this.game.uiController) {
+          this.game.uiController.showJoinRequestToast(msg.partyId, msg.requesterId, msg.requesterName, msg.requesterLevel);
+        }
         break;
 
       case 'chat':
@@ -179,13 +195,12 @@ export class NetworkManager {
     });
   }
 
-  sendMonsterHit(monsterId, damage, isCrit = false, exp = 35) {
+  sendMonsterHit(monsterId, damage, isCrit = false) {
     this.send({
       type: 'hit_monster',
       monsterId: monsterId,
       damage: damage,
-      isCrit: isCrit,
-      exp: exp
+      isCrit: isCrit
     });
   }
 
@@ -204,11 +219,44 @@ export class NetworkManager {
     });
   }
 
-  sendCreateParty(partyName) {
+  sendCreateParty(partyName, settings = {}) {
     this.send({
       type: 'party_create',
-      partyName
+      partyName,
+      settings
     });
+  }
+
+  sendDeclineParty(partyId) {
+    this.send({ type: 'party_decline', partyId });
+  }
+
+  sendKickMember(targetPlayerId) {
+    this.send({ type: 'party_kick', targetPlayerId });
+  }
+
+  sendTransferLeader(targetPlayerId) {
+    this.send({ type: 'party_transfer_leader', targetPlayerId });
+  }
+
+  sendRenameParty(name) {
+    this.send({ type: 'party_rename', name });
+  }
+
+  sendPartySettings(settings) {
+    this.send({ type: 'party_settings', settings });
+  }
+
+  sendPartyListRequest(filter = {}) {
+    this.send({ type: 'party_list_request', ...filter });
+  }
+
+  sendJoinRequest(partyId) {
+    this.send({ type: 'party_join_request', partyId });
+  }
+
+  sendJoinResponse(requesterId, accept) {
+    this.send({ type: 'party_join_response', requesterId, accept });
   }
 
   sendInviteParty(targetPlayerId) {

@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const msgEl = document.createElement('div');
     msgEl.className = `chat-msg ${type}`;
     const time = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    msgEl.innerHTML = `<span style="opacity:0.5; font-size:0.7rem;">[${time}]</span> ${message}`;
+    msgEl.innerHTML = `<span style="opacity:0.5; font-size:0.7rem;">[${time}]</span> ${String(message).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]))}`;
     chatContainer.appendChild(msgEl);
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
