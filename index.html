@@ -108,59 +108,6 @@
         </div>
       </div>
 
-      <!-- BOTTOM-CENTER: 1 to 9 Skill & Utility Hotbar -->
-      <div class="hud-bottom-center hud-interactive">
-        <div class="pc-skill-action-bar">
-          <div class="skill-slots-container">
-            <div class="skill-slot-card empty" id="slot-1" title="[1] ช่องว่าง">
-              <div class="skill-icon-emoji"></div>
-              <div class="skill-label-name"></div>
-              <span class="skill-hotkey-badge">1</span>
-            </div>
-            <div class="skill-slot-card empty" id="slot-2" title="[2] ช่องว่าง">
-              <div class="skill-icon-emoji"></div>
-              <div class="skill-label-name"></div>
-              <span class="skill-hotkey-badge">2</span>
-            </div>
-            <div class="skill-slot-card empty" id="slot-3" title="[3] ช่องว่าง">
-              <div class="skill-icon-emoji"></div>
-              <div class="skill-label-name"></div>
-              <span class="skill-hotkey-badge">3</span>
-            </div>
-            <div class="skill-slot-card empty" id="slot-4" title="[4] ช่องว่าง">
-              <div class="skill-icon-emoji"></div>
-              <div class="skill-label-name"></div>
-              <span class="skill-hotkey-badge">4</span>
-            </div>
-            <div class="skill-slot-card empty" id="slot-5" title="[5] ช่องว่าง">
-              <div class="skill-icon-emoji"></div>
-              <div class="skill-label-name"></div>
-              <span class="skill-hotkey-badge">5</span>
-            </div>
-            <div class="skill-slot-card empty" id="slot-6" title="[6] ช่องว่าง">
-              <div class="skill-icon-emoji"></div>
-              <div class="skill-label-name"></div>
-              <span class="skill-hotkey-badge">6</span>
-            </div>
-            <div class="skill-slot-card empty" id="slot-7" title="[7] ช่องว่าง">
-              <div class="skill-icon-emoji"></div>
-              <div class="skill-label-name"></div>
-              <span class="skill-hotkey-badge">7</span>
-            </div>
-            <div class="skill-slot-card empty" id="slot-8" title="[8] ช่องว่าง">
-              <div class="skill-icon-emoji"></div>
-              <div class="skill-label-name"></div>
-              <span class="skill-hotkey-badge">8</span>
-            </div>
-            <div class="skill-slot-card empty" id="slot-9" title="[9] ช่องว่าง">
-              <div class="skill-icon-emoji"></div>
-              <div class="skill-label-name"></div>
-              <span class="skill-hotkey-badge">9</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- BOTTOM-RIGHT: potion slots, Auto, attack -->
       <div class="hud-bottom-right hud-interactive">
         <div class="quick-slots">
@@ -178,11 +125,38 @@
           </button>
         </div>
         <div class="action-stack">
-          <div class="auto-wrap">
-            <button class="btn-auto" id="btn-auto-hunt" title="เปิด/ปิด ฟาร์มอัตโนมัติ">AUTO</button>
-            <button class="btn-auto-settings" id="btn-auto-settings" title="ตั้งค่า Auto">⚙️</button>
+          <div class="attack-wheel">
+            <div class="skill-slot-card empty" id="slot-1" title="[1] ช่องว่าง" style="left:-85px;top:13px">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
+              <span class="skill-hotkey-badge">1</span>
+            </div>
+            <div class="skill-slot-card empty" id="slot-2" title="[2] ช่องว่าง" style="left:-72px;top:-36px">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
+              <span class="skill-hotkey-badge">2</span>
+            </div>
+            <div class="skill-slot-card empty" id="slot-3" title="[3] ช่องว่าง" style="left:-36px;top:-72px">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
+              <span class="skill-hotkey-badge">3</span>
+            </div>
+            <div class="skill-slot-card empty" id="slot-4" title="[4] ช่องว่าง" style="left:13px;top:-85px">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
+              <span class="skill-hotkey-badge">4</span>
+            </div>
+            <div class="skill-slot-card empty" id="slot-5" title="[5] ช่องว่าง" style="left:62px;top:-72px">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
+              <span class="skill-hotkey-badge">5</span>
+            </div>
+            <div class="auto-wrap" style="left:100px;top:-28px">
+              <button class="btn-auto" id="btn-auto-hunt" title="เปิด/ปิด ฟาร์มอัตโนมัติ">AUTO</button>
+              <button class="btn-auto-settings" id="btn-auto-settings" title="ตั้งค่า Auto">⚙️</button>
+            </div>
+            <button class="btn-big-attack" id="btn-big-attack" title="โจมตีปกติ [คลิกซ้าย]">⚔️</button>
           </div>
-          <button class="btn-big-attack" id="btn-big-attack" title="โจมตีปกติ [คลิกซ้าย]">⚔️</button>
         </div>
       </div>
     </div>

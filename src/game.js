@@ -807,7 +807,7 @@ export class GameEngine {
     }
 
     // Skill Cooldowns
-    for (let i = 1; i <= 9; i++) {
+    for (let i = 1; i <= 5; i++) {
       if (p.skillCooldowns[i] > 0) p.skillCooldowns[i] = Math.max(0, p.skillCooldowns[i] - dt);
     }
     if (p.buffs.def > 0) p.buffs.def = Math.max(0, p.buffs.def - dt);
