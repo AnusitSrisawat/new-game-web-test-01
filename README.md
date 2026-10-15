@@ -62,7 +62,7 @@ npm start        # เปิด http://localhost:3000 (เปลี่ยนพ�
 |---|---|
 | Green Meadows | `monsters_sheet.jpg` — Slime, Forest Hornet, Horned Rabbit, Mossy Golem |
 | Misty Forest | `monsters_beasts.jpg` — Shadow Wolf, Armored Boar, Jungle Viper, Claw Bear |
-| Bandit Hideout | `monsters_bandits.jpg` — Rogue, Archer, Brute (Bandit Leader = บอส ยังไม่ใส่) |
+| Bandit Hideout | `monsters_bandits.jpg` — Rogue, Archer, Brute, Leader |
 | Goblin Caverns | `monsters_fantasy.jpg` — Goblin Scout, Fire Imp, Treant, Chest Mimic |
 | Lava Volcano | `monsters_others.jpg` — Floating Eye, Spectral Armor, Mushroom Sporeling, Baby Fire Wyrm |
 | Bone Crypt | `monsters_skeleton.jpg` — Skeleton Warrior, Archer, Mage, Knight |

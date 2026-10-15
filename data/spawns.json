@@ -10,6 +10,7 @@
   { "map": "bandit_hideout", "templateId": "bandit_rogue", "count": 10, "respawn": 8 },
   { "map": "bandit_hideout", "templateId": "bandit_archer", "count": 8, "respawn": 8 },
   { "map": "bandit_hideout", "templateId": "bandit_brute", "count": 8, "respawn": 8 },
+  { "map": "bandit_hideout", "templateId": "bandit_leader", "count": 2, "respawn": 30 },
   { "map": "goblin_caverns", "templateId": "goblin_scout", "count": 14, "respawn": 8 },
   { "map": "goblin_caverns", "templateId": "fire_imp", "count": 10, "respawn": 8 },
   { "map": "goblin_caverns", "templateId": "treant", "count": 8, "respawn": 8 },
