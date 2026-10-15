@@ -21,5 +21,34 @@
     "haunted_ruins": {
       "size": 3000
     }
+  },
+  "monsters": {
+    "horned_rabbit": {
+      "facing": "right"
+    },
+    "treant": {
+      "facing": "right"
+    },
+    "goblin_scout": {
+      "facing": "right"
+    },
+    "mushroom_sporeling": {
+      "facing": "right"
+    },
+    "bandit_rogue": {
+      "facing": "right"
+    },
+    "bandit_brute": {
+      "facing": "right"
+    },
+    "skeleton_warrior": {
+      "facing": "right"
+    },
+    "skeleton_mage": {
+      "facing": "right"
+    },
+    "skeleton_knight": {
+      "facing": "right"
+    }
   }
 }
