@@ -54,14 +54,6 @@ export class UIController {
       }
     });
 
-    // Quick Boss Raid Entry Button
-    const quickBossBtn = document.getElementById('btn-quick-boss-raid');
-    if (quickBossBtn) {
-      quickBossBtn.addEventListener('click', () => {
-        this.gameEngine.changeMap('boss_lair');
-      });
-    }
-
     // Party Invitation Toast Accept & Decline
     document.getElementById('btn-party-accept')?.addEventListener('click', () => {
       const toast = document.getElementById('party-invite-toast');
