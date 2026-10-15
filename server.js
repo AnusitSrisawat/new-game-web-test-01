@@ -6,8 +6,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
 import crypto from 'crypto';
-import { MONSTERS, ZONES, WEAPON_TYPES, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS } from './src/data.js';
+import { MONSTERS, RELICS, ZONES, WEAPON_TYPES, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS } from './src/data.js';
 import { getMapDef, MAP_DEFS } from './src/maps.js';
+import { monsterSprite, itemSprite } from './src/sprites.js';
 import { SCHEMA, sanitizeOverrides, snapshotEditable, applyOverrides, validateSpawns } from './src/overrides.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -234,7 +235,15 @@ function studioPayload() {
     overrides,
     spawns,
     mapIds: Array.from(KNOWN.maps),
-    monsters: Object.fromEntries(Object.entries(MONSTERS).map(([id, m]) => [id, { name: m.name, emoji: m.emoji }])),
+    monsters: Object.fromEntries(Object.entries(MONSTERS).map(([id, m]) => [id, {
+      name: m.name, emoji: m.emoji, sprite: monsterSprite(id),
+      drops: (m.drops || []).map(d => ({
+        itemId: d.itemId, chance: d.chance, isRelic: !!d.isRelic,
+        name: (ITEMS[d.itemId] || RELICS[d.itemId] || {}).name || d.itemId,
+        icon: (ITEMS[d.itemId] || RELICS[d.itemId] || {}).icon,
+        sprite: itemSprite(d.itemId)
+      }))
+    }])),
     zoneNames: Object.fromEntries(ZONES.map(z => [z.id, DEFAULTS.zones[z.id].name])),
     spawnLimits: { count: [0, 60], respawn: [1, 3600] }
   };

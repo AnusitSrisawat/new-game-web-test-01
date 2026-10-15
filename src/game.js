@@ -3,6 +3,7 @@ import { WorldMap } from './map.js';
 import { getMapDef, TILE_SIZE } from './maps.js';
 import { ZONES, MONSTERS, ITEMS, RELICS, QUESTS } from './data.js';
 import { soundEngine } from './audio.js';
+import { monsterSprite, itemSprite } from './sprites.js';
 
 export class GameEngine {
   constructor(canvas, minimapCanvas, player, onLog) {
@@ -41,23 +42,8 @@ export class GameEngine {
     this.telegraphedAoEs = []; // Red warning danger circles on floor
     this.groundTraps = []; // Ankle snares
 
-    // 4. Monster Sprite Sheet Image
-    this.monsterSheet = new Image();
-    this.monsterSheetLoaded = false;
-    this.monsterSheet.src = './assets/monsters_sheet.jpg';
-    this.monsterSheet.onload = () => {
-      this.monsterSheetLoaded = true;
-    };
-
-    this.spriteCrops = {
-      slime: { sx: 40, sy: 40, sw: 420, sh: 420 },
-      sprout: { sx: 540, sy: 30, sw: 440, sh: 430 },
-      forest_wolf: { sx: 540, sy: 30, sw: 440, sh: 430 },
-      horned_rabbit: { sx: 40, sy: 520, sw: 420, sh: 440 },
-      wild_boar: { sx: 40, sy: 520, sw: 420, sh: 440 },
-      stone_golem: { sx: 530, sy: 530, sw: 440, sh: 430 },
-      ancient_golem: { sx: 530, sy: 530, sw: 440, sh: 430 }
-    };
+    // 4. Sprite sheets (monsters + item icons), loaded on first use and cached per file
+    this.sheetImages = {};
 
     // 5. Keyboard Controls State for WASD
     this.keys = {
@@ -279,7 +265,7 @@ export class GameEngine {
             if (Math.random() <= drop.chance) {
               const item = ITEMS[drop.itemId] || RELICS[drop.itemId];
               if (item) {
-                this.spawnLootOrb(m.x, m.y, 'item', { itemId: drop.itemId, icon: item.icon, isRelic: !!RELICS[drop.itemId] });
+                this.spawnLootOrb(m.x, m.y, 'item', { itemId: drop.itemId, icon: item.icon, sprite: itemSprite(drop.itemId), isRelic: !!RELICS[drop.itemId] });
               }
             }
           });
@@ -608,6 +594,18 @@ export class GameEngine {
     fillEl.style.backgroundColor = monster.isMvp ? '#ef4444' : '#f59e0b';
   }
 
+  // Returns the loaded image for a sheet file, or null while it is still loading
+  getSheet(src) {
+    let e = this.sheetImages[src];
+    if (!e) {
+      const img = new Image();
+      e = this.sheetImages[src] = { img, ready: false };
+      img.onload = () => { e.ready = true; };
+      img.src = './' + src;
+    }
+    return e.ready ? e.img : null;
+  }
+
   // ---- Loot orbs: pop out of the monster, linger briefly, then home in on the player ----
   spawnLootOrb(x, y, kind, data = {}) {
     const ang = Math.random() * Math.PI * 2;
@@ -705,10 +703,15 @@ export class GameEngine {
       if (o.kind === 'item') {
         ctx.shadowColor = o.isRelic ? '#a855f7' : '#fde68a';
         ctx.shadowBlur = 10;
-        ctx.font = '20px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(o.icon || '🎁', x, y);
+        const sheet = o.sprite ? this.getSheet(o.sprite.src) : null;
+        if (sheet) {
+          ctx.drawImage(sheet, o.sprite.sx, o.sprite.sy, o.sprite.sw, o.sprite.sh, x - 14, y - 14, 28, 28);
+        } else {
+          ctx.font = '20px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(o.icon || '🎁', x, y);
+        }
       } else {
         const gold = o.kind === 'gold';
         ctx.shadowColor = gold ? '#fbbf24' : '#4ade80';
@@ -1870,14 +1873,18 @@ export class GameEngine {
     ctx.scale(scaleX, scaleY);
 
     const isFlashing = m.flashTimer > 0;
-    const crop = this.spriteCrops[m.templateId] || this.spriteCrops.slime;
-    if (this.monsterSheetLoaded) {
-      const size = 56;
+    const sp = monsterSprite(m.templateId);
+    const sheet = sp ? this.getSheet(sp.src) : null;
+    if (sheet) {
+      const size = 64;
+      const dh = size * sp.sh / sp.sw;
       ctx.save();
       ctx.beginPath();
       ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
       ctx.clip();
-      ctx.drawImage(this.monsterSheet, crop.sx, crop.sy, crop.sw, crop.sh, -size / 2, -size / 2, size, size);
+      ctx.fillStyle = '#e5e7eb';
+      ctx.fillRect(-size / 2, -size / 2, size, size);
+      ctx.drawImage(sheet, sp.sx, sp.sy, sp.sw, sp.sh, -size / 2, -dh / 2, size, dh);
 
       if (isFlashing) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';

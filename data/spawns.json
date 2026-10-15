@@ -1,15 +1,164 @@
 [
-  { "map": "meadows", "templateId": "slime", "count": 24, "respawn": 8 },
-  { "map": "meadows", "templateId": "horned_rabbit", "count": 16, "respawn": 8 },
-  { "map": "meadows", "templateId": "sprout", "count": 10, "respawn": 8 },
-  { "map": "misty_forest", "templateId": "wild_boar", "count": 16, "respawn": 8 },
-  { "map": "misty_forest", "templateId": "forest_wolf", "count": 14, "respawn": 8 },
-  { "map": "misty_forest", "templateId": "treant", "count": 8, "respawn": 8 },
-  { "map": "goblin_caverns", "templateId": "goblin_scout", "count": 14, "respawn": 8 },
-  { "map": "goblin_caverns", "templateId": "goblin_shaman", "count": 10, "respawn": 8 },
-  { "map": "goblin_caverns", "templateId": "ogre", "count": 8, "respawn": 8 },
-  { "map": "volcano", "templateId": "crystal_bat", "count": 14, "respawn": 8 },
-  { "map": "volcano", "templateId": "stone_golem", "count": 10, "respawn": 8 },
-  { "map": "volcano", "templateId": "ancient_golem", "count": 3, "respawn": 8 },
-  { "map": "boss_lair", "templateId": "ancient_dragon", "count": 1, "respawn": 60 }
+  {
+    "map": "meadows",
+    "templateId": "slime",
+    "count": 20,
+    "respawn": 8
+  },
+  {
+    "map": "meadows",
+    "templateId": "forest_hornet",
+    "count": 14,
+    "respawn": 8
+  },
+  {
+    "map": "meadows",
+    "templateId": "mushroom_sporeling",
+    "count": 12,
+    "respawn": 8
+  },
+  {
+    "map": "meadows",
+    "templateId": "horned_rabbit",
+    "count": 12,
+    "respawn": 8
+  },
+  {
+    "map": "misty_forest",
+    "templateId": "wild_boar",
+    "count": 14,
+    "respawn": 8
+  },
+  {
+    "map": "misty_forest",
+    "templateId": "jungle_viper",
+    "count": 12,
+    "respawn": 8
+  },
+  {
+    "map": "misty_forest",
+    "templateId": "forest_wolf",
+    "count": 12,
+    "respawn": 8
+  },
+  {
+    "map": "misty_forest",
+    "templateId": "claw_bear",
+    "count": 8,
+    "respawn": 8
+  },
+  {
+    "map": "misty_forest",
+    "templateId": "treant",
+    "count": 6,
+    "respawn": 8
+  },
+  {
+    "map": "misty_forest",
+    "templateId": "mossy_golem",
+    "count": 6,
+    "respawn": 8
+  },
+  {
+    "map": "goblin_caverns",
+    "templateId": "goblin_scout",
+    "count": 14,
+    "respawn": 8
+  },
+  {
+    "map": "goblin_caverns",
+    "templateId": "bandit_rogue",
+    "count": 10,
+    "respawn": 8
+  },
+  {
+    "map": "goblin_caverns",
+    "templateId": "bandit_archer",
+    "count": 8,
+    "respawn": 8
+  },
+  {
+    "map": "goblin_caverns",
+    "templateId": "bandit_brute",
+    "count": 8,
+    "respawn": 8
+  },
+  {
+    "map": "goblin_caverns",
+    "templateId": "chest_mimic",
+    "count": 6,
+    "respawn": 8
+  },
+  {
+    "map": "goblin_caverns",
+    "templateId": "bandit_leader",
+    "count": 3,
+    "respawn": 8
+  },
+  {
+    "map": "volcano",
+    "templateId": "fire_imp",
+    "count": 14,
+    "respawn": 8
+  },
+  {
+    "map": "volcano",
+    "templateId": "baby_fire_wyrm",
+    "count": 10,
+    "respawn": 8
+  },
+  {
+    "map": "volcano",
+    "templateId": "floating_eye",
+    "count": 10,
+    "respawn": 8
+  },
+  {
+    "map": "volcano",
+    "templateId": "stone_golem",
+    "count": 8,
+    "respawn": 8
+  },
+  {
+    "map": "volcano",
+    "templateId": "ancient_golem",
+    "count": 3,
+    "respawn": 8
+  },
+  {
+    "map": "bone_crypt",
+    "templateId": "skeleton_warrior",
+    "count": 10,
+    "respawn": 8
+  },
+  {
+    "map": "bone_crypt",
+    "templateId": "skeleton_archer",
+    "count": 8,
+    "respawn": 8
+  },
+  {
+    "map": "bone_crypt",
+    "templateId": "skeleton_mage",
+    "count": 8,
+    "respawn": 8
+  },
+  {
+    "map": "bone_crypt",
+    "templateId": "skeleton_knight",
+    "count": 6,
+    "respawn": 8
+  },
+  {
+    "map": "bone_crypt",
+    "templateId": "spectral_armor",
+    "count": 8,
+    "respawn": 8
+  },
+  {
+    "map": "boss_lair",
+    "templateId": "ancient_dragon",
+    "count": 1,
+    "respawn": 60
+  }
 ]
