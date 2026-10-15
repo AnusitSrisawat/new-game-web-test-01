@@ -400,8 +400,8 @@ body, html {
 }
 
 .minimap-card {
-  width: 140px;
-  height: 100px;
+  width: 130px;
+  height: 130px;
   background: rgba(15, 23, 42, 0.9);
   border: 2px solid var(--gold-border);
   border-radius: 8px;

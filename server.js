@@ -99,6 +99,35 @@ const FIXED_MONSTERS_DATA = [
   { id: 'm_dragon_mvp', map: 'boss_lair', templateId: 'ancient_dragon', name: 'Ancient Red Dragon MVP (มังกรบรรพกาล)', level: 99, maxHp: 50000, x: 1600, y: 1100, isMvp: true }
 ];
 
+// Re-lay the monsters of every map as a spiral around the map centre: weaker ones near the
+// middle (where players spawn), stronger ones further out. Maps are square.
+function layoutMonsters(list) {
+  const byMap = new Map();
+  for (const m of list) {
+    if (!byMap.has(m.map)) byMap.set(m.map, []);
+    byMap.get(m.map).push(m);
+  }
+  for (const [mapId, group] of byMap) {
+    const def = getMapDef(mapId);
+    const cx = def.spawn.x;
+    const cy = def.spawn.y;
+    const limit = def.width / 2 - 200; // keep clear of the wall
+    const regular = group.filter(m => m.templateId !== 'ancient_dragon').sort((a, b) => a.level - b.level);
+    regular.forEach((m, i) => {
+      const t = regular.length > 1 ? i / (regular.length - 1) : 0;
+      const radius = Math.min(limit, 500 + t * (limit - 500));
+      const angle = i * 2.399963; // golden angle spreads them evenly
+      m.x = Math.round(cx + Math.cos(angle) * radius);
+      m.y = Math.round(cy + Math.sin(angle) * radius);
+    });
+    for (const m of group.filter(m => m.templateId === 'ancient_dragon')) {
+      m.x = cx;
+      m.y = cy - 900; // far enough north that spawning players are outside its aggro range
+    }
+  }
+}
+layoutMonsters(FIXED_MONSTERS_DATA);
+
 // Active State on Server
 const monsters = FIXED_MONSTERS_DATA.map(m => ({
   ...m,
@@ -344,8 +373,8 @@ wss.on('connection', (ws) => {
     weaponType: 'stick',
     level: 1,
     currentMap: 'meadows',
-    x: 750 + (Math.random() - 0.5) * 60,
-    y: 1220 + (Math.random() - 0.5) * 60,
+    x: getMapDef('meadows').spawn.x + (Math.random() - 0.5) * 60,
+    y: getMapDef('meadows').spawn.y + (Math.random() - 0.5) * 60,
     facing: 1,
     isMoving: false,
     walkFrame: 0,

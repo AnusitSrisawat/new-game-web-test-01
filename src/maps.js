@@ -4,42 +4,42 @@
 
 export const TILE_SIZE = 32; // 1 "ช่อง" = 32 px (used by Auto range, grid and future collision)
 
-// Width/height are in pixels and must be multiples of TILE_SIZE.
+// Every map is a square. Width/height are in pixels (multiples of TILE_SIZE); players spawn in the centre.
 export const MAP_DEFS = {
   town: {
-    width: 3200, height: 2400,
+    width: 3200, height: 3200,
     floor: '#94a3b8', grid: 'rgba(255,255,255,0.07)', wall: '#334155',
-    spawn: { x: 1600, y: 1200 },
+    spawn: { x: 1600, y: 1600 },
     objects: []
   },
   meadows: {
-    width: 4800, height: 3200,
+    width: 4800, height: 4800,
     floor: '#86c98b', grid: 'rgba(0,0,0,0.07)', wall: '#14532d',
-    spawn: { x: 800, y: 1200 },
+    spawn: { x: 2400, y: 2400 },
     objects: []
   },
   misty_forest: {
-    width: 4800, height: 3200,
+    width: 4800, height: 4800,
     floor: '#64748b', grid: 'rgba(0,0,0,0.10)', wall: '#1e293b',
-    spawn: { x: 800, y: 1200 },
+    spawn: { x: 2400, y: 2400 },
     objects: []
   },
   goblin_caverns: {
-    width: 4800, height: 3200,
+    width: 4800, height: 4800,
     floor: '#a16207', grid: 'rgba(0,0,0,0.10)', wall: '#451a03',
-    spawn: { x: 800, y: 1200 },
+    spawn: { x: 2400, y: 2400 },
     objects: []
   },
   volcano: {
-    width: 4800, height: 3200,
+    width: 4800, height: 4800,
     floor: '#b91c1c', grid: 'rgba(0,0,0,0.12)', wall: '#450a0a',
-    spawn: { x: 800, y: 1200 },
+    spawn: { x: 2400, y: 2400 },
     objects: []
   },
   boss_lair: {
-    width: 3200, height: 2400,
+    width: 3200, height: 3200,
     floor: '#7f1d1d', grid: 'rgba(0,0,0,0.15)', wall: '#220505',
-    spawn: { x: 1600, y: 1550 },
+    spawn: { x: 1600, y: 1600 },
     objects: []
   }
 };

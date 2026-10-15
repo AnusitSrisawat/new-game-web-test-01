@@ -1,6 +1,6 @@
 // UI Controller for PC MMORPG Fullscreen Edition
 import { ZONES, ITEMS, RELICS, CRAFTING_RECIPES, GACHA_COSTUMES, QUESTS, WEAPON_TYPES, STAT_KEYS, MONSTERS } from './data.js';
-import { TILE_SIZE } from './maps.js';
+import { TILE_SIZE, getMapDef } from './maps.js';
 import { soundEngine } from './audio.js';
 
 export class UIController {
@@ -414,7 +414,11 @@ export class UIController {
     const a = this.player.auto;
     const zone = this.gameEngine.currentZone;
     const monsterIds = zone.monsterIds || [];
-    const owned = this.player.ownedHpPotions();
+    const md = getMapDef(zone.id);
+    // The longest distance inside the map is its diagonal: that range covers the whole map
+    const maxRange = Math.ceil(Math.hypot(md.width, md.height) / TILE_SIZE);
+    if (a.range > maxRange) a.range = maxRange;
+    const rangeLabel = (r) => r >= maxRange ? 'ทั้งแมพ' : `${r} ช่อง`;
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     const monCards = monsterIds.length
@@ -428,13 +432,13 @@ export class UIController {
 
     body.innerHTML = `
       <div class="auto-grid">
-        <div class="auto-card">
+        <div class="auto-card full">
           <h4>🎯 ระยะค้นหา</h4>
           <div class="auto-row">
-            <input type="range" id="auto-range" min="3" max="40" step="1" value="${a.range}">
-            <span class="auto-val" id="auto-range-val">${a.range} ช่อง</span>
+            <input type="range" id="auto-range" min="3" max="${maxRange}" step="1" value="${a.range}">
+            <span class="auto-val" id="auto-range-val">${rangeLabel(a.range)}</span>
           </div>
-          <div class="auto-note">1 ช่อง = ${TILE_SIZE} px • Auto จะไล่ตีเฉพาะมอนสเตอร์ที่อยู่ในระยะนี้จากตัวคุณ</div>
+          <div class="auto-note">1 ช่อง = ${TILE_SIZE} px • สูงสุด ${maxRange} ช่อง = ครอบคลุมทั้งแมพ (แมพนี้ ${md.width / TILE_SIZE}×${md.height / TILE_SIZE} ช่อง) • Auto จะไล่ตีเฉพาะมอนสเตอร์ที่อยู่ในระยะนี้จากตัวคุณ</div>
         </div>
 
         <div class="auto-card">
@@ -457,6 +461,11 @@ export class UIController {
           </div>
         </div>
 
+        <div class="auto-card">
+          <h4>🔷 ใช้ยา SP อัตโนมัติ</h4>
+          <div class="auto-note">🔒 เปิดใช้งานพร้อมระบบสกิล (ยังไม่มี SP ในเกมตอนนี้)</div>
+        </div>
+
         <div class="auto-card full">
           <h4>👾 มอนสเตอร์ที่จะตี — ${esc(zone.name)}</h4>
           <div class="auto-mon-actions">
@@ -466,17 +475,13 @@ export class UIController {
           <div class="auto-mons">${monCards}</div>
         </div>
 
-        <div class="auto-card full">
-          <h4>🔷 ใช้ยา SP อัตโนมัติ</h4>
-          <div class="auto-note">🔒 เปิดใช้งานพร้อมระบบสกิล (ยังไม่มี SP ในเกมตอนนี้)</div>
-        </div>
       </div>`;
 
     const save = () => this.player.saveToStorage();
     const range = document.getElementById('auto-range');
     range.addEventListener('input', () => {
       a.range = Number(range.value);
-      document.getElementById('auto-range-val').textContent = `${a.range} ช่อง`;
+      document.getElementById('auto-range-val').textContent = rangeLabel(a.range);
       save();
     });
     document.getElementById('auto-hp-on').addEventListener('change', e => { a.hpPotion.enabled = e.target.checked; save(); });

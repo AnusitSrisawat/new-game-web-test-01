@@ -299,7 +299,7 @@ export class Player {
         if (d.stats) STAT_KEYS.forEach(k => { if (typeof d.stats[k] === 'number') this.stats[k] = d.stats[k]; });
         if (d.auto) {
           const a = d.auto;
-          if (typeof a.range === 'number') this.auto.range = Math.min(60, Math.max(1, a.range));
+          if (typeof a.range === 'number') this.auto.range = Math.min(400, Math.max(1, a.range));
           if (a.disabledMonsters && typeof a.disabledMonsters === 'object') this.auto.disabledMonsters = a.disabledMonsters;
           if (a.hpPotion) Object.assign(this.auto.hpPotion, a.hpPotion);
         }

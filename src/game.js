@@ -86,6 +86,11 @@ export class GameEngine {
     };
 
     this.currentZoneIndex = 1; // Default: Green Meadows (index 1)
+    {
+      const spawn = getMapDef(ZONES[1].id).spawn;
+      this.playerEntity.x = this.playerEntity.targetX = spawn.x;
+      this.playerEntity.y = this.playerEntity.targetY = spawn.y;
+    }
     this.monsters = [];
     this.selectedTarget = null;
     this.lastTimestamp = performance.now();
