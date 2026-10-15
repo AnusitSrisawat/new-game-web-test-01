@@ -2,6 +2,7 @@
 import { ZONES, ITEMS, RELICS, CRAFTING_RECIPES, GACHA_COSTUMES, QUESTS, WEAPON_TYPES, STAT_KEYS, MONSTERS } from './data.js';
 import { TILE_SIZE, getMapDef } from './maps.js';
 import { soundEngine } from './audio.js';
+import { itemIconHtml } from './sprites.js';
 
 export class UIController {
   constructor(player, gameEngine) {
@@ -431,7 +432,7 @@ export class UIController {
     if (!box) return;
     const owned = this.player.ownedHpPotions();
     box.innerHTML = owned.length
-      ? owned.map(id => `<button data-id="${id}">${ITEMS[id].icon || '🧪'} ${ITEMS[id].name} <span style="margin-left:auto; color:#fde68a;">x${this.player.inventory[id]}</span></button>`).join('') +
+      ? owned.map(id => `<button data-id="${id}">${itemIconHtml(id, ITEMS[id].icon || '🧪', 20)} ${ITEMS[id].name} <span style="margin-left:auto; color:#fde68a;">x${this.player.inventory[id]}</span></button>`).join('') +
         `<button data-id="">↺ อัตโนมัติ (ตัวที่อ่อนที่สุด)</button>`
       : '<div class="pc-empty">ไม่มียา HP ในกระเป๋า</div>';
     box.style.display = 'block';
@@ -840,7 +841,7 @@ export class UIController {
         if (!item) return;
         invHtml += `
           <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:6px; text-align:center; font-size:0.75rem;">
-            <div style="font-size:24px;">${item.icon || '📦'}</div>
+            <div style="font-size:24px;">${itemIconHtml(k, item.icon, 36)}</div>
             <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.name}</div>
             <div style="color:#f59e0b;">x${count}</div>
             ${item.reqLevel > 1 ? `<div style="color:${this.player.baseLevel >= item.reqLevel ? '#94a3b8' : '#ef4444'}; font-size:0.68rem;">ต้องการ Lv.${item.reqLevel}</div>` : ''}
@@ -866,7 +867,7 @@ export class UIController {
       craftHtml += `
         <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px; font-size:0.78rem;">
           <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-            <b>${resItem.icon} ${resItem.name}</b>
+            <b>${itemIconHtml(r.resultItemId, resItem.icon, 22)} ${resItem.name}</b>
             <span style="color:#f59e0b;">🪙 ${r.goldCost.toLocaleString()} Gold</span>
           </div>
           <div style="color:#94a3b8; font-size:0.72rem; margin-bottom:4px;">${resItem.desc}</div>

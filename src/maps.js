@@ -36,6 +36,12 @@ export const MAP_DEFS = {
     spawn: { x: 2400, y: 2400 },
     objects: []
   },
+  bone_crypt: {
+    width: 4800, height: 4800,
+    floor: '#57534e', grid: 'rgba(0,0,0,0.12)', wall: '#1c1917',
+    spawn: { x: 2400, y: 2400 },
+    objects: []
+  },
   boss_lair: {
     width: 3200, height: 3200,
     floor: '#7f1d1d', grid: 'rgba(0,0,0,0.15)', wall: '#220505',

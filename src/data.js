@@ -1,3 +1,5 @@
+import { installCatalog } from './catalog.js';
+
 // Game Master Data & Configurations
 
 // Weapon types decide how the basic attack works (range, projectile, damage scaling).
@@ -32,7 +34,7 @@ export const ZONES = [
     reqLevel: 1,
     bgColor: '#a7f3d0',
     floorColor: '#34d399',
-    monsterIds: ['slime', 'sprout', 'horned_rabbit']
+    monsterIds: ['slime', 'forest_hornet', 'mushroom_sporeling', 'horned_rabbit']
   },
   {
     id: 'misty_forest',
@@ -41,7 +43,7 @@ export const ZONES = [
     reqLevel: 15,
     bgColor: '#94a3b8',
     floorColor: '#475569',
-    monsterIds: ['wild_boar', 'forest_wolf', 'treant']
+    monsterIds: ['wild_boar', 'jungle_viper', 'forest_wolf', 'claw_bear', 'treant', 'mossy_golem']
   },
   {
     id: 'goblin_caverns',
@@ -50,7 +52,7 @@ export const ZONES = [
     reqLevel: 30,
     bgColor: '#fed7aa',
     floorColor: '#b45309',
-    monsterIds: ['goblin_scout', 'goblin_shaman', 'ogre']
+    monsterIds: ['goblin_scout', 'bandit_rogue', 'bandit_archer', 'bandit_brute', 'chest_mimic', 'bandit_leader']
   },
   {
     id: 'volcano',
@@ -59,7 +61,16 @@ export const ZONES = [
     reqLevel: 50,
     bgColor: '#fecaca',
     floorColor: '#dc2626',
-    monsterIds: ['crystal_bat', 'stone_golem', 'ancient_golem']
+    monsterIds: ['fire_imp', 'baby_fire_wyrm', 'floating_eye', 'stone_golem', 'ancient_golem']
+  },
+  {
+    id: 'bone_crypt',
+    name: '💀 Bone Crypt (สุสานโครงกระดูก)',
+    desc: 'สุสานเก่าแก่ที่เหล่าโครงกระดูกและชุดเกราะวิญญาณเดินตรวจตราอยู่ตลอดเวลา',
+    reqLevel: 55,
+    bgColor: '#d6d3d1',
+    floorColor: '#57534e',
+    monsterIds: ['skeleton_warrior', 'skeleton_archer', 'skeleton_mage', 'skeleton_knight', 'spectral_armor']
   },
   {
     id: 'boss_lair',
@@ -634,9 +645,9 @@ export const QUESTS = [
   },
   {
     id: 'q2',
-    title: '🌱 กำจัดวัชพืชป่วนทุ่ง',
-    desc: 'ปราบ Sprout Mandragora 8 ตัว',
-    targetMonster: 'sprout',
+    title: '🐝 กำจัดแตนป่วนทุ่ง',
+    desc: 'ปราบ Forest Hornet 8 ตัว',
+    targetMonster: 'forest_hornet',
     requiredCount: 8,
     rewardGold: 250,
     rewardExp: 200,
@@ -793,3 +804,5 @@ export const MONSTER_AI = {
   ancient_golem:  { speed: 50,  aggro: 300, attackRange: 100, attackCooldown: 2.0 },
   ancient_dragon: { speed: 0,   aggro: 700, attackRange: 140, attackCooldown: 1.2 }
 };
+
+installCatalog({ MONSTERS, ITEMS, MONSTER_AI });

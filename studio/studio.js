@@ -52,6 +52,15 @@
     $('btn-save').disabled = !v;
   }
 
+  // A picture cropped out of a sprite sheet (or the emoji when there is none)
+  function pic(sprite, emoji, px) {
+    if (!sprite) return h('span', { class: 'pic noimg', style: `width:${px}px;height:${px}px;font-size:${Math.round(px * 0.6)}px` }, emoji || '❔');
+    const k = px / sprite.sw;
+    return h('span', { class: 'pic', style: `width:${px}px;height:${Math.round(sprite.sh * k)}px;background-image:url(/${sprite.src});` +
+      `background-size:${Math.round(1024 * k)}px ${Math.round(1024 * k)}px;background-position:-${Math.round(sprite.sx * k)}px -${Math.round(sprite.sy * k)}px` });
+  }
+  const monsterPic = (id, px = 56) => pic(state.monsters[id]?.sprite, state.monsters[id]?.emoji, px);
+
   // ---- value helpers ----
   const defaultOf = (col, id, key) => state.defaults[col]?.[id]?.[key];
   const valueOf = (col, id, key) => ov[col]?.[id]?.[key] ?? defaultOf(col, id, key);
@@ -168,6 +177,14 @@
     ));
   }
 
+  // chips: "map name × count" for every map this monster spawns in
+  function mapsOf(id) {
+    const rows = spawns.filter(sp => sp.templateId === id && sp.count > 0);
+    return rows.length
+      ? rows.map(sp => h('span', { class: 'chip' }, `${state.zoneNames[sp.map] || sp.map} × ${sp.count}`))
+      : [h('span', { class: 'chip none' }, 'ยังไม่ได้ใส่ในแมพไหน — ไปที่แท็บ "การเกิดของมอนสเตอร์"')];
+  }
+
   function panelMonsters() {
     return [
       h('h2', {}, 'มอนสเตอร์'),
@@ -178,7 +195,13 @@
   }
   function buildMonsters(q) {
     return Object.keys(state.monsters).filter(id => matches(q, id, valueOf('monsters', id, 'name'))).map(id => h('div', { class: 'card' },
-      h('h3', {}, `${state.monsters[id].emoji || ''} ${valueOf('monsters', id, 'name')}`, h('small', {}, id)),
+      h('h3', {}, monsterPic(id, 56), valueOf('monsters', id, 'name'), h('small', {}, id),
+        h('small', {}, state.monsters[id].sprite ? '🖼️ มีรูป' : 'ไม่มีรูป (ใช้ emoji)')),
+      h('div', { class: 'group-title' }, 'แมพที่เกิด'),
+      h('div', { class: 'chips' }, ...mapsOf(id)),
+      h('div', { class: 'group-title' }, 'ไอเทมที่ดรอป'),
+      h('div', { class: 'drops' }, ...state.monsters[id].drops.map(d => h('div', { class: 'drop' + (d.isRelic ? ' relic' : '') },
+        pic(d.sprite, d.icon, 36), h('span', {}, d.name), h('b', {}, `${Math.round(d.chance * 1000) / 10}%`)))),
       h('div', { class: 'group-title' }, 'ค่าพลัง'),
       h('div', { class: 'fields' }, ...fieldsFor('monsters', id, ['name', 'level', 'hp', 'atk', 'def', 'exp'])),
       h('div', { class: 'group-title' }, 'พฤติกรรม'),
@@ -189,7 +212,7 @@
   function panelSpawns() {
     return [
       h('h2', {}, 'การเกิดของมอนสเตอร์'),
-      h('p', { class: 'hint' }, `กำหนดว่าแต่ละแมพมีมอนสเตอร์ชนิดไหนกี่ตัว และเกิดใหม่ทุกกี่วินาทีหลังถูกฆ่า (จำนวน ${state.spawnLimits.count.join('-')} • เวลา ${state.spawnLimits.respawn.join('-')} วินาที) ตำแหน่งจัดเป็นก้นหอยรอบกลางแมพอัตโนมัติ`),
+      h('p', { class: 'hint' }, `🖼️ = มอนสเตอร์ที่มีรูปแล้ว • กำหนดว่าแต่ละแมพมีมอนสเตอร์ชนิดไหนกี่ตัว และเกิดใหม่ทุกกี่วินาทีหลังถูกฆ่า (จำนวน ${state.spawnLimits.count.join('-')} • เวลา ${state.spawnLimits.respawn.join('-')} วินาที) ตำแหน่งจัดเป็นก้นหอยรอบกลางแมพอัตโนมัติ`),
       (listHost = h('div'))
     ];
   }
@@ -197,8 +220,12 @@
     return state.mapIds.map(mapId => {
       const rows = spawns.map((s, i) => ({ s, i })).filter(r => r.s.map === mapId);
       const tbody = h('tbody', {}, ...rows.map(({ s, i }) => h('tr', {},
-        h('td', {}, h('select', { onchange: (e) => { s.templateId = e.target.value; setDirty(true); } },
-          ...Object.keys(state.monsters).map(mid => h('option', { value: mid, selected: mid === s.templateId }, `${state.monsters[mid].emoji || ''} ${valueOf('monsters', mid, 'name')}`)))),
+        h('td', {}, (() => {
+          const holder = h('span', { class: 'pichold' }, monsterPic(s.templateId, 44));
+          const sel = h('select', { onchange: (e) => { s.templateId = e.target.value; holder.replaceChildren(monsterPic(s.templateId, 44)); setDirty(true); } },
+          ...Object.keys(state.monsters).map(mid => h('option', { value: mid, selected: mid === s.templateId }, `${state.monsters[mid].sprite ? '🖼️' : '▫️'} ${valueOf('monsters', mid, 'name')} (Lv.${valueOf('monsters', mid, 'level')})`)));
+          return h('div', { class: 'selrow' }, holder, sel);
+        })()),
         h('td', {}, h('input', { type: 'number', min: state.spawnLimits.count[0], max: state.spawnLimits.count[1], value: s.count, onchange: (e) => { s.count = clampNum(e.target.value, state.spawnLimits.count); e.target.value = s.count; setDirty(true); } })),
         h('td', {}, h('input', { type: 'number', min: state.spawnLimits.respawn[0], max: state.spawnLimits.respawn[1], value: s.respawn, onchange: (e) => { s.respawn = clampNum(e.target.value, state.spawnLimits.respawn); e.target.value = s.respawn; setDirty(true); } })),
         h('td', {}, h('button', { class: 'btn small danger', onclick: () => { spawns.splice(i, 1); setDirty(true); renderList(); } }, 'ลบ'))
