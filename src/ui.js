@@ -838,7 +838,8 @@ export class UIController {
               <span style="font-weight:600; text-transform:uppercase; width:42px;">${k}</span>
               <span style="flex:1; font-size:0.68rem; color:#94a3b8;">${statHelp[k]}</span>
               <b style="width:50px; text-align:right; margin-right:8px;">${pl.stats[k]}${pend[k] ? `<span style="color:#4ade80;"> +${pend[k]}</span>` : ''}</b>
-              <button class="btn-stat-add" data-stat="${k}" ${pendLeft > 0 ? '' : 'disabled'} style="width:24px; height:24px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">+</button>
+              <button class="btn-stat-sub" data-stat="${k}" ${pend[k] > 0 ? '' : 'disabled'} style="width:24px; height:24px; margin-right:4px; background:#475569; color:#fff; border:none; border-radius:4px; cursor:pointer; touch-action:none; ${pend[k] > 0 ? '' : 'opacity:0.4;'}">−</button>
+              <button class="btn-stat-add" data-stat="${k}" ${pendLeft > 0 ? '' : 'disabled'} style="width:24px; height:24px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer; touch-action:none;">+</button>
             </div>
           `).join('')}
           ${pendTotal > 0 ? `<div style="display:flex; gap:8px; margin-top:10px;">
@@ -881,13 +882,35 @@ export class UIController {
       this.updateHUD();
     });
 
-    body.querySelectorAll('.btn-stat-add').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const k = e.currentTarget.dataset.stat;
-        pend[k] = (pend[k] || 0) + 1;
+    // Press-and-hold on + / - repeats (slow start, then faster); bound once on the stable container
+    if (!body._holdBound) {
+      body._holdBound = true;
+      let delay = null, tick = null;
+      const stop = () => { clearTimeout(delay); clearInterval(tick); delay = tick = null; };
+      const step = (k, dir) => {
+        const p = this.pendingStats || (this.pendingStats = {});
+        const left = this.player.statPoints - STAT_KEYS.reduce((n, key) => n + (p[key] || 0), 0);
+        if (dir > 0 && left <= 0) return false;
+        if (dir < 0 && !(p[k] > 0)) return false;
+        p[k] = (p[k] || 0) + dir;
         this.renderStatusModal();
+        return true;
+      };
+      body.addEventListener('pointerdown', (e) => {
+        const btn = e.target.closest('.btn-stat-add, .btn-stat-sub');
+        if (!btn || btn.disabled) return;
+        e.preventDefault();
+        const k = btn.dataset.stat;
+        const dir = btn.classList.contains('btn-stat-add') ? 1 : -1;
+        stop();
+        if (!step(k, dir)) return;
+        delay = setTimeout(() => {
+          tick = setInterval(() => { if (!step(k, dir)) stop(); }, 110);
+        }, 400);
       });
-    });
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => body.addEventListener(ev, stop));
+      document.addEventListener('pointerup', stop);
+    }
   }
 
   // 2. Inventory Modal: items only, split into tabs (crafting lives in its own window)
