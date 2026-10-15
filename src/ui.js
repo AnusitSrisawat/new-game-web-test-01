@@ -53,6 +53,7 @@ export class UIController {
       { id: 'btn-open-shop', modalId: 'modal-shop', render: () => this.renderShopModal() },
       { id: 'btn-open-zones', modalId: 'modal-zones', render: () => this.renderZonesModal() },
       { id: 'btn-open-quests-side', modalId: 'modal-quests', render: () => this.renderQuestsModal() },
+      { id: 'btn-open-settings', modalId: 'modal-settings', render: () => this.renderSettingsModal() },
       { id: 'btn-auto-settings', modalId: 'modal-auto', render: () => this.renderAutoModal() }
     ];
 
@@ -154,16 +155,6 @@ export class UIController {
       if (el) {
         el.addEventListener('click', () => this.gameEngine.useSkillSlot(slot));
       }
-    }
-
-    // Sound Mute / Unmute Button
-    const soundBtn = document.getElementById('btn-toggle-sound');
-    if (soundBtn) {
-      soundBtn.addEventListener('click', () => {
-        const isMuted = soundEngine.toggleMute();
-        soundBtn.textContent = isMuted ? '🔇 เสียง [OFF]' : '🔊 เสียง [ON]';
-        this.gameEngine.onLog(isMuted ? '🔇 ปิดเสียงเอฟเฟกต์' : '🔊 เปิดเสียงเอฟเฟกต์', 'system');
-      });
     }
 
     // Monster kill event
@@ -404,6 +395,52 @@ export class UIController {
       `ต้องการเดินทางไป "${zone.name}" เพื่อล่า ${mon ? mon.name : q.targetMonster} สำหรับเควสต์ "${q.title}" หรือไม่?`,
       () => this.gameEngine.changeMap(zone.id)
     );
+  }
+
+  // Settings window with tabs: sound / graphics / account
+  renderSettingsModal() {
+    const body = document.getElementById('modal-settings-body');
+    if (!body) return;
+    const tab = this.settingsTab || 'sound';
+    const tabs = [['sound', '🔊 เสียง'], ['graphics', '🖼️ ภาพ'], ['account', '👤 บัญชี']];
+    const pct = v => Math.round(v * 100);
+    const slider = (id, label, v) => `
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>${label}</span><b id="${id}-val">${pct(v)}%</b></div>
+        <input type="range" id="${id}" min="0" max="100" value="${pct(v)}" style="width:100%;">
+      </div>`;
+    let content = '';
+    if (tab === 'sound') {
+      content = `
+        ${slider('set-vol-music', '🎵 เสียงเพลง', soundEngine.musicVolume)}
+        ${slider('set-vol-sfx', '💥 เสียงเอฟเฟกต์', soundEngine.sfxVolume)}
+        <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="set-mute" ${soundEngine.muted ? 'checked' : ''}> ปิดเสียงทั้งหมด</label>`;
+    } else if (tab === 'graphics') {
+      content = slider('set-zoom', '🔍 ระดับซูม', ((this.gameEngine.zoom || 1) - 0.5) / 2);
+    } else {
+      content = `<div>ชื่อตัวละคร: <b>${this.player.name}</b></div><div style="margin-top:6px;">เลเวล: <b>${this.player.level ?? '-'}</b></div>`;
+    }
+    body.innerHTML = `
+      <div style="display:flex;gap:6px;margin-bottom:14px;">
+        ${tabs.map(([id, label]) => `<button class="side-tab ${id === tab ? 'active' : ''}" data-set-tab="${id}" style="flex:1;">${label}</button>`).join('')}
+      </div>
+      <div style="min-width:280px;">${content}</div>`;
+    body.querySelectorAll('[data-set-tab]').forEach(btn => btn.addEventListener('click', () => {
+      this.settingsTab = btn.dataset.setTab;
+      this.renderSettingsModal();
+    }));
+    const bind = (id, fn) => {
+      const el = document.getElementById(id);
+      el?.addEventListener('input', () => {
+        const v = el.value / 100;
+        document.getElementById(`${id}-val`).textContent = `${el.value}%`;
+        fn(v);
+      });
+    };
+    bind('set-vol-music', v => soundEngine.setMusicVolume(v));
+    bind('set-vol-sfx', v => { soundEngine.setSfxVolume(v); soundEngine.playSlash(); });
+    bind('set-zoom', v => this.gameEngine.setZoom(0.5 + v * 2));
+    document.getElementById('set-mute')?.addEventListener('change', () => soundEngine.toggleMute());
   }
 
   closeOptionMenu() {
