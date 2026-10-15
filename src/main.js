@@ -81,10 +81,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       chatInput.value = '';
     }
   };
-  if (chatSendBtn) chatSendBtn.addEventListener('click', handleSendChat);
+  // Enter once opens the chat box for typing; Enter again sends and gives the keys back to the game
+  const stopMoving = () => { Object.keys(game.keys).forEach(k => { game.keys[k] = false; }); };
+  if (chatSendBtn) chatSendBtn.addEventListener('click', () => { handleSendChat(); chatInput.blur(); });
   if (chatInput) {
+    chatInput.placeholder = 'กด Enter เพื่อพิมพ์แชท...';
+    chatInput.addEventListener('focus', stopMoving);
     chatInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleSendChat();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSendChat();
+        chatInput.blur();
+      } else if (e.key === 'Escape') {
+        chatInput.blur();
+      }
+      e.stopPropagation();
     });
   }
 
@@ -103,6 +114,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   canvas.addEventListener('mousedown', (e) => {
+    if (document.activeElement === chatInput) chatInput.blur();
     const rect = canvas.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
@@ -118,13 +130,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 5. KEYBOARD CONTROLS: WASD to Move, 1 to 9 for Skills & Items
+  // Keys are read by physical position (e.code) so WASD also works with a Thai/other keyboard layout
+  const physicalKey = (e) => (e.code && e.code.startsWith('Key') ? e.code.slice(3).toLowerCase() : e.key.toLowerCase());
+
   window.addEventListener('keydown', (e) => {
+    // Enter: open the chat box (typing keys then go to the chat, not the game)
+    if (e.key === 'Enter' && !ui.isTyping() && !(document.activeElement && /^(BUTTON|SELECT)$/.test(document.activeElement.tagName))) {
+      e.preventDefault();
+      if (chatCollapsed) setChatCollapsed(false);
+      chatInput?.focus();
+      return;
+    }
     if (ui.isTyping()) return; // sliders/checkboxes/buttons with focus must not block movement
 
-    const key = e.key.toLowerCase();
+    const key = physicalKey(e);
 
-    if (key === '+' || key === '=') game.zoomBy(1.2);
-    else if (key === '-' || key === '_') game.zoomBy(1 / 1.2);
+    if (e.key === '+' || e.key === '=') game.zoomBy(1.2);
+    else if (e.key === '-' || e.key === '_') game.zoomBy(1 / 1.2);
 
     // WASD Movement
     if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
@@ -132,15 +154,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Number keys 1-9 for Skills
-    const num = parseInt(key);
+    const num = parseInt(e.key);
     if (!isNaN(num) && num >= 1 && num <= 9) {
       game.useSkillSlot(num);
     }
   });
 
   window.addEventListener('keyup', (e) => {
-
-    const key = e.key.toLowerCase();
+    const key = physicalKey(e);
     if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
       game.keys[key] = false;
     }

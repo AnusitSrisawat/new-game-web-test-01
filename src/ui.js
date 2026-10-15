@@ -181,7 +181,8 @@ export class UIController {
     window.addEventListener('keydown', (e) => {
       if (this.isTyping()) return;
 
-      const key = e.key.toLowerCase();
+      // physical key position, so hotkeys work on any keyboard layout (e.g. Thai)
+      const key = e.code && e.code.startsWith('Key') ? e.code.slice(3).toLowerCase() : e.key.toLowerCase();
       if (key === 'c') this.toggleModal('modal-status', () => this.renderStatusModal());
       else if (key === 'p') this.toggleModal('modal-party', () => this.renderPartyModal());
       else if (key === 'i') this.toggleModal('modal-inventory', () => this.renderInventoryModal());
