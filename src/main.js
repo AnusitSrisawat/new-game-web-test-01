@@ -48,7 +48,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const CAT_LABEL = { world: 'โลก', map: 'แมพ', party: 'ปาร์ตี้', guild: 'กิลด์' };
   const MAX_MSGS = 200;
   let chatTab = 'all';
-  const tabShows = (tab, cat) => tab === 'all' || tab === cat;
+  // The combined tab holds player chat only; system / monster messages stay in their own tabs
+  const tabShows = (tab, cat) => (tab === 'all' ? PLAYER_CATS.includes(cat) : tab === cat);
   const applyChatFilter = () => {
     chatContainer.dataset.tab = chatTab;
     chatContainer.querySelectorAll('.chat-msg').forEach(el => {
