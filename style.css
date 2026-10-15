@@ -1319,3 +1319,23 @@ body, html {
 }
 .side-collapse:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
 .side-panel.collapsed .side-body { display: none !important; }
+
+/* Hotbar slots match the HP/SP quick slots (52x52) */
+.skill-slot-card { width: 52px; height: 52px; }
+.skill-icon-emoji { font-size: 22px; margin-top: 0; }
+.skill-label-name { display: none; }
+.skill-slots-container { gap: 8px; }
+.pc-skill-action-bar { padding: 8px 10px; }
+
+/* AUTO is a round button above the attack button; the settings gear is a small badge on its top-right */
+.action-stack { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.auto-wrap { position: relative; width: 54px; height: 54px; }
+.btn-auto {
+  width: 54px; height: 54px; border-radius: 50%; padding: 0;
+  font-size: 0.72rem; border-width: 3px;
+}
+.btn-auto-settings {
+  position: absolute; top: -6px; right: -8px; width: 24px; height: 24px; border-radius: 50%;
+  padding: 0; font-size: 0.7rem; line-height: 1; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+}
