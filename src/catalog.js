@@ -20,15 +20,15 @@ const stats = (lv) => ({
   exp: Math.round(14 + 0.2 * Math.pow(lv, 2.2))
 });
 
-// Level plan: every map's monsters are stronger than the previous map's (rows = maps in play order, 4 monsters each).
+// Level plan: every map's monsters are stronger than the previous map's (rows = maps in play order, 4 monsters each; each map spans a 15-level band: 1-15, 16-30, 31-45, ...).
 // Stats come from the curve above, so a higher level always means higher HP/ATK/DEF/EXP.
 const LEVEL_PLAN = {
-  meadows:        { slime: 1, forest_hornet: 3, horned_rabbit: 6, mossy_golem: 9 },
-  misty_forest:   { wild_boar: 12, forest_wolf: 14, jungle_viper: 16, claw_bear: 18 },
-  bandit_hideout: { bandit_rogue: 21, bandit_archer: 23, bandit_brute: 25, bandit_leader: 27 },
-  goblin_caverns: { goblin_scout: 30, fire_imp: 32, treant: 34, chest_mimic: 36 },
-  volcano:        { floating_eye: 40, spectral_armor: 43, mushroom_sporeling: 46, baby_fire_wyrm: 49 },
-  bone_crypt:     { skeleton_warrior: 53, skeleton_archer: 56, skeleton_mage: 59, skeleton_knight: 62 }
+  meadows:        { slime: 1, forest_hornet: 5, horned_rabbit: 10, mossy_golem: 15 },
+  misty_forest:   { wild_boar: 16, forest_wolf: 21, jungle_viper: 26, claw_bear: 30 },
+  bandit_hideout: { bandit_rogue: 31, bandit_archer: 36, bandit_brute: 41, bandit_leader: 45 },
+  goblin_caverns: { goblin_scout: 46, fire_imp: 51, treant: 56, chest_mimic: 60 },
+  volcano:        { floating_eye: 61, spectral_armor: 66, mushroom_sporeling: 71, baby_fire_wyrm: 75 },
+  bone_crypt:     { skeleton_warrior: 76, skeleton_archer: 81, skeleton_mage: 86, skeleton_knight: 90 }
 };
 const BOSS_MULT = { bandit_leader: { hp: 2.2, atk: 1.3, exp: 2.5 } };
 const KEEP_STATS = ['slime']; // the very first monster keeps its hand-tuned numbers
