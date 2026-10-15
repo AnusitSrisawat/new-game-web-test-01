@@ -1053,10 +1053,9 @@ export class UIController {
       }).join('');
       const typeLabel = { weapon: 'อาวุธ', armor: 'เกราะ', consumable: 'ของใช้', material: 'วัสดุ' }[item.type] || '';
       const lv = item.reqLevel > 1 ? row('เลเวลที่ต้องการ', `Lv.${item.reqLevel}`, '') .replace('<span style="text-align:right; font-weight:600;">', `<span style="text-align:right; font-weight:600; color:${this.player.baseLevel >= item.reqLevel ? '#e2e8f0' : '#ef4444'};">`) : '';
-      const owned = this.player.inventory[k] ? row('จำนวน', `x${this.player.inventory[k]}`) : '';
       const hint = isGear ? (curId === k ? '<div style="color:#4ade80; margin-top:4px;">สวมอยู่</div>' : '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อสวมใส่</div>')
         : (item.type === 'consumable' ? '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อใช้</div>' : '');
-      const main = panel(head(item, typeLabel, '#94a3b8'), stats(item, cur) + lv + owned + (item.desc ? `<div style="color:#cbd5e1; margin-top:4px; font-size:0.72rem;">${item.desc}</div>` : '') + hint, '#3b82f6');
+      const main = panel(head(item, typeLabel, '#94a3b8'), stats(item, cur) + lv + (item.desc ? `<div style="color:#cbd5e1; margin-top:4px; font-size:0.72rem;">${item.desc}</div>` : '') + hint, '#3b82f6');
       if (!cur) return main;
       const cmp = panel(head(cur, 'ที่สวมอยู่ตอนนี้', '#4ade80'), stats(cur, null) + (cur.desc ? `<div style="color:#cbd5e1; margin-top:4px; font-size:0.72rem;">${cur.desc}</div>` : ''), '#16a34a');
       return main + cmp;
