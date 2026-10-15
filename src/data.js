@@ -34,7 +34,7 @@ export const ZONES = [
     reqLevel: 1,
     bgColor: '#a7f3d0',
     floorColor: '#34d399',
-    monsterIds: ['slime', 'forest_hornet', 'mushroom_sporeling', 'horned_rabbit']
+    monsterIds: ['slime', 'forest_hornet', 'horned_rabbit', 'mossy_golem']
   },
   {
     id: 'misty_forest',
@@ -43,7 +43,7 @@ export const ZONES = [
     reqLevel: 15,
     bgColor: '#94a3b8',
     floorColor: '#475569',
-    monsterIds: ['wild_boar', 'jungle_viper', 'forest_wolf', 'claw_bear']
+    monsterIds: ['forest_wolf', 'wild_boar', 'jungle_viper', 'claw_bear']
   },
   {
     id: 'bandit_hideout',
@@ -52,7 +52,7 @@ export const ZONES = [
     reqLevel: 34,
     bgColor: '#fde68a',
     floorColor: '#92400e',
-    monsterIds: ['bandit_rogue', 'bandit_archer', 'bandit_brute', 'bandit_leader']
+    monsterIds: ['bandit_rogue', 'bandit_archer', 'bandit_brute']
   },
   {
     id: 'goblin_caverns',
@@ -61,7 +61,7 @@ export const ZONES = [
     reqLevel: 30,
     bgColor: '#fed7aa',
     floorColor: '#b45309',
-    monsterIds: ['goblin_scout', 'chest_mimic', 'treant', 'mossy_golem']
+    monsterIds: ['goblin_scout', 'fire_imp', 'treant', 'chest_mimic']
   },
   {
     id: 'volcano',
@@ -70,7 +70,7 @@ export const ZONES = [
     reqLevel: 50,
     bgColor: '#fecaca',
     floorColor: '#dc2626',
-    monsterIds: ['fire_imp', 'floating_eye', 'baby_fire_wyrm', 'stone_golem']
+    monsterIds: ['floating_eye', 'spectral_armor', 'mushroom_sporeling', 'baby_fire_wyrm']
   },
   {
     id: 'bone_crypt',
@@ -88,7 +88,7 @@ export const ZONES = [
     reqLevel: 62,
     bgColor: '#c7d2fe',
     floorColor: '#4338ca',
-    monsterIds: ['spectral_armor', 'ancient_golem']
+    monsterIds: []
   }
 ];
 
@@ -568,16 +568,6 @@ export const QUESTS = [
     rewardGold: 4000,
     rewardExp: 7500,
     rewardTokens: 5
-  },
-  {
-    id: 'q6',
-    title: '🌋 ผู้พิทักษ์แห่งถ้ำโบราณ',
-    desc: 'ปราบ Ancient Titan Golem (Boss) 1 ตัว',
-    targetMonster: 'ancient_golem',
-    requiredCount: 1,
-    rewardGold: 15000,
-    rewardExp: 25000,
-    rewardTokens: 10
   }
 ];
 

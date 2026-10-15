@@ -56,3 +56,16 @@ npm start        # เปิด http://localhost:3000 (เปลี่ยนพ�
   `node tools/export-manifest.mjs > /tmp/manifest.json && python3 tools/cutout.py /tmp/manifest.json` (ต้องมี Python + Pillow + numpy) — เพิ่มรูปใหม่ใน `src/sprites.js` แล้วรันซ้ำ
 - มอนสเตอร์ 1 ตัวดรอปได้หลายแบบ (ตอนนี้ 3 แบบ: 70% / 40% / 10%) — แก้ **ชนิดไอเทม, % และเพิ่ม/ลบ** ได้ใน Studio แท็บ "มอนสเตอร์" (เก็บใน `data/overrides.json` ส่วน `drops`)
 - ตอนนี้ในเกมมีไอเทมแค่: กิ่งไม้ (อาวุธเริ่มต้น), ยา HP, และไอเทมที่มอนสเตอร์ดรอป — ไอเทม/อาวุธ/เกราะ/วัตถุดิบเก่า, ดรอป Relic และสูตรคราฟต์ถูกปิดไว้ก่อน (ข้อมูลยังอยู่ใน `src/data.js`; รายการที่เปิดอยู่ดูที่ `pruneItems` ใน `src/catalog.js`)
+
+## มอนสเตอร์ประจำแมพ (1 แมพ = 1 แผ่นรูปมอนสเตอร์)
+| แมพ | แผ่นรูป |
+|---|---|
+| Green Meadows | `monsters_sheet.jpg` — Slime, Forest Hornet, Horned Rabbit, Mossy Golem |
+| Misty Forest | `monsters_beasts.jpg` — Shadow Wolf, Armored Boar, Jungle Viper, Claw Bear |
+| Bandit Hideout | `monsters_bandits.jpg` — Rogue, Archer, Brute (Bandit Leader = บอส ยังไม่ใส่) |
+| Goblin Caverns | `monsters_fantasy.jpg` — Goblin Scout, Fire Imp, Treant, Chest Mimic |
+| Lava Volcano | `monsters_others.jpg` — Floating Eye, Spectral Armor, Mushroom Sporeling, Baby Fire Wyrm |
+| Bone Crypt | `monsters_skeleton.jpg` — Skeleton Warrior, Archer, Mage, Knight |
+| Haunted Ruins | ยังไม่มีแผ่นรูป (ไม่มีมอนสเตอร์) |
+
+ยังไม่มีบอสในเกม (Bandit Leader, Ancient Golem, Ancient Dragon ยังอยู่ในข้อมูลแต่ไม่ถูกวางในแมพ) — เพิ่มได้ที่ Studio แท็บ "การเกิดของมอนสเตอร์"
