@@ -76,3 +76,11 @@ table.spawns input[type=number] { width: 90px; }
 .drop.relic { border-color: #7e22ce; }
 .selrow { display: flex; align-items: center; gap: 8px; }
 .selrow select { min-width: 220px; }
+
+.dropedit { display: flex; flex-direction: column; gap: 6px; }
+.droprow { display: grid; grid-template-columns: 40px minmax(150px, 1fr) 110px 34px; gap: 8px; align-items: center; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+.droprow select { width: 100%; }
+.droprow .pct { display: flex; align-items: center; gap: 4px; color: var(--gold); }
+.droprow .pct input { width: 78px; }
+.dropbtns { display: flex; gap: 8px; }
+.empty.small { padding: 6px; text-align: left; }

@@ -81,3 +81,19 @@ export function installCatalog({ MONSTERS, ITEMS, MONSTER_AI }) {
     m.drops = dropsFor(m, ids);
   }
 }
+
+// For now the game only has: the starter weapon, the HP potions, and the items monsters drop (3 each).
+// Everything else (old weapons/armor/materials, relic drops, recipes that need them) is switched off here;
+// the definitions stay in data.js so they can be brought back one by one later.
+const BASE_ITEMS = ['wooden_stick', 'hp_potion_s', 'hp_potion_m', 'hp_potion_l', 'apple'];
+
+export function pruneItems({ MONSTERS, ITEMS, CRAFTING_RECIPES }) {
+  const keep = new Set(BASE_ITEMS);
+  Object.values(ITEM_SHEET_IDS).forEach(ids => ids.forEach(id => keep.add(id)));
+  NEW_MONSTERS.forEach(nm => (nm.items || []).forEach(it => keep.add(it[0])));
+  for (const id of Object.keys(ITEMS)) if (!keep.has(id)) delete ITEMS[id];
+  // monsters only drop items that still exist (this also drops the old relic drops)
+  for (const m of Object.values(MONSTERS)) m.drops = (m.drops || []).filter(d => ITEMS[d.itemId]);
+  const usable = CRAFTING_RECIPES.filter(r => ITEMS[r.resultItemId] && r.materials.every(mt => ITEMS[mt.itemId]));
+  CRAFTING_RECIPES.splice(0, CRAFTING_RECIPES.length, ...usable);
+}

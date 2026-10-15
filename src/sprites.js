@@ -1,5 +1,6 @@
 // Sprite manifest: which picture each monster / item uses. Shared by the game, the server and Studio.
-// Every sheet is a 1024x1024 picture; monster sheets hold 4 monsters (2x2), item sheets hold 12 items (3x4).
+// Source sheets are 1024x1024 pictures; monster sheets hold 4 monsters (2x2), item sheets hold 12 items (3x4).
+// The game itself uses the transparent cut-outs generated from them (see below).
 // Monster cell k drops the items in cells 3k..3k+2 of the matching item sheet.
 
 export const SHEETS = {
@@ -41,15 +42,13 @@ export function dropItemIds(sheet, cell) {
   return (ITEM_SHEET_IDS[sheet] || []).slice(cell * 3, cell * 3 + 3);
 }
 
-// Crop rectangles inside the 1024px sheets (leave the printed captions out)
-function monsterRect(cell) {
-  const col = cell % 2, row = cell >> 1;
-  return { sx: col * 512 + 26, sy: row * 512 + 8, sw: 460, sh: 420 };
-}
-function itemRect(cell) {
-  const col = cell % 3, row = Math.floor(cell / 3);
-  return { sx: 105 + 308 * col, sy: 25 + 241 * row, sw: 200, sh: 200 };
-}
+// Every picture is cut out of its sheet by tools/cutout.py (grey background removed) into one
+// transparent PNG per monster/item: assets/sprites/{monsters,items}/<sheet>_<cell>.png
+const MONSTER_PX = { w: 230, h: 210 };
+const ITEM_PX = { w: 100, h: 95 };
+const spriteOf = (kind, sheet, cell, px) => ({
+  src: `assets/sprites/${kind}/${sheet}_${cell}.png`, sx: 0, sy: 0, sw: px.w, sh: px.h, iw: px.w, ih: px.h
+});
 
 let itemIndex = null;
 function itemLookup() {
@@ -62,18 +61,18 @@ function itemLookup() {
 // -> { src, sx, sy, sw, sh } or null when the monster/item has no picture yet
 export function monsterSprite(id) {
   const e = MONSTER_SPRITES[id];
-  return e ? { src: SHEETS[e[0]].monsters, ...monsterRect(e[1]) } : null;
+  return e ? spriteOf('monsters', e[0], e[1], MONSTER_PX) : null;
 }
 export function itemSprite(id) {
   const e = itemLookup()[id];
-  return e ? { src: SHEETS[e[0]].items, ...itemRect(e[1]) } : null;
+  return e ? spriteOf('items', e[0], e[1], ITEM_PX) : null;
 }
 
-// CSS for a `px`-wide square showing the sprite (DOM use: inventory, Studio)
+// CSS for a `px`-wide box showing the sprite (DOM use: inventory, Studio)
 export function spriteStyle(sp, px) {
   const k = px / sp.sw;
   return `display:inline-block;width:${px}px;height:${Math.round(sp.sh * k)}px;flex:none;vertical-align:middle;` +
-    `background:url(/${sp.src}) no-repeat;background-size:${Math.round(1024 * k)}px ${Math.round(1024 * k)}px;` +
+    `background:url(/${sp.src}) no-repeat;background-size:${Math.round(sp.iw * k)}px ${Math.round(sp.ih * k)}px;` +
     `background-position:-${Math.round(sp.sx * k)}px -${Math.round(sp.sy * k)}px;`;
 }
 

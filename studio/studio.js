@@ -57,7 +57,7 @@
     if (!sprite) return h('span', { class: 'pic noimg', style: `width:${px}px;height:${px}px;font-size:${Math.round(px * 0.6)}px` }, emoji || '❔');
     const k = px / sprite.sw;
     return h('span', { class: 'pic', style: `width:${px}px;height:${Math.round(sprite.sh * k)}px;background-image:url(/${sprite.src});` +
-      `background-size:${Math.round(1024 * k)}px ${Math.round(1024 * k)}px;background-position:-${Math.round(sprite.sx * k)}px -${Math.round(sprite.sy * k)}px` });
+      `background-size:${Math.round(sprite.iw * k)}px ${Math.round(sprite.ih * k)}px;background-position:-${Math.round(sprite.sx * k)}px -${Math.round(sprite.sy * k)}px` });
   }
   const monsterPic = (id, px = 56) => pic(state.monsters[id]?.sprite, state.monsters[id]?.emoji, px);
 
@@ -185,10 +185,59 @@
       : [h('span', { class: 'chip none' }, 'ยังไม่ได้ใส่ในแมพไหน — ไปที่แท็บ "การเกิดของมอนสเตอร์"')];
   }
 
+  // ---- drop table editor (per monster): item + chance %, add / remove / reset ----
+  const MAX_DROPS = 12;
+  const currentDrops = (id) => ov.drops?.[id] ?? state.defaults.drops?.[id] ?? [];
+  const sameDrops = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  function setDrops(id, list) {
+    if (sameDrops(list, state.defaults.drops?.[id] ?? [])) {
+      if (ov.drops) { delete ov.drops[id]; if (!Object.keys(ov.drops).length) delete ov.drops; }
+    } else {
+      ov.drops ||= {};
+      ov.drops[id] = list;
+    }
+    setDirty(true);
+  }
+
+  function dropsEditor(id) {
+    const host = h('div', { class: 'dropedit' });
+    const itemIds = Object.keys(state.itemsInfo).sort((a, b) => state.itemsInfo[a].name.localeCompare(state.itemsInfo[b].name));
+    const draw = () => {
+      const list = currentDrops(id).map(d => ({ ...d }));
+      const rows = list.map((d, i) => {
+        const info = state.itemsInfo[d.itemId] || { name: d.itemId };
+        const holder = h('span', { class: 'pichold' }, pic(info.sprite, info.icon, 34));
+        const sel = h('select', { onchange: (e) => {
+          if (list.some((x, j) => j !== i && x.itemId === e.target.value)) { toast('ไอเทมนี้อยู่ในรายการดรอปแล้ว', true); e.target.value = d.itemId; return; }
+          list[i].itemId = e.target.value; setDrops(id, list); draw();
+        } }, ...itemIds.map(iid => h('option', { value: iid, selected: iid === d.itemId }, state.itemsInfo[iid].name)));
+        const pct = h('input', { type: 'number', min: 0.1, max: 100, step: 0.1, value: Math.round(d.chance * 1000) / 10, onchange: (e) => {
+          const v = Math.min(100, Math.max(0.1, Number(e.target.value) || 0.1));
+          e.target.value = v; list[i].chance = Math.round(v * 10) / 1000; setDrops(id, list);
+        } });
+        return h('div', { class: 'droprow' }, holder, sel, h('span', { class: 'pct' }, pct, '%'),
+          h('button', { class: 'btn small danger', title: 'ลบออกจากรายการ', onclick: () => { list.splice(i, 1); setDrops(id, list); draw(); } }, '✕'));
+      });
+      const isOv = ov.drops?.[id] !== undefined;
+      host.replaceChildren(
+        ...(rows.length ? rows : [h('div', { class: 'empty small' }, 'ไม่มีไอเทมดรอป')]),
+        h('div', { class: 'dropbtns' },
+          h('button', { class: 'btn small', disabled: list.length >= MAX_DROPS, onclick: () => {
+            const used = new Set(list.map(x => x.itemId));
+            const next = itemIds.find(iid => !used.has(iid));
+            if (!next) return;
+            list.push({ itemId: next, chance: 0.1 }); setDrops(id, list); draw();
+          } }, '+ เพิ่มไอเทมดรอป'),
+          isOv ? h('button', { class: 'btn small', onclick: () => { setDrops(id, state.defaults.drops?.[id] ?? []); draw(); } }, '↺ คืนค่าเดิม') : null));
+    };
+    draw();
+    return host;
+  }
+
   function panelMonsters() {
     return [
       h('h2', {}, 'มอนสเตอร์'),
-      h('p', { class: 'hint' }, 'ค่าพลังและพฤติกรรมของมอนสเตอร์แต่ละชนิด (มีผลกับทุกตัวของชนิดนั้นในทุกแมพ)'),
+      h('p', { class: 'hint' }, 'ค่าพลัง พฤติกรรม และไอเทมที่ดรอป (พร้อม % ) ของมอนสเตอร์แต่ละชนิด — มีผลกับทุกตัวของชนิดนั้นในทุกแมพ'),
       searchBar('ค้นหามอนสเตอร์...'),
       (listHost = h('div'))
     ];
@@ -199,9 +248,8 @@
         h('small', {}, state.monsters[id].sprite ? '🖼️ มีรูป' : 'ไม่มีรูป (ใช้ emoji)')),
       h('div', { class: 'group-title' }, 'แมพที่เกิด'),
       h('div', { class: 'chips' }, ...mapsOf(id)),
-      h('div', { class: 'group-title' }, 'ไอเทมที่ดรอป'),
-      h('div', { class: 'drops' }, ...state.monsters[id].drops.map(d => h('div', { class: 'drop' + (d.isRelic ? ' relic' : '') },
-        pic(d.sprite, d.icon, 36), h('span', {}, d.name), h('b', {}, `${Math.round(d.chance * 1000) / 10}%`)))),
+      h('div', { class: 'group-title' }, 'ไอเทมที่ดรอป (ตั้ง % ได้ เพิ่ม/ลบได้)'),
+      dropsEditor(id),
       h('div', { class: 'group-title' }, 'ค่าพลัง'),
       h('div', { class: 'fields' }, ...fieldsFor('monsters', id, ['name', 'level', 'hp', 'atk', 'def', 'exp'])),
       h('div', { class: 'group-title' }, 'พฤติกรรม'),
