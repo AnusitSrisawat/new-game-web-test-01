@@ -72,7 +72,7 @@
 
       <!-- TOP-RIGHT: Option menu + minimap -->
       <div class="hud-top-right hud-interactive">
-        <button id="btn-option" class="btn-option">⚙️ Option</button>
+        <button id="btn-option" class="btn-option">☰ Menu</button>
         <div id="option-menu" class="option-menu" style="display:none;">
           <button class="btn-hud-icon" id="btn-open-status">📊 สเตตัส <kbd>C</kbd></button>
           <button class="btn-hud-icon" id="btn-open-party">🚩 ปาร์ตี้ <kbd>P</kbd></button>
@@ -83,7 +83,7 @@
           <button class="btn-hud-icon" id="btn-open-relics">💎 สมุดสมบัติ <kbd>T</kbd></button>
           <button class="btn-hud-icon" id="btn-open-shop">🛍️ ร้าน & กาชา <kbd>K</kbd></button>
           <button class="btn-hud-icon" id="btn-open-zones">🗺️ แผนที่ <kbd>M</kbd></button>
-          <button class="btn-hud-icon" id="btn-toggle-sound" title="เปิด/ปิดเสียงเอฟเฟกต์">🔊 เสียง [ON]</button>
+          <button class="btn-hud-icon" id="btn-open-settings">⚙️ ตั้งค่า</button>
         </div>
         <div class="minimap-card">
           <canvas id="minimapCanvas" class="minimap-canvas" width="130" height="130"></canvas>
@@ -250,6 +250,14 @@
         <button class="btn-modal-close" data-close="modal-auto">✕</button>
       </div>
       <div class="modal-body" id="modal-auto-body"></div>
+    </div>
+
+    <div class="game-modal" id="modal-settings">
+      <div class="modal-header">
+        <div class="modal-title">⚙️ ตั้งค่า</div>
+        <button class="btn-modal-close" data-close="modal-settings">✕</button>
+      </div>
+      <div class="modal-body" id="modal-settings-body"></div>
     </div>
 
     <div class="game-modal" id="modal-party">

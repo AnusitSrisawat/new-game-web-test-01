@@ -4,6 +4,33 @@ export class SoundEngine {
     this.ctx = null;
     this.muted = false;
     this.masterGain = null;
+    this.sfxVolume = this.loadVol('vol_sfx');
+    this.musicVolume = this.loadVol('vol_music'); // reserved for BGM (no music track yet)
+  }
+
+  loadVol(key) {
+    try {
+      const v = parseFloat(localStorage.getItem(key));
+      if (Number.isFinite(v)) return Math.max(0, Math.min(1, v));
+    } catch (e) { /* ignore */ }
+    return 1;
+  }
+
+  applyGain() {
+    if (this.masterGain) {
+      this.masterGain.gain.setValueAtTime(this.muted ? 0 : 0.25 * this.sfxVolume, this.ctx.currentTime);
+    }
+  }
+
+  setSfxVolume(v) {
+    this.sfxVolume = Math.max(0, Math.min(1, v));
+    try { localStorage.setItem('vol_sfx', String(this.sfxVolume)); } catch (e) { /* ignore */ }
+    this.applyGain();
+  }
+
+  setMusicVolume(v) {
+    this.musicVolume = Math.max(0, Math.min(1, v));
+    try { localStorage.setItem('vol_music', String(this.musicVolume)); } catch (e) { /* ignore */ }
   }
 
   init() {
@@ -12,7 +39,7 @@ export class SoundEngine {
       if (AudioContext) {
         this.ctx = new AudioContext();
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+        this.masterGain.gain.setValueAtTime(0.25 * this.sfxVolume, this.ctx.currentTime);
         this.masterGain.connect(this.ctx.destination);
       }
     }
@@ -23,9 +50,7 @@ export class SoundEngine {
 
   toggleMute() {
     this.muted = !this.muted;
-    if (this.masterGain) {
-      this.masterGain.gain.setValueAtTime(this.muted ? 0 : 0.25, this.ctx.currentTime);
-    }
+    this.applyGain();
     return this.muted;
   }
 
