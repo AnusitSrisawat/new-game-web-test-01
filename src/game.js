@@ -1013,6 +1013,18 @@ export class GameEngine {
       m.bobTimer += dt * 5;
     }
 
+    // Other players: ease rendered position toward the latest server position
+    if (this.network && this.network.otherPlayers) {
+      const pk = 1 - Math.exp(-dt * 18);
+      this.network.otherPlayers.forEach(op => {
+        if (op.tx === undefined) return;
+        const dx = op.tx - op.x, dy = op.ty - op.y;
+        if (dx * dx + dy * dy > 400 * 400) { op.x = op.tx; op.y = op.ty; return; }
+        op.x += dx * pk;
+        op.y += dy * pk;
+      });
+    }
+
     // Update VFX list
     for (let i = this.vfxList.length - 1; i >= 0; i--) {
       const v = this.vfxList[i];
