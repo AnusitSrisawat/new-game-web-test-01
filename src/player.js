@@ -15,6 +15,10 @@ export function randomName() {
   return `${pick(NAME_ADJ)}${pick(NAME_NOUN)}${Math.floor(10 + Math.random() * 90)}`;
 }
 
+// TESTING: put every sword in the bag and let it be equipped at any level.
+// Set to false to go back to normal (level-gated, drops/crafting only).
+export const TEST_ALL_SWORDS = true;
+
 export class Player {
   constructor() {
     this.name = randomName();
@@ -239,7 +243,7 @@ export class Player {
   equipItem(itemId) {
     const item = ITEMS[itemId];
     if (!item || (item.type !== 'weapon' && item.type !== 'armor')) return { ok: false, reason: 'ไม่ใช่อุปกรณ์' };
-    if (item.reqLevel && this.baseLevel < item.reqLevel) {
+    if (!TEST_ALL_SWORDS && item.reqLevel && this.baseLevel < item.reqLevel) {
       return { ok: false, reason: `ต้องการเลเวล ${item.reqLevel} ขึ้นไป (ตอนนี้ Lv.${this.baseLevel})` };
     }
     if (item.type === 'weapon') {
@@ -317,7 +321,7 @@ export class Player {
         ['weapon', 'armor'].forEach(slot => {
           const id = this.equipment[slot];
           const item = id && ITEMS[id];
-          if (id && (!item || (item.reqLevel && item.reqLevel > this.baseLevel))) {
+          if (id && (!item || (!TEST_ALL_SWORDS && item.reqLevel && item.reqLevel > this.baseLevel))) {
             if (item) this.inventory[id] = (this.inventory[id] || 0) + 1;
             this.equipment[slot] = null;
           }
@@ -327,6 +331,13 @@ export class Player {
       }
       // Old saves carried the placeholder name; give those a random one too
       if (!this.name || this.name === 'Novice Adventurer') this.name = randomName();
+      if (TEST_ALL_SWORDS) {
+        for (const it of Object.values(ITEMS)) {
+          if (it.type === 'weapon' && it.weaponType === 'sword' && !this.inventory[it.id] && this.equipment.weapon !== it.id) {
+            this.inventory[it.id] = 1;
+          }
+        }
+      }
       this.saveToStorage();
     } catch (e) {
       console.warn('Storage load error:', e);

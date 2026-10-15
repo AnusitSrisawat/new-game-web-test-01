@@ -1,6 +1,7 @@
 // Plain flat world map: one rectangular field per zone with a wall around the edge.
 // Zone data (size, colors, spawn) lives in maps.js and is shared with the server.
-import { TILE_SIZE, getMapDef } from './maps.js';
+import { TILE_SIZE, OBJECT_TYPES, getMapDef } from './maps.js';
+import { getFloorPattern, drawMapObject } from './textures.js';
 
 export class WorldMap {
   constructor() {
@@ -14,11 +15,17 @@ export class WorldMap {
     this.height = this.def.height;
   }
 
-  // The outermost tile ring is wall.
+  // The outermost tile ring is wall; solid Studio objects block too.
   isWalkable(x, y, radius = 16) {
     const wall = TILE_SIZE;
-    return !(x - radius < wall || x + radius > this.width - wall ||
-             y - radius < wall || y + radius > this.height - wall);
+    if (x - radius < wall || x + radius > this.width - wall ||
+        y - radius < wall || y + radius > this.height - wall) return false;
+    for (const o of this.def.objects || []) {
+      if (!o.solid) continue;
+      const r = (OBJECT_TYPES[o.type]?.r || 0) * (o.scale || 1);
+      if (r > 0 && Math.hypot(x - o.x, y - o.y) < r + radius * 0.6) return false;
+    }
+    return true;
   }
 
   renderGround(ctx, camera) {
@@ -31,6 +38,11 @@ export class WorldMap {
     // Floor
     ctx.fillStyle = def.floor;
     ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
+    const pattern = getFloorPattern(ctx, def.texture, def.floor);
+    if (pattern) {
+      ctx.fillStyle = pattern;
+      ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
+    }
 
     // Tile grid
     ctx.strokeStyle = def.grid;
@@ -54,6 +66,14 @@ export class WorldMap {
     ctx.fillRect(this.width - TILE_SIZE, 0, TILE_SIZE, this.height);
   }
 
-  // Placeholder: map objects will be drawn here later.
-  renderObjects() {}
+  // Objects placed in Studio, drawn back-to-front (only those near the camera).
+  renderObjects(ctx, camera) {
+    const list = this.def.objects;
+    if (!list || !list.length) return;
+    const pad = 200;
+    const visible = list.filter(o => o.x > camera.x - pad && o.x < camera.x + camera.w + pad &&
+                                     o.y > camera.y - pad && o.y < camera.y + camera.h + pad + 100);
+    visible.sort((a, b) => a.y - b.y);
+    for (const o of visible) drawMapObject(ctx, o);
+  }
 }
