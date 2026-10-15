@@ -840,7 +840,7 @@ export class UIController {
     const wtName = WEAPON_TYPES[info.type] ? WEAPON_TYPES[info.type].name : info.type;
     const statHelp = {
       str: 'ดาเมจอาวุธประชิด (กิ่งไม้/ดาบ/มือเปล่า)',
-      agi: 'ความเร็วโจมตี',
+      agi: 'ความเร็วโจมตี และความเร็วเดิน',
       vit: 'HP สูงสุด และ DEF',
       dex: 'ดาเมจธนู และเสริมดาเมจรวม',
       int: 'ดาเมจคฑา (เวท)',
@@ -852,7 +852,7 @@ export class UIController {
     if (pendTotal > pl.statPoints) { STAT_KEYS.forEach(k => { pend[k] = 0; }); }
     const pendLeft = pl.statPoints - STAT_KEYS.reduce((n, k) => n + (pend[k] || 0), 0);
     // Preview: temporarily apply staged points to read the derived stats, then restore
-    const readDerived = () => ({ hp: pl.maxHp, atk: pl.attack, def: pl.defense, aspd: pl.aspd, crit: pl.critRate });
+    const readDerived = () => ({ hp: pl.maxHp, atk: pl.attack, def: pl.defense, aspd: pl.aspd, move: pl.moveMul, crit: pl.critRate });
     const before = readDerived();
     STAT_KEYS.forEach(k => { pl.stats[k] += pend[k] || 0; });
     const after = readDerived();
@@ -906,6 +906,7 @@ export class UIController {
           ${row('Total ATK:', prev('atk'))}
           ${row('Total DEF:', prev('def'))}
           ${row('ASPD:', prev('aspd', v => `${v}/s`))}
+          ${row('Move Speed:', prev('move', v => `${Math.round(v * 100)}%`))}
           ${row('Crit Rate:', prev('crit', v => `${(v * 100).toFixed(1)}%`))}
           ${row('สมบัติ Relic:', `${pl.collectedRelics.length}/12 ชิ้น`)}
         </div>

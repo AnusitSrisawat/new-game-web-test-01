@@ -154,7 +154,11 @@ export class Player {
 
   get spRegen() { return 1 + this.stats.int * 0.1; }       // SP per second
 
-  get moveMul() { return 1 + this.skillBonus('bonusMovePct') / 100; }
+  // Move speed: +0.3% per AGI (cap +40%) plus skill bonuses. AGI 5 => +1.5%, AGI 100 => +30%.
+  get moveMul() {
+    const agiBonus = Math.min(0.4, this.stats.agi * 0.003);
+    return 1 + agiBonus + this.skillBonus('bonusMovePct') / 100;
+  }
 
   // Calculate Total Combined Stats
   get maxHp() {
