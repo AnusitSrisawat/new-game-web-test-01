@@ -238,19 +238,196 @@ export const WEAPON_TIER2_IDS = [
 
 ### 3.2 ฟังก์ชันคำนวณตำแหน่งตัดภาพอาวุธ (10 Weapons Grid)
 
-สำหรับภาพ 1024x1024 ที่มีอาวุธ 10 ชิ้น:
 
-```javascript
-// คำนวณพิกัด Crop สำหรับอาวุธในชีต 10 ชิ้น
-export function weaponRect(index) {
-  // index 0..9 (แถวบน 5 ชิ้น, แถวล่าง 5 ชิ้น)
-  const col = index % 5;
-  const row = Math.floor(index / 5);
-  return {
-    sx: 35 + col * 195,
-    sy: 25 + row * 490,
-    sw: 185,
-    sh: 420
-  };
-}
+---
+
+## 4. อาวุธเพิ่มเติม (คฑา, ธนู, หอก, ปืน, หนังสือ)
+
+เตรียมโครงสร้างโฟลเดอร์ไว้ที่ `assets/weapons/<type>/weapons_tier1.jpg` และ `weapons_tier2.jpg`
+
 ```
+assets/weapons/
+├── sword/   (weapons_tier1.jpg, weapons_tier2.jpg)
+├── staff/   (คฑา/ไม้เท้าเวทมนตร์)
+├── bow/     (ธนู/หน้าไม้)
+├── spear/   (หอก/ง้าว/ทวน)
+├── gun/     (ปืนสั้น/ปืนยาว/ปืนใหญ่เวทมนตร์)
+└── book/    (คัมภีร์เวท/ตำราเวทมนตร์)
+```
+
+---
+
+### 4.1 คฑา / ไม้เท้าเวทมนตร์ (Staff & Wand)
+📁 ที่ตั้งไฟล์: `assets/weapons/staff/weapons_tier1.jpg` (Lv 1-50) & `weapons_tier2.jpg` (Lv 55-100)
+
+| ระดับ | เลเวล | รหัสไอเทม (ID) | ชื่ออาวุธ | สเตตัสแนะนำ | คำอธิบาย |
+|---|:---:|---|---|:---:|---|
+| **T1** | Lv. 1 | `wooden_wand` | Wooden Wand | MATK +10 | กิ่งไม้อ่อนเหลาเป็นไม้กายสิทธิ์ฝึกหัด |
+| | Lv. 5 | `oak_apprentice_rod` | Oak Apprentice Rod | MATK +26 | ไม้เท้าไม้โอ๊กหัวกลม กักเก็บกระแสมานาเริ่มต้น |
+| | Lv. 10 | `crystal_gem_wand` | Crystal Gem Wand | MATK +48, MP +30 | ไม้เท้าประดับผลึกแก้วใส เสริมสมาธิและเร่งฟื้นฟู MP |
+| | Lv. 15 | `nature_sprout_staff` | Nature Sprout Staff | MATK +75, HEAL +5% | คฑาพฤกษารากไม้มีชีวิต เร่งพลังเวทฟื้นฟูธรรมชาติ |
+| | Lv. 20 | `dark_bone_wand` | Dark Bone Wand | MATK +105, CURSE +3% | กิ่งกระดูกสถิตวิญญาณ คำสาปกัดกร่อนพลังชีวิตศัตรู |
+| | Lv. 25 | `silver_cleric_scepter` | Silver Cleric Scepter | MATK +145, INT +4 | คฑาเงินบริสุทธิ์ของนักบวช แผ่ออร่าแสงศักดิ์สิทธิ์ |
+| | Lv. 30 | `ruby_fire_staff` | Ruby Fire Staff | MATK +195, FIRE +20 | ไม้เท้าหัวทับทิมเพลิง ยิงลูกไฟเผาผลาญศัตรู |
+| | Lv. 35 | `shadow_sorcery_staff` | Shadow Sorcery Staff | MATK +250, DRAIN +4% | คฑาหมอกทมิฬ ดูดซับพลังเวทจากศัตรู |
+| | Lv. 40 | `thunder_archmage_staff`| Thunder Archmage Staff | MATK +315, SHOCK +10%| ไม้เท้ายอดสายฟ้าแลบ ปลดปล่อยคลื่นฟ้าผ่ารุนแรง |
+| | Lv. 50 | `ancient_elder_staff` | Ancient Elder Staff | MATK +410, INT +12 | คฑาไม้โบราณพันปี สลักอักขระเวทมนตร์มหาศาล |
+| **T2** | Lv. 55 | `glacial_frost_staff` | Glacial Frost Staff | MATK +495, FREEZE +15%| คฑาคริสตัลน้ำแข็ง แช่แข็งศัตรูรอบตัว |
+| | Lv. 60 | `tempest_storm_rod` | Tempest Storm Rod | MATK +590, ASPD +8% | คฑาวายุหมุนเร่งความเร็วในการร่ายเวท |
+| | Lv. 65 | `terra_gaia_scepter` | Terra Gaia Scepter | MATK +705, DEF +40 | คฑาศิลาพสุธา เสริมเกราะหินป้องกันให้ผู้ถือ |
+| | Lv. 70 | `nether_abyss_staff` | Nether Abyss Staff | MATK +835, LIFESTEAL +5%| คฑาอเวจีปีศาจ ดึงดูดวิญญาณมาฟื้นฟูพลัง |
+| | Lv. 75 | `archangel_holy_scepter`| Archangel Holy Scepter | MATK +980, RESIST +20% | คฑาปีกเทวทูตสีขาวทอง ชำระล้างสถานะผิดปกติ |
+| | Lv. 80 | `dragon_heart_dragonstaff`| Dragon Heart Staff | MATK +1170, BURN +40 | ยอดคฑาคือหัวใจมังกรเพลิง ลมหายใจมังกรแผดเผา |
+| | Lv. 85 | `astral_starfall_rod` | Astral Starfall Rod | MATK +1400, M-PEN +15%| คฑาละอองดาวกาแล็กซี ทะลวงม่านพลังเวทมนตร์ |
+| | Lv. 90 | `phoenix_rebirth_scepter`| Phoenix Rebirth Scepter| MATK +1670, AUTO-REVIVE| เปลวเพลิงอมตะชุบชีวิตผู้ถือครองเมื่อพลังหมด |
+| | Lv. 95 | `chronos_time_staff` | Chronos Time Staff | MATK +1990, CDR -25% | คฑาฟันเฟืองเวลา หยุดเวลาและเร่งคูลดาวน์สกิล |
+| | Lv. 100| `genesis_divine_staff` | Genesis Divine Staff | MATK +2650, ALL +60 | คฑาผู้สร้างปฐมกาล ควบคุมกฎเกณฑ์เวทมนตร์ทั้งปวง |
+
+---
+
+### 4.2 ธนู (Bow & Crossbow)
+📁 ที่ตั้งไฟล์: `assets/weapons/bow/weapons_tier1.jpg` (Lv 1-50) & `weapons_tier2.jpg` (Lv 55-100)
+
+| ระดับ | เลเวล | รหัสไอเทม (ID) | ชื่ออาวุธ | สเตตัสแนะนำ | คำอธิบาย |
+|---|:---:|---|---|:---:|---|
+| **T1** | Lv. 1 | `wooden_shortbow` | Wooden Shortbow | ATK +9 | ธนูไม้สั้นยิงเร็ว เหมาะสำหรับการล่าเบื้องต้น |
+| | Lv. 5 | `hunting_recurve_bow` | Hunting Recurve Bow | ATK +24, HIT +5 | ธนูโค้งนักพราน ยิงแม่นยำระยะกลาง |
+| | Lv. 10 | `iron_longbow` | Iron Longbow | ATK +45, CRIT +3% | คันธนูเสริมขอบเหล็ก ยิงได้ไกลและพลังทะลวงสูง |
+| | Lv. 15 | `elven_yew_bow` | Elven Yew Bow | ATK +72, DEX +3 | ธนูไม้เอลฟ์โบราณ น้ำหนักเบา ยิงต่อเนื่องไม่เมื่อยล้า |
+| | Lv. 20 | `bandit_crossbow` | Bandit Crossbow | ATK +102, BLEED +5% | หน้าไม้ดัดแปลงของกองโจร ลูกดอกเจาะเกราะทำให้เลือดไหล |
+| | Lv. 25 | `silver_ranger_bow` | Silver Ranger Bow | ATK +140, EVA +5% | ธนูเงินประกายของพรานหลวง เคลื่อนที่คล่องตัวขณะเล็ง |
+| | Lv. 30 | `bone_piercer_bow` | Bone Piercer Bow | ATK +188, PIERCE +8% | คันธนูแกะจากโครงกระดูกสัตว์ร้าย หัวลูกศรเจาะทะลุศัตรู |
+| | Lv. 35 | `nightshade_assassin_bow`| Nightshade Bow | ATK +240, POISON +10% | ธนูลอบสังหารเคลือบพิษพืชราตรี ไร้เสียงขณะลั่นไก |
+| | Lv. 40 | `crimson_flame_bow` | Crimson Flame Bow | ATK +305, FIRE +20 | ธนูเพลิงสีชาด จุดไฟเผาศัตรูตั้งแต่ระยะไกล |
+| | Lv. 50 | `gale_windforce_bow` | Gale Windforce Greatbow | ATK +395, RANGE +50 | ธนูยักษ์สายลม พายุหมุนหอบลูกศรพุ่งทะลวงระยะไกลพิเศษ |
+| **T2** | Lv. 55 | `glacial_ice_bow` | Glacial Ice Bow | ATK +480, SLOW +25% | ลูกศรเคลือบผลึกน้ำแข็ง ทำให้ศัตรูก้าวขาไม่ออก |
+| | Lv. 60 | `thunder_strike_bow` | Thunder Strike Bow | ATK +575, CHAIN +12%| ธนูสายฟ้า ยิงหนึ่งนัดสะท้อนช็อตศัตรูเป็นกลุ่ม |
+| | Lv. 65 | `titan_heavy_crossbow` | Titan Heavy Crossbow | ATK +690, STUN +10% | หน้าไม้ยักษ์ไททัน แรงสะท้อนสูงจนศัตรูกระเด็นหงาย |
+| | Lv. 70 | `abyssal_shadowstring` | Abyssal Shadowstring | ATK +815, LIFESTEAL +5%| สายธนูเงาดำ ดูดเลือดเป้าหมายกลับคืนผู้ยิง |
+| | Lv. 75 | `seraphim_holy_bow` | Seraphim Holy Bow | ATK +960, UNDEAD +30%| ธนูเทวทูตแสงสวรรค์ เผาผลาญพวกผีดิบและวิญญาณร้าย |
+| | Lv. 80 | `dragon_breath_longbow` | Dragon Breath Longbow | ATK +1145, EXPLODE +15%| ลูกศรกลายสภาพเป็นมังกรเพลิงระเบิดเมื่อกระทบเป้า |
+| | Lv. 85 | `astral_starlight_bow` | Astral Starlight Bow | ATK +1370, IGNORE +15%| ยิงลูกศรละอองดาว ไม่สนใจม่านเกราะและสิ่งกีดขวาง |
+| | Lv. 90 | `phoenix_firefeather_bow`| Phoenix Feather Bow | ATK +1640, BURN +50 | ขนนกฟีนิกซ์ทองคำ ยิงพายุเพลิงล้างผลาญ |
+| | Lv. 95 | `chrono_gear_crossbow` | Chrono Gear Crossbow | ATK +1950, ASPD +30% | หน้าไม้ฟันเฟืองเวลา รัวลูกดอกอย่างต่อเนื่องเสมือนหยุดเวลา |
+| | Lv. 100| `genesis_celestial_bow` | Genesis Celestial Bow | ATK +2600, CRIT-DMG +50%| ธนูแห่งพระเจ้าปฐมกาล ยิงทะลุมิติติดคริติคอลสูงสุด |
+
+---
+
+### 4.3 หอก / ทวน / ง้าว (Spear, Lance & Halberd)
+📁 ที่ตั้งไฟล์: `assets/weapons/spear/weapons_tier1.jpg` (Lv 1-50) & `weapons_tier2.jpg` (Lv 55-100)
+
+| ระดับ | เลเวล | รหัสไอเทม (ID) | ชื่ออาวุธ | สเตตัสแนะนำ | คำอธิบาย |
+|---|:---:|---|---|:---:|---|
+| **T1** | Lv. 1 | `wooden_pike` | Wooden Pike | ATK +9, RANGE +20 | หอกไม้ปลายแหลมระยะแทงยาวกว่าดาบทั่วไป |
+| | Lv. 5 | `iron_hunting_spear` | Iron Hunting Spear | ATK +25, STR +2 | หอกเหล็กล่าสัตว์ ถ่วงน้ำหนักสมดุล |
+| | Lv. 10 | `steel_halberd` | Steel Halberd | ATK +46, DEF +4 | ง้าวเหล็กกล้า ฟันและแทงได้ในอาวุธเดียว |
+| | Lv. 15 | `wild_boar_lance` | Wild Boar Lance | ATK +73, CHARGE +10% | หอกเขี้ยวหมูป่า เพิ่มพลังแทงขณะวิ่งชาร์จ |
+| | Lv. 20 | `bandit_partisan` | Bandit Partisan | ATK +104, BLEED +5% | หอกใบกว้างของหัวหน้าโจร ใบหอกบากฟันฉีกเนื้อ |
+| | Lv. 25 | `silver_knight_lance` | Silver Knight Lance | ATK +142, DEF +12 | ทวนอัศวินเกราะเงิน สำหรับการรบประจัญบาน |
+| | Lv. 30 | `bone_glaive` | Bone Glaive | ATK +190, STUN +5% | ง้าวกระดูกหนาทึบ ฟันหักเกราะศัตรู |
+| | Lv. 35 | `shadow_piercer_spear` | Shadow Piercing Spear | ATK +245, CRIT +6% | หอกปลายเรียวแหลมสีดำ แทงเข้าจุดตายอย่างแม่นยำ |
+| | Lv. 40 | `crimson_dragonpike` | Crimson Dragonpike | ATK +310, FIRE +20 | หอกเพลิงมังกรแดง เปลวไฟหมุนวนรอบด้ามหอก |
+| | Lv. 50 | `valkyrie_war_spear` | Valkyrie War Spear | ATK +405, ALL +8 | หอกนักรบสวรรค์วาลคิรี เปล่งประกายเกียรติยศแห่งสงคราม |
+| **T2** | Lv. 55 | `frostfang_glacier_spear`| Frost Glacier Spear | ATK +490, SLOW +20% | หอกน้ำแข็งขั้วโลก ปลายหอกเยือกแข็งเกาะติดเป้าหมาย |
+| | Lv. 60 | `thunderstorm_trident` | Thunderstorm Trident | ATK +585, SHOCK +15% | สามง่ามอัสนีบาต แทงเรียกสายฟ้าฟาดจากฟากฟ้า |
+| | Lv. 65 | `titan_stone_halberd` | Titan Stone Halberd | ATK +700, DEF +55 | ง้าวศิลาไททัน ป้องกันแน่นหนาดั่งปราการหิน |
+| | Lv. 70 | `chaos_demon_lance` | Chaos Demon Lance | ATK +825, LIFESTEAL +6%| ทวนปีศาจสีโลหิต คมทวนกระหายเลือดสูบพลังศัตรู |
+| | Lv. 75 | `holy_aegis_spear` | Holy Aegis Spear | ATK +970, BLOCK +15%| หอกศักดิ์สิทธิ์พร้อมพู่ทอง ปัดป้องการโจมตีศัตรู |
+| | Lv. 80 | `dragon_horn_warpike` | Dragon Horn Warpike | ATK +1160, BURN +35 | ตีขึ้นจากเขามังกรดำโบราณ ทะลวงเกราะเหล็กได้ทุกชนิด |
+| | Lv. 85 | `astral_void_glaive` | Astral Void Glaive | ATK +1390, M-PEN +15%| ง้าวแห่งความว่างเปล่า กวัดแกว่งตัดผ่านมิติความจริง |
+| | Lv. 90 | `phoenix_radiant_spear` | Phoenix Radiant Spear| ATK +1660, HEAL-HIT +3%| หอกปีกเพลิงฟีนิกซ์ ทุกการแทงรักษาพลังชีวิตผู้ถือ |
+| | Lv. 95 | `chronos_pendulum_lance`| Chronos Pendulum Lance| ATK +1970, CDR -20% | ทวนลูกตุ้มกาลเวลา แกว่งทลายห้วงเวลาศัตรู |
+| | Lv. 100| `genesis_divine_spear` | Genesis Divine Spear | ATK +2620, PIERCE +100%| หอกเทพปฐมกาล แทงทะลวงทุกสรรพสิ่งโดยไร้แรงต้าน |
+
+---
+
+### 4.4 ปืน (Gun, Pistol, Blaster & Musket)
+📁 ที่ตั้งไฟล์: `assets/weapons/gun/weapons_tier1.jpg` (Lv 1-50) & `weapons_tier2.jpg` (Lv 55-100)
+
+| ระดับ | เลเวล | รหัสไอเทม (ID) | ชื่ออาวุธ | สเตตัสแนะนำ | คำอธิบาย |
+|---|:---:|---|---|:---:|---|
+| **T1** | Lv. 1 | `flintlock_pistol` | Flintlock Pistol | ATK +10, RANGE +180 | ปืนคาบศิลาโบราณ เสียงลั่นไกดังสนั่น ยิงแม่นยำระยะสั้น |
+| | Lv. 5 | `hunting_musket` | Hunting Musket | ATK +27, HIT +6 | ปืนคาบศิลายาวสำหรับล่าสัตว์ ระยะยิงไกลและพลังกระแทกสูง |
+| | Lv. 10 | `iron_revolver` | Iron Revolver | ATK +49, ASPD +5% | ปืนลูกโม่เหล็กกล้า 6 นัด ยิงต่อเนื่องรวดเร็ว |
+| | Lv. 15 | `pirate_dual_pistols` | Pirate Dual Pistols | ATK +76, CRIT +4% | ปืนพกคู่โจรสลัด กระสุนกระจายตัวระยะใกล้ |
+| | Lv. 20 | `trench_blunderbuss` | Trench Blunderbuss | ATK +108, KNOCKBACK| ปืนลูกซองปากแตร พลังทำลายล้างกลุ่มศัตรูระยะเผาขน |
+| | Lv. 25 | `silver_knight_rifle` | Silver Knight Rifle | ATK +148, DEF +6 | ปืนยาวลูกเลื่อนเงินประณีตของทหารม้าหลวง |
+| | Lv. 30 | `bone_carbine` | Bone Carbine | ATK +198, BLEED +6% | ปืนคาร์ไบน์โครงกระดูก ยิงเศษกระดูกแหลมคมฉีกเนื้อ |
+| | Lv. 35 | `shadow_silencer_gun` | Shadow Silencer Gun | ATK +255, CRIT +8% | ปืนติดปลอกเก็บเสียงสีดำเงียบกริบ สังหารเป้าหมายไร้ร่องรอย |
+| | Lv. 40 | `crimson_fire_blaster` | Crimson Fire Blaster| ATK +320, FIRE +25 | ปืนพลังงานความร้อน ยิงลำแสงเพลิงเผาไหม้ |
+| | Lv. 50 | `rune_steam_cannon` | Rune Steam Cannon | ATK +420, EXPLODE +12%| ปืนใหญ่ไอน้ำอักขระรูน ยิงกระสุนอัดระเบิดพลังงานสูง |
+| **T2** | Lv. 55 | `cryo_frost_cannon` | Cryo Frost Cannon | ATK +505, SLOW +25% | ปืนไครโอเจนิก ยิงลำแสงแช่แข็งเป้าหมายให้หยุดชะงัก |
+| | Lv. 60 | `voltaic_storm_blaster` | Voltaic Storm Blaster| ATK +605, CHAIN +15%| ปืนเทสลาไฟฟ้า ยิงสายฟ้าช็อตศัตรูต่อเนื่องทั้งฝูง |
+| | Lv. 65 | `titan_siege_railgun` | Titan Siege Railgun | ATK +720, PIERCE +20%| ปืนเรลกันแรงแม่เหล็กสูง ยิงกระสุนทะลุกำแพงและมอนสเตอร์ |
+| | Lv. 70 | `abyssal_demon_revolver`| Abyssal Demon Revolver| ATK +850, LIFESTEAL +6%| ปืนลูกโม่กะโหลกปีศาจ กระสุนวิญญาณสูบเลือดคืนกลับ |
+| | Lv. 75 | `judgment_holy_handgun` | Judgment Holy Handgun| ATK +1000, LIGHT +35| ปืนพกสีขาวทองสลักอักขระศักดิ์สิทธิ์ กระสุนแสงปราบมาร |
+| | Lv. 80 | `dragonfire_hand_cannon`| Dragonfire Cannon | ATK +1195, BURN +45 | ปืนปากกระบอกหัวมังกร พ่นเปลวเพลิงนรกผลาญศัตรู |
+| | Lv. 85 | `astral_photon_laser` | Astral Photon Laser | ATK +1430, IGNORE +20%| ปืนลำแสงโฟตอนดวงดาว ยิงทะลุเกราะป้องกันทันที |
+| | Lv. 90 | `phoenix_flame_blaster` | Phoenix Flame Blaster| ATK +1700, REVIVE BUFF| ปืนเพลิงฟีนิกซ์ ปล่อยออร่าฟื้นฟูเพื่อนร่วมทีมและเผาศัตรู |
+| | Lv. 95 | `chrono_clockwork_gun` | Chrono Clockwork Gun| ATK +2020, ASPD +35%| ปืนกลฟันเฟืองเวลา ยิงกระสุนต่อเนื่องดั่งเข็มนาฬิกาหมุน |
+| | Lv. 100| `genesis_celestial_cannon`| Genesis Divine Cannon| ATK +2680, ALL +60 | ปืนใหญ่จักรวาลปฐมกาล ปลดปล่อยลำแสงบิ๊กแบงกวาดล้าง |
+
+---
+
+### 4.5 หนังสือ / ตำราเวทมนตร์ (Book, Grimoire & Tome)
+📁 ที่ตั้งไฟล์: `assets/weapons/book/weapons_tier1.jpg` (Lv 1-50) & `weapons_tier2.jpg` (Lv 55-100)
+
+| ระดับ | เลเวล | รหัสไอเทม (ID) | ชื่ออาวุธ | สเตตัสแนะนำ | คำอธิบาย |
+|---|:---:|---|---|:---:|---|
+| **T1** | Lv. 1 | `apprentice_book` | Apprentice Notebook | MATK +10, MP +20 | สมุดบันทึกคาถาเบื้องต้นของนักเรียนเวทมนตร์ |
+| | Lv. 5 | `leather_grimoire` | Leather Grimoire | MATK +27, INT +2 | คัมภีร์ปกหนังแท้ บันทึกสูตรปรุงยาและเวทพื้นฐาน |
+| | Lv. 10 | `magic_theory_tome` | Magic Theory Tome | MATK +50, CDR -3% | ตำราทฤษฎีเวทมนตร์ เข้าใจโครงสร้างคาถาได้เร็วขึ้น |
+| | Lv. 15 | `herbalist_codex` | Herbalist Codex | MATK +77, HEAL +8% | ตำราสมุนไพรและพฤกษาศาสตร์ เสริมพลังเวทรัักษา |
+| | Lv. 20 | `dark_pact_scripture` | Dark Pact Scripture | MATK +108, CURSE +4% | คัมภีร์สัญญาปีศาจ อักษรสีเลือดแผ่ไอคำสาปมืด |
+| | Lv. 25 | `holy_scripture_book` | Holy Scripture Book | MATK +148, SHIELD +10%| พระคัมภีร์ศักดิ์สิทธิ์ปกขาว กางบาเรียแสงคุ้มครองผู้ถือ |
+| | Lv. 30 | `forbidden_necronomicon` | Forbidden Necronomicon| MATK +198, SUMMON +1 | ตำรามนตร์ดำต้องห้าม ปลุกวิญญาณคนตายมาช่วยสู้ |
+| | Lv. 35 | `shadow_whisper_tome` | Shadow Whisper Tome | MATK +255, DRAIN +5% | คัมภีร์เสียงกระซิบเงา ดูดกลืนพลังเวทศัตรูเข้าตัว |
+| | Lv. 40 | `crimson_element_grimoire`| Crimson Grimoire | MATK +320, FIRE +25 | ตำราเวทธาตุเพลิง บทสวดระเบิดภูเขาไฟ |
+| | Lv. 50 | `ancient_rune_archive` | Ancient Rune Archive | MATK +415, INT +15 | หอสมุดศิลาจารึกรูนโบราณ รวมมหาเวทโบราณที่สาบสูญ |
+| **T2** | Lv. 55 | `blizzard_glacial_tome` | Blizzard Glacial Tome| MATK +500, FREEZE +15%| คัมภีร์พายุน้ำแข็ง แผ่ไอเย็นเยือกแข็งรอบตัวหนังสือ |
+| | Lv. 60 | `thunder_wrath_scripture`| Thunder Scripture | MATK +600, SHOCK +15% | พระคัมภีร์สายฟ้าพิโรธ เรียกสายฟ้าฟาดใส่ศัตรูต่อเนื่อง |
+| | Lv. 65 | `titan_earth_grimoire` | Titan Earth Grimoire | MATK +715, DEF +50 | ตำราปฐพีไททัน เสริมความทนทานดั่งขุนเขา |
+| | Lv. 70 | `chaos_demonic_codex` | Chaos Demonic Codex | MATK +845, LIFESTEAL +6%| คัมภีร์มารอเวจี ตาปีศาจบนหน้าปกกะพริบตาจ้องเหยื่อ |
+| | Lv. 75 | `book_of_heavenly_light` | Book of Heavenly Light| MATK +990, ALL-HEAL +25%| คัมภีร์แสงทิพย์สวรรค์ ฟื้นฟูเพื่อนร่วมปาร์ตี้อย่างมหาศาล |
+| | Lv. 80 | `dragon_secret_tome` | Dragon Secret Tome | MATK +1180, DRAGON-ROAR| บันทึกภาษาและเวทมนตร์มังกรบรรพกาล ปลดปล่อยเพลิงผลาญ |
+| | Lv. 85 | `astral_cosmos_scripture`| Astral Cosmos Scripture| MATK +1415, M-PEN +20% | ตำราดาราศาสตร์จักรวาล อัญเชิญฝนดาวตกถล่มสนามรบ |
+| | Lv. 90 | `book_of_immortal_phoenix`| Book of Phoenix | MATK +1685, REVIVE BUFF| คัมภีร์นกฟีนิกซ์อมตะ คืนชีพทันทีเมื่อผู้ร่ายถูกสังหาร |
+| | Lv. 95 | `chronos_time_archive` | Chronos Time Archive | MATK +2010, TIME-WARP | บันทึกกาลเวลา ย้อนเวลากลับไปฟื้นฟู HP/MP และลดคูลดาวน์ |
+| | Lv. 100| `genesis_divine_grimoire`| Genesis Divine Grimoire| MATK +2660, ALL +70 | มหาคัมภีร์สร้างโลกปฐมกาล ควบคุมความเป็นไปของทุกเวทมนตร์ |
+
+---
+
+## 5. คู่มือ Prompt สำหรับสร้างภาพ Sprite Sheet (Image Generation Guide)
+
+เมื่อโควตาภาพรีเซ็ต หรือต้องการนำไปรันใน Midjourney / DALL-E / Gemini สามารถใช้ชุด Prompt ด้านล่างนี้ โดยกำหนด **Aspect Ratio 1:1 (1024x1024)**, พื้นหลังสีเทาอ่อนสะอาดตา (#E2E2E2) และโครงสร้าง 10 ชิ้นต่อแผ่นตามลำดับ:
+
+### 5.1 คฑา (Staff)
+- **Tier 1 (Lv.1 - 50):**
+  > `Create a 2D fantasy RPG magic staff and wand weapon sprite sheet, in the exact same art style and layout as the reference image. Clean solid light grey background (#E2E2E2). 10 unique magic staves and wands arranged neatly in a grid, each tilted diagonally at ~45 degrees pointing upper-right with base at lower-left. Bold dark outlines, vibrant anime RPG cel shading. Each staff has a bold text label underneath indicating level and name: Lv.1 Wooden Wand, Lv.5 Oak Rod, Lv.10 Crystal Wand, Lv.15 Nature Sprout Staff, Lv.20 Dark Bone Wand, Lv.25 Silver Cleric Scepter, Lv.30 Ruby Fire Staff, Lv.35 Shadow Sorcery Staff, Lv.40 Thunder Archmage Staff, Lv.50 Ancient Elder Staff. High resolution, crisp game icons, clear separation between items.`
+- **Tier 2 (Lv.55 - 100):**
+  > `Create a 2D fantasy RPG legendary magic staff sprite sheet, exact same art style and layout as the reference image. Clean solid light grey background (#E2E2E2). 10 epic glowing magic staves and scepters arranged neatly in a grid, tilted diagonally at ~45 degrees pointing upper-right with handle at lower-left. Intricate glowing crystals, magical auras, bold outlines, vibrant cel shading. Each staff has a bold text label underneath: Lv.55 Glacial Frost Staff, Lv.60 Tempest Storm Rod, Lv.65 Terra Gaia Scepter, Lv.70 Nether Abyss Staff, Lv.75 Archangel Holy Scepter, Lv.80 Dragon Heart Staff, Lv.85 Astral Starfall Rod, Lv.90 Phoenix Rebirth Scepter, Lv.95 Chronos Time Staff, Lv.100 Genesis Divine Staff. High resolution, distinct clean separation.`
+
+### 5.2 ธนู (Bow)
+- **Tier 1 (Lv.1 - 50):**
+  > `Create a 2D fantasy RPG bow and crossbow weapon sprite sheet, exact same art style and layout as the reference image. Clean solid light grey background (#E2E2E2). 10 unique bows and crossbows arranged neatly in a grid, tilted diagonally at ~45 degrees. Bold dark outlines, vibrant anime RPG cel shading. Labels underneath: Lv.1 Wooden Shortbow, Lv.5 Hunting Recurve Bow, Lv.10 Iron Longbow, Lv.15 Elven Yew Bow, Lv.20 Bandit Crossbow, Lv.25 Silver Ranger Bow, Lv.30 Bone Piercer Bow, Lv.35 Nightshade Bow, Lv.40 Crimson Flame Bow, Lv.50 Gale Windforce Greatbow. High resolution, clean separation between items.`
+- **Tier 2 (Lv.55 - 100):**
+  > `Create a 2D fantasy RPG legendary bow sprite sheet, exact same art style and layout as the reference image. Clean solid light grey background (#E2E2E2). 10 epic glowing bows with elemental energy, tilted diagonally at ~45 degrees. Labels underneath: Lv.55 Glacial Ice Bow, Lv.60 Thunder Strike Bow, Lv.65 Titan Heavy Crossbow, Lv.70 Abyssal Shadowstring, Lv.75 Seraphim Holy Bow, Lv.80 Dragon Breath Longbow, Lv.85 Astral Starlight Bow, Lv.90 Phoenix Feather Bow, Lv.95 Chrono Gear Crossbow, Lv.100 Genesis Celestial Bow. High resolution, clean separation.`
+
+### 5.3 หอก (Spear)
+- **Tier 1 (Lv.1 - 50):**
+  > `Create a 2D fantasy RPG spear, halberd and lance weapon sprite sheet, exact same art style and layout as the reference image. Clean solid light grey background (#E2E2E2). 10 unique polearms and spears arranged neatly in a grid, tilted diagonally at ~45 degrees pointing upper-right. Bold dark outlines, vibrant cel shading. Labels underneath: Lv.1 Wooden Pike, Lv.5 Iron Hunting Spear, Lv.10 Steel Halberd, Lv.15 Wild Boar Lance, Lv.20 Bandit Partisan, Lv.25 Silver Knight Lance, Lv.30 Bone Glaive, Lv.35 Shadow Piercing Spear, Lv.40 Crimson Dragonpike, Lv.50 Valkyrie War Spear. High resolution, clear separation.`
+- **Tier 2 (Lv.55 - 100):**
+  > `Create a 2D fantasy RPG legendary spear and divine lance sprite sheet, exact same art style and layout as the reference image. Clean solid light grey background (#E2E2E2). 10 epic glowing divine lances and tridents, tilted diagonally at ~45 degrees. Labels underneath: Lv.55 Frost Glacier Spear, Lv.60 Thunderstorm Trident, Lv.65 Titan Stone Halberd, Lv.70 Chaos Demon Lance, Lv.75 Holy Aegis Spear, Lv.80 Dragon Horn Warpike, Lv.85 Astral Void Glaive, Lv.90 Phoenix Radiant Spear, Lv.95 Chronos Pendulum Lance, Lv.100 Genesis Divine Spear. High resolution, clear separation.`
+
+### 5.4 ปืน (Gun)
+- **Tier 1 (Lv.1 - 50):**
+  > `Create a 2D fantasy RPG firearms and guns sprite sheet, exact same art style and layout as the reference image. Clean solid light grey background (#E2E2E2). 10 unique fantasy pistols, muskets, revolvers and blunderbusses arranged neatly in a grid, tilted diagonally at ~45 degrees pointing upper-right with grip at lower-left. Bold dark outlines, vibrant cel shading. Labels underneath: Lv.1 Flintlock Pistol, Lv.5 Hunting Musket, Lv.10 Iron Revolver, Lv.15 Pirate Dual Pistols, Lv.20 Trench Blunderbuss, Lv.25 Silver Knight Rifle, Lv.30 Bone Carbine, Lv.35 Shadow Silencer Gun, Lv.40 Crimson Fire Blaster, Lv.50 Rune Steam Cannon. High resolution, clear separation.`
+- **Tier 2 (Lv.55 - 100):**
+  > `Create a 2D fantasy RPG sci-fi fantasy legendary blaster and cannon sprite sheet, exact same art style and layout as the reference image. Clean solid light grey background (#E2E2E2). 10 epic glowing energy railguns, cannons and laser blasters, tilted diagonally at ~45 degrees. Labels underneath: Lv.55 Cryo Frost Cannon, Lv.60 Voltaic Storm Blaster, Lv.65 Titan Siege Railgun, Lv.70 Abyssal Demon Revolver, Lv.75 Judgment Holy Handgun, Lv.80 Dragonfire Cannon, Lv.85 Astral Photon Laser, Lv.90 Phoenix Flame Blaster, Lv.95 Chrono Clockwork Gun, Lv.100 Genesis Divine Cannon. High resolution, clear separation.`
+
+### 5.5 หนังสือ (Book / Grimoire)
+- **Tier 1 (Lv.1 - 50):**
+  > `Create a 2D fantasy RPG magic books and grimoires sprite sheet, exact same art style and layout as the reference image. Clean solid light grey background (#E2E2E2). 10 unique spellbooks and tomes arranged neatly in a grid, tilted diagonally at ~45 degrees showing leather covers, metal bookmarks, glowing runic symbols. Bold dark outlines, vibrant cel shading. Labels underneath: Lv.1 Apprentice Notebook, Lv.5 Leather Grimoire, Lv.10 Magic Theory Tome, Lv.15 Herbalist Codex, Lv.20 Dark Pact Scripture, Lv.25 Holy Scripture Book, Lv.30 Forbidden Necronomicon, Lv.35 Shadow Whisper Tome, Lv.40 Crimson Grimoire, Lv.50 Ancient Rune Archive. High resolution, clear separation.`
+- **Tier 2 (Lv.55 - 100):**
+  > `Create a 2D fantasy RPG legendary divine grimoires and cosmic tomes sprite sheet, exact same art style and layout as the reference image. Clean solid light grey background (#E2E2E2). 10 epic glowing divine spellbooks, floating pages, cosmic sigils and elemental covers, tilted diagonally at ~45 degrees. Labels underneath: Lv.55 Blizzard Glacial Tome, Lv.60 Thunder Scripture, Lv.65 Titan Earth Grimoire, Lv.70 Chaos Demonic Codex, Lv.75 Book of Heavenly Light, Lv.80 Dragon Secret Tome, Lv.85 Astral Cosmos Scripture, Lv.90 Book of Phoenix, Lv.95 Chronos Time Archive, Lv.100 Genesis Divine Grimoire. High resolution, clear separation.`
+
