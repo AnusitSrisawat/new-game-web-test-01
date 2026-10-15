@@ -48,8 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const CAT_LABEL = { world: 'โลก', map: 'แมพ', party: 'ปาร์ตี้', guild: 'กิลด์' };
   const MAX_MSGS = 200;
   let chatTab = 'all';
-  // tabs that show several categories ('world' tab = all player chat from everywhere)
-  const tabShows = (tab, cat) => tab === 'all' || (tab === 'world' ? PLAYER_CATS.includes(cat) : tab === cat);
+  const tabShows = (tab, cat) => tab === 'all' || tab === cat;
   const applyChatFilter = () => {
     chatContainer.dataset.tab = chatTab;
     chatContainer.querySelectorAll('.chat-msg').forEach(el => {
@@ -89,7 +88,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     resizeHandle.addEventListener('pointermove', move);
     resizeHandle.addEventListener('pointerup', up);
   });
-  window.addEventListener('resize', () => { if (chatPanel?.style.width) setChatW(parseInt(chatPanel.style.width, 10)); });
+  // ...and upwards (panel is anchored at the bottom, so dragging the top edge changes its height)
+  const MIN_CHAT_H = 120;
+  const clampChatH = (h) => Math.max(MIN_CHAT_H, Math.min(h, window.innerHeight - 120));
+  const setChatH = (h) => { if (chatPanel) chatPanel.style.height = clampChatH(h) + 'px'; };
+  try { const h = parseInt(localStorage.getItem('chat_height'), 10); if (h) setChatH(h); } catch (e) { /* ignore */ }
+  const topHandle = document.getElementById('chat-resize-handle-top');
+  topHandle?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    topHandle.setPointerCapture(e.pointerId);
+    const bottom = chatPanel.getBoundingClientRect().bottom;
+    const move = (ev) => { setChatH(bottom - ev.clientY); chatContainer.scrollTop = chatContainer.scrollHeight; };
+    const up = () => {
+      topHandle.removeEventListener('pointermove', move);
+      topHandle.removeEventListener('pointerup', up);
+      try { localStorage.setItem('chat_height', String(parseInt(chatPanel.style.height, 10))); } catch (e) { /* ignore */ }
+    };
+    topHandle.addEventListener('pointermove', move);
+    topHandle.addEventListener('pointerup', up);
+  });
+  window.addEventListener('resize', () => {
+    if (chatPanel?.style.width) setChatW(parseInt(chatPanel.style.width, 10));
+    if (chatPanel?.style.height) setChatH(parseInt(chatPanel.style.height, 10));
+  });
 
   // Combat & System Log Callback
   const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]));

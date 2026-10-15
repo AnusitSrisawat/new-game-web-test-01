@@ -609,6 +609,17 @@ body, html {
   cursor: ew-resize;
   touch-action: none;
 }
+.chat-resize-handle-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 8px;
+  height: 8px;
+  cursor: ns-resize;
+  touch-action: none;
+  z-index: 1;
+}
+.chat-resize-handle-top:hover { background: rgba(96, 165, 250, 0.35); }
 .chat-resize-handle:hover { background: rgba(96, 165, 250, 0.35); }
 
 .chat-input-row {
