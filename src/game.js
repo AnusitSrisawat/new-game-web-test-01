@@ -96,6 +96,7 @@ export class GameEngine {
 
     this.loop = this.loop.bind(this);
     requestAnimationFrame(this.loop);
+    this.startBackgroundTicker();
   }
 
   setNetwork(networkManager) {
@@ -1938,13 +1939,49 @@ export class GameEngine {
     ctx.strokeRect(this.camera.x * sx, this.camera.y * sy, this.camera.w * sx, this.camera.h * sy);
   }
 
+  // Advance the simulation by `elapsed` seconds in small steps (keeps physics/AI stable after long gaps)
+  step(elapsed) {
+    let remaining = Math.min(elapsed, 10);
+    while (remaining > 0) {
+      const dt = Math.min(remaining, 0.1);
+      this.update(dt);
+      remaining -= dt;
+    }
+  }
+
   loop(timestamp) {
-    const dt = Math.min((timestamp - this.lastTimestamp) / 1000, 0.1);
-    this.lastTimestamp = timestamp;
+    // rAF timestamps share performance.now()'s clock
+    const now = performance.now();
+    const dt = Math.min((now - this.lastTimestamp) / 1000, 0.1);
+    this.lastTimestamp = now;
 
     this.update(dt);
     this.render();
 
     requestAnimationFrame(this.loop);
+  }
+
+  // Browsers stop requestAnimationFrame in background tabs, which froze the character
+  // (no Auto, no movement, no position sync). A worker timer keeps the game logic running
+  // while the tab is hidden; rendering is skipped until the tab is visible again.
+  startBackgroundTicker() {
+    const tick = () => {
+      if (!document.hidden) return; // rAF drives the game while visible
+      const now = performance.now();
+      const elapsed = (now - this.lastTimestamp) / 1000;
+      this.lastTimestamp = now;
+      this.step(elapsed);
+    };
+    try {
+      const src = 'setInterval(() => postMessage(0), 100);';
+      this.bgWorker = new Worker(URL.createObjectURL(new Blob([src], { type: 'application/javascript' })));
+      this.bgWorker.onmessage = tick;
+    } catch (e) {
+      // Workers unavailable: fall back to a (browser-throttled, ~1/s) page timer
+      this.bgTimer = setInterval(tick, 250);
+    }
+    document.addEventListener('visibilitychange', () => {
+      this.lastTimestamp = performance.now(); // no huge dt jump when returning to the tab
+    });
   }
 }
