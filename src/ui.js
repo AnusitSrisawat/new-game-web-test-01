@@ -1029,26 +1029,42 @@ export class UIController {
     if (!tip) {
       tip = document.createElement('div');
       tip.id = 'inv-tooltip';
-      tip.style.cssText = 'position:fixed; z-index:99999; display:none; pointer-events:none; max-width:240px; padding:8px 10px; background:rgba(15,23,42,0.97); border:1px solid #3b82f6; border-radius:8px; color:#fff; font-size:0.78rem; box-shadow:0 4px 14px rgba(0,0,0,0.6);';
+      tip.style.cssText = 'position:fixed; z-index:99999; display:none; pointer-events:none; gap:6px; align-items:flex-start; color:#fff; font-size:0.78rem; filter:drop-shadow(0 4px 10px rgba(0,0,0,0.6));';
       document.body.appendChild(tip);
     }
     tip.style.display = 'none';
+    const STAT_ROWS = [['atk', 'ATK'], ['def', 'DEF'], ['heal', 'HP ฟื้นฟู'], ['sp', 'SP ฟื้นฟู']];
+    const row = (label, val, extra = '') => `<div style="display:grid; grid-template-columns:78px 1fr; gap:6px; padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.06);"><span style="color:#94a3b8;">${label}</span><span style="text-align:right; font-weight:600;">${val}${extra}</span></div>`;
+    const panel = (title, inner, border) => `<div style="min-width:170px; max-width:220px; padding:8px 10px; background:rgba(15,23,42,0.97); border:1px solid ${border}; border-radius:8px;">${title}${inner}</div>`;
     const tipHtml = (k) => {
       const item = ITEMS[k];
-      const stats = [item.atk ? `ATK +${item.atk}` : '', item.def ? `DEF +${item.def}` : '', item.heal ? `HP +${item.heal}` : '', item.sp ? `SP +${item.sp}` : ''].filter(Boolean).join(' · ');
       const isGear = item.type === 'weapon' || item.type === 'armor';
-      const on = k === this.player.equipment.weapon || k === this.player.equipment.armor;
-      return `<div style="font-weight:700; font-size:0.85rem;">${item.name} ${this.player.inventory[k] ? `<span style="color:#f59e0b;">x${this.player.inventory[k]}</span>` : ''}</div>
-        ${stats ? `<div style="color:#fde68a;">${stats}</div>` : ''}
-        ${item.reqLevel > 1 ? `<div style="color:${this.player.baseLevel >= item.reqLevel ? '#94a3b8' : '#ef4444'};">ต้องการ Lv.${item.reqLevel}</div>` : ''}
-        ${item.desc ? `<div style="color:#cbd5e1; margin-top:3px;">${item.desc}</div>` : ''}
-        ${isGear ? `<div style="color:${on ? '#4ade80' : '#60a5fa'}; margin-top:3px;">${on ? 'สวมอยู่' : 'ดับเบิลคลิกเพื่อสวมใส่'}</div>` : ''}
-        ${item.type === 'consumable' ? '<div style="color:#60a5fa; margin-top:3px;">ดับเบิลคลิกเพื่อใช้</div>' : ''}`;
+      const curId = isGear ? this.player.equipment[item.type] : null;
+      const cur = (curId && curId !== k) ? ITEMS[curId] : null;
+      const head = (it, tag, tagColor) => `<div style="font-weight:700; font-size:0.85rem;">${it.name}</div><div style="color:${tagColor}; font-size:0.7rem; margin-bottom:4px;">${tag}</div>`;
+      const stats = (it, other) => STAT_ROWS.filter(([f]) => it[f] || (other && other[f])).map(([f, label]) => {
+        const v = it[f] || 0;
+        let extra = '';
+        if (other) {
+          const d = v - (other[f] || 0);
+          if (d !== 0) extra = ` <span style="color:${d > 0 ? '#4ade80' : '#f87171'};">(${d > 0 ? '+' : ''}${d})</span>`;
+        }
+        return row(label, `+${v}`, extra);
+      }).join('');
+      const typeLabel = { weapon: 'อาวุธ', armor: 'เกราะ', consumable: 'ของใช้', material: 'วัสดุ' }[item.type] || '';
+      const lv = item.reqLevel > 1 ? row('เลเวลที่ต้องการ', `Lv.${item.reqLevel}`, '') .replace('<span style="text-align:right; font-weight:600;">', `<span style="text-align:right; font-weight:600; color:${this.player.baseLevel >= item.reqLevel ? '#e2e8f0' : '#ef4444'};">`) : '';
+      const owned = this.player.inventory[k] ? row('จำนวน', `x${this.player.inventory[k]}`) : '';
+      const hint = isGear ? (curId === k ? '<div style="color:#4ade80; margin-top:4px;">สวมอยู่</div>' : '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อสวมใส่</div>')
+        : (item.type === 'consumable' ? '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อใช้</div>' : '');
+      const main = panel(head(item, typeLabel, '#94a3b8'), stats(item, cur) + lv + owned + (item.desc ? `<div style="color:#cbd5e1; margin-top:4px; font-size:0.72rem;">${item.desc}</div>` : '') + hint, '#3b82f6');
+      if (!cur) return main;
+      const cmp = panel(head(cur, 'ที่สวมอยู่ตอนนี้', '#4ade80'), stats(cur, null) + (cur.desc ? `<div style="color:#cbd5e1; margin-top:4px; font-size:0.72rem;">${cur.desc}</div>` : ''), '#16a34a');
+      return main + cmp;
     };
     body.querySelectorAll('.inv-slot').forEach(el => {
       const k = el.dataset.id;
       if (!k || !ITEMS[k]) return;
-      el.addEventListener('mouseenter', () => { tip.innerHTML = tipHtml(k); tip.style.display = 'block'; });
+      el.addEventListener('mouseenter', () => { tip.innerHTML = tipHtml(k); tip.style.display = 'flex'; });
       el.addEventListener('mousemove', e => {
         const w = tip.offsetWidth, h = tip.offsetHeight;
         tip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 6) + 'px';
