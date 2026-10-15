@@ -2,7 +2,14 @@
 import { ITEM_SHEET_IDS, MONSTER_SPRITES, dropItemIds } from './sprites.js';
 
 const title = (id) => id.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
-const SHEET_EMOJI = { beasts: '🐾', bandits: '🗡️', fantasy: '✨', others: '🔮', skeleton: '💀' };
+const SHEET_EMOJI = { starter: '🌱', beasts: '🐾', bandits: '🗡️', fantasy: '✨', others: '🔮', skeleton: '💀' };
+// Names of the starter-sheet items as printed on assets/items/items_sheet.jpg
+const ITEM_NAMES = {
+  sticky_mucus: 'Sticky Mucus', bouncy_core: 'Bouncy Core', relic_slime_core: 'Slime Crown',
+  poison_stinger: 'Poison Stinger', gossamer_wing: 'Gossamer Wing', royal_honeycomb: 'Royal Honeycomb',
+  rabbit_fluff: 'Rabbit Fluff', small_horn: 'Sharp Little Horn', relic_golden_carrot: 'Golden Carrot',
+  stone_plate: 'Mossy Stone Plate', golem_core_gem: 'Golem Core Gem', relic_golem_core: 'Ancient Earth Relic'
+};
 const CHANCES = [0.7, 0.4, 0.1]; // common / uncommon / rare
 
 // Stats follow a smooth curve of the level (same ballpark as the original monsters)
@@ -13,13 +20,11 @@ const stats = (lv) => ({
   exp: Math.max(12, Math.round(0.2 * Math.pow(lv, 2.2)))
 });
 
-// New monsters. `items` is only needed when the monster has no item sheet (starter sheet).
+// New monsters. `items` is only needed for a monster that has neither an item sheet nor a starter-sheet picture.
 const NEW_MONSTERS = [
-  { id: 'forest_hornet', name: 'Forest Hornet', emoji: '🐝', level: 3, ai: { speed: 120, aggro: 250, attackRange: 55 },
-    items: [['hornet_stinger', 'Hornet Stinger', '🐝', 6], ['honeycomb', 'Honeycomb', '🍯', 12], ['royal_jelly', 'Royal Jelly', '🫙', 40]] },
+  { id: 'forest_hornet', name: 'Forest Hornet', emoji: '🐝', level: 3, ai: { speed: 120, aggro: 250, attackRange: 55 } },
   { id: 'mushroom_sporeling', name: 'Mushroom Sporeling', emoji: '🍄', level: 6, ai: { speed: 40, aggro: 160 } },
-  { id: 'mossy_golem', name: 'Mossy Golem', emoji: '🗿', level: 12, ai: { speed: 45, aggro: 180, attackRange: 80 },
-    items: [['moss_clump', 'Moss Clump', '🌿', 18], ['mossy_stone', 'Mossy Stone', '🪨', 36], ['golem_eye_crystal', 'Golem Eye Crystal', '💎', 110]] },
+  { id: 'mossy_golem', name: 'Mossy Golem', emoji: '🗿', level: 12, ai: { speed: 45, aggro: 180, attackRange: 80 } },
   { id: 'jungle_viper', name: 'Jungle Viper', emoji: '🐍', level: 21, ai: { speed: 100, aggro: 260, attackRange: 70 } },
   { id: 'claw_bear', name: 'Claw Bear', emoji: '🐻', level: 29, ai: { speed: 80, aggro: 240, attackRange: 85 } },
   { id: 'bandit_rogue', name: 'Bandit Rogue', emoji: '🥷', level: 34, ai: { speed: 125, aggro: 300, attackCooldown: 1.2 } },
@@ -47,8 +52,12 @@ export function installCatalog({ MONSTERS, ITEMS, MONSTER_AI }) {
     ITEMS[id] = { id, name, price, icon, type: 'material', desc: extra.desc || `วัตถุดิบดรอปจากมอนสเตอร์ ขายหรือเก็บไว้คราฟต์ได้`, ...extra };
   };
 
-  const dropsFor = (m, itemIds) => itemIds.map((id, i) => ({ itemId: id, chance: CHANCES[i] }))
-    .concat((m.drops || []).filter(d => d.isRelic));
+  // a relic that is also on the sheet keeps its own (rarer) chance instead of appearing twice
+  const dropsFor = (m, itemIds) => {
+    const relics = (m.drops || []).filter(d => d.isRelic);
+    return itemIds.filter(id => !relics.some(r => r.itemId === id)).map(id => ({ itemId: id, chance: CHANCES[itemIds.indexOf(id)] }))
+      .concat(relics);
+  };
 
   for (const nm of NEW_MONSTERS) {
     const s = stats(nm.level);
@@ -70,10 +79,11 @@ export function installCatalog({ MONSTERS, ITEMS, MONSTER_AI }) {
     if (nm && nm.items) {
       nm.items.forEach(([id, name, icon, price]) => addItem(id, name, icon, price));
       ids = nm.items.map(it => it[0]);
-    } else if (ITEM_SHEET_IDS[sheet] && (nm || REDO_DROPS.includes(mid))) {
+    } else if (ITEM_SHEET_IDS[sheet] && (nm || REDO_DROPS.includes(mid) || sheet === 'starter')) {
       ids = dropItemIds(sheet, cell);
       ids.forEach((id, i) => {
-        addItem(id, title(id), SHEET_EMOJI[sheet], Math.round(m.level * [1.5, 3, 8][i]) + [5, 10, 30][i]);
+        if (ITEM_NAMES[id] && ITEMS[id]) ITEMS[id].name = ITEM_NAMES[id];
+        addItem(id, ITEM_NAMES[id] || title(id), SHEET_EMOJI[sheet], Math.round(m.level * [1.5, 3, 8][i]) + [5, 10, 30][i]);
       });
     } else {
       continue; // keeps its original drops
