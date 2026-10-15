@@ -121,7 +121,7 @@
 
   // ---- tabs ----
   const TABS = [
-    { id: 'maps', icon: '🗺️', label: 'แมพ', sub: 'ชื่อ เลเวล ขนาด สี' },
+    { id: 'maps', icon: '🗺️', label: 'แมพ', sub: 'ชื่อ ขนาด สี' },
     { id: 'monsters', icon: '👾', label: 'มอนสเตอร์', sub: 'ค่าพลัง + พฤติกรรม' },
     { id: 'spawns', icon: '🌱', label: 'การเกิดของมอนสเตอร์', sub: 'จำนวน + เวลาเกิดใหม่' },
     { id: 'items', icon: '🎒', label: 'ไอเทม', sub: 'อาวุธ เกราะ ยา' },
@@ -157,14 +157,14 @@
   function panelMaps() {
     return [
       h('h2', {}, 'แมพ'),
-      h('p', { class: 'hint' }, 'แก้ชื่อ คำอธิบาย เลเวลที่ปลดล็อก ขนาด (จัตุรัส) และสีของแต่ละแมพ — ผู้เล่นเกิดกลางแมพเสมอ ถ้าเปลี่ยนขนาด ตำแหน่งมอนสเตอร์จะจัดใหม่ตามขนาด'),
+      h('p', { class: 'hint' }, 'แก้ชื่อ คำอธิบาย ขนาด (จัตุรัส) และสีของแต่ละแมพ — ผู้เล่นเกิดกลางแมพเสมอ ถ้าเปลี่ยนขนาด ตำแหน่งมอนสเตอร์จะจัดใหม่ตามขนาด'),
       (listHost = h('div'))
     ];
   }
   function buildMaps() {
     return state.mapIds.map(id => h('div', { class: 'card' },
       h('h3', {}, state.zoneNames[id] || id, h('small', {}, id)),
-      h('div', { class: 'fields' }, ...fieldsFor('zones', id, ['name', 'desc', 'reqLevel']), ...fieldsFor('maps', id, ['size', 'floor', 'wall']))
+      h('div', { class: 'fields' }, ...fieldsFor('zones', id, ['name', 'desc']), ...fieldsFor('maps', id, ['size', 'floor', 'wall']))
     ));
   }
 

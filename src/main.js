@@ -90,6 +90,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 4. MOUSE CONTROLS: Left Click = Attack / Move, Right Click = Target Selection
   // Prevent context menu from appearing on right click in the game
+  // Zoom: mouse wheel over the game, or +/- keys
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    game.zoomBy(e.deltaY < 0 ? 1.1 : 1 / 1.1);
+  }, { passive: false });
+  document.getElementById('btn-zoom-in')?.addEventListener('click', () => game.zoomBy(1.2));
+  document.getElementById('btn-zoom-out')?.addEventListener('click', () => game.zoomBy(1 / 1.2));
+
   canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
   });
@@ -114,6 +122,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (ui.isTyping()) return; // sliders/checkboxes/buttons with focus must not block movement
 
     const key = e.key.toLowerCase();
+
+    if (key === '+' || key === '=') game.zoomBy(1.2);
+    else if (key === '-' || key === '_') game.zoomBy(1 / 1.2);
 
     // WASD Movement
     if (key === 'w' || key === 'a' || key === 's' || key === 'd') {

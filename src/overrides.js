@@ -21,8 +21,7 @@ export const SCHEMA = {
     label: 'แมพ',
     fields: {
       name: text('ชื่อแมพ', 80),
-      desc: text('คำอธิบาย', 200),
-      reqLevel: num('เลเวลที่ต้องการ', 1, 999)
+      desc: text('คำอธิบาย', 200)
     }
   },
   maps: {

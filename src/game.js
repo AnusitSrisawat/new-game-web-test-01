@@ -20,6 +20,8 @@ export class GameEngine {
     this.worldMap = new WorldMap();
 
     // 2. Camera Viewport
+    this.zoom = 1;
+    try { this.zoom = parseFloat(localStorage.getItem('zoom')) || 1; } catch (e) { /* ignore */ }
     this.camera = {
       x: 0,
       y: 0,
@@ -115,8 +117,21 @@ export class GameEngine {
   resizeCanvas() {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
-    this.camera.w = window.innerWidth;
-    this.camera.h = window.innerHeight;
+    this.setZoom(this.zoom); // recomputes the visible world size
+  }
+
+  // Zoom in/out (mouse wheel, +/- keys, buttons). Can't zoom out past the edge of the map.
+  setZoom(z) {
+    const minForMap = Math.max(window.innerWidth / this.worldMap.width, window.innerHeight / this.worldMap.height);
+    const min = Math.min(1, Math.max(0.4, minForMap));
+    this.zoom = Math.min(2.5, Math.max(min, Number.isFinite(z) ? z : 1));
+    this.camera.w = window.innerWidth / this.zoom;
+    this.camera.h = window.innerHeight / this.zoom;
+    try { localStorage.setItem('zoom', String(this.zoom)); } catch (e) { /* ignore */ }
+  }
+
+  zoomBy(factor) {
+    this.setZoom(this.zoom * factor);
   }
 
   get currentZone() {
@@ -128,6 +143,7 @@ export class GameEngine {
       this.currentZoneIndex = index;
       const z = this.currentZone;
       this.worldMap.setZoneTheme(z.id);
+      this.setZoom(this.zoom);
       this.onLog(`🗺️ เดินทางสู่: ${z.name}`, 'system');
 
       const zoneTitle = document.getElementById('minimap-zone-name');
@@ -145,6 +161,7 @@ export class GameEngine {
       this.currentZoneIndex = idx;
       const z = ZONES[idx];
       this.worldMap.setZoneTheme(z.id);
+      this.setZoom(this.zoom);
 
       // Spawn point comes from the map definition
       const spawn = getMapDef(z.id).spawn;
@@ -518,8 +535,8 @@ export class GameEngine {
 
   // RIGHT-CLICK: Select Target
   handleRightClick(screenX, screenY) {
-    const worldX = screenX + this.camera.x;
-    const worldY = screenY + this.camera.y;
+    const worldX = screenX / this.zoom + this.camera.x;
+    const worldY = screenY / this.zoom + this.camera.y;
 
     const liveMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
     for (const m of liveMonsters) {
@@ -537,8 +554,8 @@ export class GameEngine {
 
   // LEFT-CLICK: Attack or Move
   handleLeftClick(screenX, screenY) {
-    const worldX = screenX + this.camera.x;
-    const worldY = screenY + this.camera.y;
+    const worldX = screenX / this.zoom + this.camera.x;
+    const worldY = screenY / this.zoom + this.camera.y;
 
     const liveMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
     for (const m of liveMonsters) {
@@ -1061,6 +1078,7 @@ export class GameEngine {
     }
 
     ctx.save();
+    ctx.scale(this.zoom, this.zoom);
     ctx.translate(-cam.x + shakeX, -cam.y + shakeY);
 
     // 1. Terrain Ground

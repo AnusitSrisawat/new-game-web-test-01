@@ -356,6 +356,56 @@ export class UIController {
     apply(saved);
   }
 
+  // In-game yes/no dialog (not the browser's confirm())
+  showConfirm(message, onYes, yesLabel = 'ไปเลย') {
+    document.getElementById('confirm-overlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'confirm-overlay';
+    overlay.className = 'confirm-overlay';
+    const box = document.createElement('div');
+    box.className = 'confirm-box';
+    const msg = document.createElement('div');
+    msg.className = 'confirm-msg';
+    msg.textContent = message;
+    const row = document.createElement('div');
+    row.className = 'confirm-actions';
+    const yes = document.createElement('button');
+    yes.className = 'confirm-yes';
+    yes.textContent = yesLabel;
+    const no = document.createElement('button');
+    no.className = 'confirm-no';
+    no.textContent = 'ยกเลิก';
+    const close = () => overlay.remove();
+    yes.addEventListener('click', () => { close(); onYes(); });
+    no.addEventListener('click', close);
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+    row.append(no, yes);
+    box.append(msg, row);
+    overlay.append(box);
+    document.getElementById('game-viewport').append(overlay);
+    yes.focus();
+  }
+
+  // Clicking a quest offers to travel to the map where its target monster lives
+  promptQuestTravel(questId) {
+    const q = QUESTS.find(item => item.id === questId);
+    if (!q) return;
+    const zone = ZONES.find(z => (z.monsterIds || []).includes(q.targetMonster));
+    const mon = MONSTERS[q.targetMonster];
+    if (!zone) {
+      this.gameEngine.onLog('ไม่พบแมพที่มีมอนสเตอร์ตัวนี้', 'system');
+      return;
+    }
+    if (this.gameEngine.currentZone.id === zone.id) {
+      this.gameEngine.onLog(`📍 คุณอยู่ที่ ${zone.name} แล้ว — ออกล่า ${mon ? mon.name : q.targetMonster} ได้เลย`, 'quest');
+      return;
+    }
+    this.showConfirm(
+      `ต้องการเดินทางไป "${zone.name}" เพื่อล่า ${mon ? mon.name : q.targetMonster} สำหรับเควสต์ "${q.title}" หรือไม่?`,
+      () => this.gameEngine.changeMap(zone.id)
+    );
+  }
+
   closeOptionMenu() {
     const menu = document.getElementById('option-menu');
     if (menu) menu.style.display = 'none';
@@ -655,7 +705,7 @@ export class UIController {
       const st = this.player.questProgress[q.id] || { progress: 0, completed: false, claimed: false };
       if (!st.claimed) {
         html += `
-          <div class="quest-tracker-item ${st.completed ? 'completed' : ''}">
+          <div class="quest-tracker-item ${st.completed ? 'completed' : ''}" data-qid="${q.id}" title="คลิกเพื่อไปยังแมพที่ต้องล่า" style="cursor:pointer;">
             <div style="display:flex; justify-content:space-between; font-weight:700;">
               <span>${q.title}</span>
               <span style="color:${st.completed ? '#4ade80' : '#f59e0b'};">${st.progress}/${q.requiredCount}</span>
@@ -663,7 +713,7 @@ export class UIController {
             ${st.completed ? `
               <button class="btn-tracker-claim" data-qid="${q.id}">🎁 รับรางวัล (+${q.rewardGold} G)</button>
             ` : `
-              <div style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">เป้าหมาย: กำจัด ${q.targetMonster}</div>
+              <div style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">เป้าหมาย: กำจัด ${MONSTERS[q.targetMonster] ? MONSTERS[q.targetMonster].name : q.targetMonster}</div>
             `}
           </div>
         `;
@@ -678,6 +728,13 @@ export class UIController {
     if (html === this.lastQuestHtml) return;
     this.lastQuestHtml = html;
     listEl.innerHTML = html;
+
+    listEl.querySelectorAll('.quest-tracker-item').forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return; // the claim button has its own action
+        this.promptQuestTravel(el.dataset.qid);
+      });
+    });
 
     listEl.querySelectorAll('.btn-tracker-claim').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -888,7 +945,7 @@ export class UIController {
       const pct = Math.min(100, (st.progress / q.requiredCount) * 100);
 
       html += `
-        <div style="background:rgba(0,0,0,0.3); border:1px solid ${st.completed ? '#10b981' : 'rgba(255,255,255,0.08)'}; border-radius:8px; padding:10px;">
+        <div class="quest-card" data-qid="${q.id}" title="คลิกเพื่อไปยังแมพที่ต้องล่า" style="cursor:pointer; background:rgba(0,0,0,0.3); border:1px solid ${st.completed ? '#10b981' : 'rgba(255,255,255,0.08)'}; border-radius:8px; padding:10px;">
           <div style="display:flex; justify-content:space-between; font-size:0.88rem; margin-bottom:4px;">
             <b>${q.title}</b>
             <span style="color:${st.completed ? '#34d399' : '#94a3b8'};">${st.claimed ? '✅ รับรางวัลแล้ว' : st.completed ? '🎉 สำเร็จ!' : `${st.progress}/${q.requiredCount}`}</span>
@@ -909,6 +966,13 @@ export class UIController {
     html += '</div>';
 
     body.innerHTML = html;
+
+    body.querySelectorAll('.quest-card').forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        this.promptQuestTravel(el.dataset.qid);
+      });
+    });
 
     body.querySelectorAll('.btn-claim-q').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -1098,7 +1162,7 @@ export class UIController {
     let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
     ZONES.forEach((z, idx) => {
       const isCur = this.gameEngine.currentZoneIndex === idx;
-      const locked = this.player.baseLevel < z.reqLevel;
+      const locked = false; // every map is open to every level
       const def = getMapDef(z.id);
 
       html += `
@@ -1108,7 +1172,7 @@ export class UIController {
             <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">${z.desc}</div>
           </div>
           <div style="text-align:right; white-space:nowrap; font-size:0.72rem;">
-            <div style="color:#38bdf8;">${locked ? `🔒 ปลดล็อกที่ Lv.${z.reqLevel}` : '✅ เดินทางได้'}</div>
+            <div style="color:#38bdf8;">✅ เดินทางได้</div>
             <div style="color:#94a3b8; margin-top:2px;">${def.width / TILE_SIZE}×${def.height / TILE_SIZE} ช่อง</div>
           </div>
         </div>
@@ -1121,10 +1185,8 @@ export class UIController {
     body.querySelectorAll('.zone-card').forEach(c => {
       c.addEventListener('click', (e) => {
         const idx = parseInt(e.currentTarget.dataset.idx);
-        if (this.player.baseLevel >= ZONES[idx].reqLevel) {
-          this.gameEngine.setZone(idx);
-          this.closeModal('modal-zones');
-        }
+        this.gameEngine.changeMap(ZONES[idx].id);
+        this.closeModal('modal-zones');
       });
     });
   }

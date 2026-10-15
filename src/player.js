@@ -7,9 +7,17 @@ const SAVE_KEY = 'cozy_rpg_save_v2';
 const OLD_SAVE_KEY = 'cozy_rpg_save_v1';
 const HOTBAR_SIZE = 9;
 
+// No login yet: every new character gets a random name (kept in the save)
+const NAME_ADJ = ['Brave', 'Swift', 'Lucky', 'Calm', 'Wild', 'Merry', 'Bold', 'Tiny', 'Sunny', 'Misty'];
+const NAME_NOUN = ['Fox', 'Owl', 'Wolf', 'Bear', 'Hare', 'Crow', 'Deer', 'Lynx', 'Wren', 'Otter'];
+export function randomName() {
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  return `${pick(NAME_ADJ)}${pick(NAME_NOUN)}${Math.floor(10 + Math.random() * 90)}`;
+}
+
 export class Player {
   constructor() {
-    this.name = 'Novice Adventurer';
+    this.name = randomName();
     this.baseLevel = 1;
     this.baseExp = 0;
 
@@ -317,6 +325,9 @@ export class Player {
         if (!this.equipment.weapon && !this.inventory.wooden_stick) this.inventory.wooden_stick = 1;
         this.currentHp = this.maxHp;
       }
+      // Old saves carried the placeholder name; give those a random one too
+      if (!this.name || this.name === 'Novice Adventurer') this.name = randomName();
+      this.saveToStorage();
     } catch (e) {
       console.warn('Storage load error:', e);
     }

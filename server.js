@@ -89,8 +89,18 @@ let overrides = sanitizeOverrides(readJson(OVERRIDES_FILE, {}), KNOWN);
 let spawns = validateSpawns(readJson(SPAWNS_FILE, []), KNOWN.maps, KNOWN.monsters);
 applyOverrides(gameData, overrides);
 
-// Lay the monsters of every map out as a spiral around the map centre: weaker ones near the
-// middle (where players spawn), stronger ones further out. Maps are square.
+// Scatter the monsters over the whole map (deterministic per map, so positions are stable between
+// restarts): random spots with a minimum spacing, nothing within 500px of the spawn point, and the
+// weakest monsters get the spots closest to the centre. Maps are square.
+function mulberry32(a) {
+  return () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function layoutMonsters(list) {
   const byMap = new Map();
   for (const m of list) {
@@ -101,16 +111,28 @@ function layoutMonsters(list) {
     const def = getMapDef(mapId);
     const cx = def.spawn.x;
     const cy = def.spawn.y;
-    const limit = def.width / 2 - 200; // keep clear of the wall
+    const margin = 160;
     const bosses = group.filter(m => m.isMvp);
     const regular = group.filter(m => !m.isMvp).sort((a, b) => a.level - b.level);
-    regular.forEach((m, i) => {
-      const t = regular.length > 1 ? i / (regular.length - 1) : 0;
-      const radius = Math.min(limit, 500 + t * (limit - 500));
-      const angle = i * 2.399963; // golden angle spreads them evenly
-      m.x = Math.round(cx + Math.cos(angle) * radius);
-      m.y = Math.round(cy + Math.sin(angle) * radius);
-    });
+
+    const rand = mulberry32([...mapId].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7));
+    const spots = [];
+    let sep = 300;
+    let tries = 0;
+    while (spots.length < regular.length) {
+      const x = margin + rand() * (def.width - 2 * margin);
+      const y = margin + rand() * (def.height - 2 * margin);
+      tries++;
+      if (Math.hypot(x - cx, y - cy) < 500) continue;
+      if (spots.some(p => Math.hypot(p.x - x, p.y - y) < sep)) {
+        if (tries % 300 === 0) sep *= 0.85; // crowded map: relax the spacing
+        continue;
+      }
+      spots.push({ x: Math.round(x), y: Math.round(y) });
+    }
+    spots.sort((a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy));
+    regular.forEach((m, i) => { m.x = spots[i].x; m.y = spots[i].y; });
+
     bosses.forEach((m, i) => {
       // far enough from the spawn that arriving players are outside the boss's aggro range
       m.x = Math.round(cx + (i - (bosses.length - 1) / 2) * 400);
