@@ -1,4 +1,6 @@
 // Sprite manifest: which picture each monster / item uses. Shared by the game, the server and Studio.
+import { WEAPON_SPRITES } from './weapon_sprites.js';
+
 // Source sheets are 1024x1024 pictures; monster sheets hold 4 monsters (2x2), item sheets hold 12 items (3x4).
 // The game itself uses the transparent cut-outs generated from them (see below).
 // Monster cell k drops the items in cells 3k..3k+2 of the matching item sheet.
@@ -80,6 +82,25 @@ export function spriteStyle(sp, px) {
 
 // HTML for an item's icon: its picture when it has one, otherwise the emoji
 export function itemIconHtml(id, emoji, px = 28) {
+  const ws = weaponSprite(id);
+  if (ws) {
+    const k = Math.min(px / ws.w, px / ws.h);
+    return `<img src="/${ws.src}" alt="" style="width:${Math.round(ws.w * k)}px;height:${Math.round(ws.h * k)}px;vertical-align:middle;">`;
+  }
   const sp = itemSprite(id);
   return sp ? `<span style="${spriteStyle(sp, px)}"></span>` : (emoji || '📦');
+}
+
+// Sword pictures (upright cut-outs from assets/weapons/*.jpg, see tools/weapons_cutout.py): item id -> picture name
+export const WEAPON_SPRITE_OF = {
+  novice_sword: 'wooden_sword', iron_blade: 'iron_broadsword', wolf_fang_saber: 'wolf_fang_saber',
+  goblin_cleaver: 'bone_cleaver', rune_claymore: 'rune_claymore', titan_slayer: 'titan_earthbreaker',
+  dragon_scale_blade: 'dragon_scale_blade'
+};
+
+// -> { src, w, h } (tip up, hilt at the bottom) or null
+export function weaponSprite(id) {
+  const name = WEAPON_SPRITE_OF[id];
+  const wh = name && WEAPON_SPRITES[name];
+  return wh ? { src: `assets/sprites/weapons/${name}.png`, w: wh[0], h: wh[1] } : null;
 }

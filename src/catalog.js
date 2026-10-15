@@ -95,7 +95,9 @@ export function installCatalog({ MONSTERS, ITEMS, MONSTER_AI }) {
 // For now the game only has: the starter weapon, the HP potions, and the items monsters drop (3 each).
 // Everything else (old weapons/armor/materials, relic drops, recipes that need them) is switched off here;
 // the definitions stay in data.js so they can be brought back one by one later.
-const BASE_ITEMS = ['wooden_stick', 'hp_potion_s', 'hp_potion_m', 'hp_potion_l', 'apple'];
+const BASE_ITEMS = ['wooden_stick', 'hp_potion_s', 'hp_potion_m', 'hp_potion_l', 'apple',
+  // swords with a picture in assets/weapons (see WEAPON_SPRITE_OF in sprites.js); made at the crafting table
+  'novice_sword', 'iron_blade', 'wolf_fang_saber', 'goblin_cleaver', 'rune_claymore', 'titan_slayer', 'dragon_scale_blade'];
 
 export function pruneItems({ MONSTERS, ITEMS, CRAFTING_RECIPES }) {
   const keep = new Set(BASE_ITEMS);

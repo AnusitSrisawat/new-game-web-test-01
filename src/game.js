@@ -3,7 +3,7 @@ import { WorldMap } from './map.js';
 import { getMapDef, TILE_SIZE } from './maps.js';
 import { ZONES, MONSTERS, ITEMS, RELICS, QUESTS } from './data.js';
 import { soundEngine } from './audio.js';
-import { monsterSprite, itemSprite } from './sprites.js';
+import { monsterSprite, itemSprite, weaponSprite } from './sprites.js';
 
 export class GameEngine {
   constructor(canvas, minimapCanvas, player, onLog) {
@@ -1751,50 +1751,62 @@ export class GameEngine {
       ctx.translate(8, 2);
       ctx.rotate(swingAngle);
 
-      const isBerserk = isLocal && this.playerEntity.buffs && this.playerEntity.buffs.berserk > 0;
-      const isIronGuard = isLocal && this.playerEntity.buffs && this.playerEntity.buffs.def > 0;
-
-      if (isBerserk) {
-        ctx.shadowColor = '#ef4444';
-        ctx.shadowBlur = 14;
-      } else if (isIronGuard) {
-        ctx.shadowColor = '#60a5fa';
-        ctx.shadowBlur = 10;
-      } else if (isReborn) {
-        ctx.shadowColor = '#f59e0b';
-        ctx.shadowBlur = 8;
-      }
-
-      // Hilt & Guard
-      ctx.fillStyle = '#78350f';
-      ctx.fillRect(-2, -2, 4, 8);
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(-3, 6, 6, 3);
-      ctx.fillStyle = isBerserk ? '#dc2626' : '#d97706';
-      ctx.fillRect(-8, -4, 16, 3);
-
-      // Blade
-      const bladeGrad = ctx.createLinearGradient(-3, -28, 3, -4);
-      if (isBerserk) {
-        bladeGrad.addColorStop(0, '#fef08a');
-        bladeGrad.addColorStop(0.5, '#f97316');
-        bladeGrad.addColorStop(1, '#b91c1c');
+      // Held sword picture (local player only: other players only send their weapon type)
+      const wSprite = isLocal ? weaponSprite(this.player.equipment.weapon) : null;
+      const wImg = wSprite ? this.getSheet(wSprite.src) : null;
+      if (wImg) {
+        const dh = Math.min(wSprite.h * 0.36, 58);
+        const dw = dh * wSprite.w / wSprite.h;
+        if (this.playerEntity.buffs && this.playerEntity.buffs.berserk > 0) { ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 14; }
+        // grip sits on the hand: draw with the lower 20% of the picture behind the pivot
+        ctx.drawImage(wImg, -dw / 2, -dh * 0.8, dw, dh);
       } else {
-        bladeGrad.addColorStop(0, '#ffffff');
-        bladeGrad.addColorStop(0.5, '#cbd5e1');
-        bladeGrad.addColorStop(1, '#64748b');
+
+        const isBerserk = isLocal && this.playerEntity.buffs && this.playerEntity.buffs.berserk > 0;
+        const isIronGuard = isLocal && this.playerEntity.buffs && this.playerEntity.buffs.def > 0;
+
+        if (isBerserk) {
+          ctx.shadowColor = '#ef4444';
+          ctx.shadowBlur = 14;
+        } else if (isIronGuard) {
+          ctx.shadowColor = '#60a5fa';
+          ctx.shadowBlur = 10;
+        } else if (isReborn) {
+          ctx.shadowColor = '#f59e0b';
+          ctx.shadowBlur = 8;
+        }
+
+        // Hilt & Guard
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(-2, -2, 4, 8);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(-3, 6, 6, 3);
+        ctx.fillStyle = isBerserk ? '#dc2626' : '#d97706';
+        ctx.fillRect(-8, -4, 16, 3);
+
+        // Blade
+        const bladeGrad = ctx.createLinearGradient(-3, -28, 3, -4);
+        if (isBerserk) {
+          bladeGrad.addColorStop(0, '#fef08a');
+          bladeGrad.addColorStop(0.5, '#f97316');
+          bladeGrad.addColorStop(1, '#b91c1c');
+        } else {
+          bladeGrad.addColorStop(0, '#ffffff');
+          bladeGrad.addColorStop(0.5, '#cbd5e1');
+          bladeGrad.addColorStop(1, '#64748b');
+        }
+
+        ctx.fillStyle = bladeGrad;
+        ctx.beginPath();
+        ctx.moveTo(-3, -4);
+        ctx.lineTo(-3, -24);
+        ctx.lineTo(0, -31);
+        ctx.lineTo(3, -24);
+        ctx.lineTo(3, -4);
+        ctx.closePath();
+        ctx.fill();
+
       }
-
-      ctx.fillStyle = bladeGrad;
-      ctx.beginPath();
-      ctx.moveTo(-3, -4);
-      ctx.lineTo(-3, -24);
-      ctx.lineTo(0, -31);
-      ctx.lineTo(3, -24);
-      ctx.lineTo(3, -4);
-      ctx.closePath();
-      ctx.fill();
-
       ctx.restore();
     }
 

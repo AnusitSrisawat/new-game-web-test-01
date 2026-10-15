@@ -390,8 +390,8 @@ export const CRAFTING_RECIPES = [
     resultItemId: 'iron_blade',
     goldCost: 200,
     materials: [
-      { itemId: 'small_horn', count: 3 },
-      { itemId: 'plant_stem', count: 5 }
+      { itemId: 'stone_plate', count: 3 },
+      { itemId: 'small_horn', count: 3 }
     ]
   },
   {
@@ -407,7 +407,8 @@ export const CRAFTING_RECIPES = [
     goldCost: 800,
     materials: [
       { itemId: 'sharp_fang', count: 5 },
-      { itemId: 'hard_tusk', count: 4 }
+      { itemId: 'hard_tusk', count: 4 },
+      { itemId: 'wolf_fur', count: 3 }
     ]
   },
   {
@@ -422,9 +423,9 @@ export const CRAFTING_RECIPES = [
     resultItemId: 'goblin_cleaver',
     goldCost: 2500,
     materials: [
-      { itemId: 'rusty_dagger', count: 8 },
-      { itemId: 'totem_feather', count: 4 },
-      { itemId: 'iron_club_fragment', count: 2 }
+      { itemId: 'goblin_ear', count: 6 },
+      { itemId: 'curved_shiv', count: 3 },
+      { itemId: 'crimson_imp_horn', count: 2 }
     ]
   },
   {
@@ -439,17 +440,18 @@ export const CRAFTING_RECIPES = [
     resultItemId: 'rune_claymore',
     goldCost: 7000,
     materials: [
-      { itemId: 'crystal_shard', count: 10 },
-      { itemId: 'rune_dust', count: 6 }
+      { itemId: 'stone_plate', count: 6 },
+      { itemId: 'luminescent_powder', count: 4 },
+      { itemId: 'spectral_steel_ingot', count: 2 }
     ]
   },
   {
     resultItemId: 'titan_slayer',
-    goldCost: 18000,
+    goldCost: 15000,
     materials: [
-      { itemId: 'titan_heart', count: 3 },
-      { itemId: 'ancient_alloy', count: 5 },
-      { itemId: 'stone_plate', count: 8 }
+      { itemId: 'golem_core_gem', count: 4 },
+      { itemId: 'spectral_steel_ingot', count: 4 },
+      { itemId: 'stone_plate', count: 10 }
     ]
   },
   {
@@ -459,6 +461,23 @@ export const CRAFTING_RECIPES = [
       { itemId: 'titan_heart', count: 4 },
       { itemId: 'stone_plate', count: 12 },
       { itemId: 'ogre_blood', count: 8 }
+    ]
+  },
+  {
+    resultItemId: 'novice_sword',
+    goldCost: 100,
+    materials: [
+      { itemId: 'small_horn', count: 2 },
+      { itemId: 'sticky_mucus', count: 4 }
+    ]
+  },
+  {
+    resultItemId: 'dragon_scale_blade',
+    goldCost: 30000,
+    materials: [
+      { itemId: 'crimson_dragon_scale', count: 6 },
+      { itemId: 'smoking_wyrm_horn', count: 2 },
+      { itemId: 'tiny_dragon_heart', count: 1 }
     ]
   }
 ];

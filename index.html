@@ -72,6 +72,7 @@
           <button class="btn-hud-icon" id="btn-open-status">📊 สเตตัส <kbd>C</kbd></button>
           <button class="btn-hud-icon" id="btn-open-party">🚩 ปาร์ตี้ <kbd>P</kbd></button>
           <button class="btn-hud-icon" id="btn-open-inventory">🎒 กระเป๋า <kbd>I</kbd></button>
+          <button class="btn-hud-icon" id="btn-open-craft">🔨 คราฟต์ <kbd>B</kbd></button>
           <button class="btn-hud-icon" id="btn-open-quests">📜 เควสต์ <kbd>J</kbd></button>
           <button class="btn-hud-icon" id="btn-open-relics">💎 สมุดสมบัติ <kbd>T</kbd></button>
           <button class="btn-hud-icon" id="btn-open-shop">🛍️ ร้าน & กาชา <kbd>K</kbd></button>
@@ -181,10 +182,18 @@
 
     <div class="game-modal" id="modal-inventory">
       <div class="modal-header">
-        <div class="modal-title">🎒 สัมภาระ & คราฟต์อุปกรณ์ (Blacksmith)</div>
+        <div class="modal-title">🎒 สัมภาระ (Inventory)</div>
         <button class="btn-modal-close" data-close="modal-inventory">✕</button>
       </div>
       <div class="modal-body" id="modal-inventory-body"></div>
+    </div>
+
+    <div class="game-modal" id="modal-craft">
+      <div class="modal-header">
+        <div class="modal-title">🔨 โต๊ะคราฟต์อุปกรณ์ (Blacksmith)</div>
+        <button class="btn-modal-close" data-close="modal-craft">✕</button>
+      </div>
+      <div class="modal-body" id="modal-craft-body"></div>
     </div>
 
     <div class="game-modal" id="modal-quests">
