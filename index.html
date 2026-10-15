@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cozy 2D MMORPG — PC Web Adventure</title>
+  <meta name="description" content="เกม 2D MMORPG สไตล์ Cozy บนเว็บเบราว์เซอร์ มุมมอง Top-down เต็มหน้าจอ พร้อมหน้าต่าง UI สไตล์เกมคอมพิวเตอร์">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="game-viewport">
+    <!-- 1. Fullscreen Canvas World -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 2. Screen Border HUD Elements (Overlay) -->
+    <div class="hud-overlay">
+      <!-- TOP-LEFT: Player Info Unit Frame -->
+      <div class="hud-top-left hud-interactive">
+        <div class="player-unit-card">
+          <!-- Avatar Frame -->
+          <div class="unit-avatar-wrap">
+            <span id="unit-avatar-icon">🗡️</span>
+          </div>
+
+          <!-- Status & Bars -->
+          <div class="unit-status-col">
+            <div class="unit-name-row">
+              <span class="unit-name" id="hud-unit-name">Rin</span>
+              <span class="unit-class-badge" id="hud-unit-class">Swordsman</span>
+              <span class="unit-reborn-badge" id="hud-unit-reborn" style="display:none;">★ Reborn</span>
+            </div>
+
+            <!-- Dual Levels Row: Base Level & Job Level -->
+            <div class="unit-levels-row">
+              <div class="level-badge base">
+                <span class="lvl-label">BASE</span>
+                <span class="lvl-num" id="hud-base-lvl">Lv. 1</span>
+              </div>
+              <div class="level-badge job">
+                <span class="lvl-label">JOB</span>
+                <span class="lvl-num" id="hud-job-lvl">Lv. 1 / 50</span>
+              </div>
+            </div>
+
+            <div class="bar-quad-group">
+              <!-- HP Bar -->
+              <div class="hud-bar-row">
+                <span class="bar-tag hp">HP</span>
+                <div class="hud-bar">
+                  <div class="hud-bar-fill hp" id="hud-hp-fill" style="width: 100%;"></div>
+                </div>
+                <span class="bar-val-text" id="hud-hp-text">200 / 200</span>
+              </div>
+
+              <!-- SP Bar -->
+              <div class="hud-bar-row">
+                <span class="bar-tag sp">SP</span>
+                <div class="hud-bar">
+                  <div class="hud-bar-fill sp" id="hud-sp-fill" style="width: 100%;"></div>
+                </div>
+                <span class="bar-val-text" id="hud-sp-text">100 / 100</span>
+              </div>
+
+              <!-- Base EXP Bar -->
+              <div class="hud-bar-row">
+                <span class="bar-tag exp">EXP</span>
+                <div class="hud-bar">
+                  <div class="hud-bar-fill exp" id="hud-base-exp-fill" style="width: 0%;"></div>
+                </div>
+                <span class="bar-val-text" id="hud-base-exp-text">0 / 85 (0%)</span>
+              </div>
+
+              <!-- Job EXP Bar -->
+              <div class="hud-bar-row">
+                <span class="bar-tag job-exp">JOB</span>
+                <div class="hud-bar">
+                  <div class="hud-bar-fill job-exp" id="hud-job-exp-fill" style="width: 0%;"></div>
+                </div>
+                <span class="bar-val-text" id="hud-job-exp-text">0 / 60 (0%)</span>
+              </div>
+            </div>
+
+            <!-- Currencies Row -->
+            <div class="player-currency-mini">
+              <span>🪙 <b id="hud-gold-text">500</b> Gold</span>
+              <span>🎟️ <b id="hud-token-text">5</b> Token</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Class Advance / Rebirth Alert Banner (Appears when Job Lv 50 is reached!) -->
+        <div id="hud-class-advance-alert" class="hud-job-alert" style="display: none;">
+          <span id="hud-job-alert-icon">🌟</span>
+          <span id="hud-job-alert-text">Job Lv.50 บรรลุแล้ว!</span>
+          <button id="hud-job-alert-btn" class="btn-advance-quick">เปลี่ยนอาชีพ</button>
+        </div>
+
+        <!-- Stat Point Notification Badge -->
+        <div id="hud-stat-point-alert" class="hud-stat-alert" style="display: none;">
+          <span>📈 มี Stat Point คงเหลือ <b id="hud-stat-point-count">+0</b></span>
+          <button id="hud-stat-alert-btn" class="btn-stat-quick">อัปสเตตัส [C]</button>
+        </div>
+
+        <!-- WASD Controls Guide Badge -->
+        <div class="controls-hint-badge">
+          <span>🕹️ <b>WASD</b> เดิน • <b>คลิกขวา</b> ล็อคเป้า • <b>คลิกซ้าย</b> โจมตี</span>
+        </div>
+
+        <!-- MID-LEFT: Party HUD Widget -->
+        <div class="hud-party-widget hud-interactive" id="hud-party-widget">
+          <div class="party-widget-header">
+            <span>🚩 ปาร์ตี้ (+25% EXP)</span>
+            <button id="btn-open-party-modal" class="btn-party-mini">จัดการ [P]</button>
+          </div>
+          <div class="party-members-list" id="party-members-list">
+            <div style="font-size:0.7rem; color:#94a3b8; padding:4px 6px;">ยังไม่มีปาร์ตี้ (กด [P] เพื่อสร้าง/ชวน)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP-CENTER: Target Boss / Monster Bar & Boss Raid Quick Entry Button -->
+      <div class="hud-top-center hud-interactive">
+        <div id="target-hud-box" style="opacity: 0; margin-bottom: 6px;">
+          <div class="target-header">
+            <span class="target-name" id="target-monster-name">Target Monster</span>
+            <span id="target-monster-hp-text">100 / 100</span>
+          </div>
+          <div class="target-hp-track">
+            <div class="target-hp-fill" id="target-monster-hp-fill"></div>
+          </div>
+        </div>
+
+        <!-- Boss Raid Quick Entry Button -->
+        <button class="btn-hud-boss-raid" id="btn-quick-boss-raid">
+          🐉 สู้ World Boss Raid [Ancient Dragon MVP]
+        </button>
+      </div>
+
+      <!-- TOP-RIGHT: Minimap & Menu Buttons -->
+      <div class="hud-top-right hud-interactive">
+        <div class="minimap-card">
+          <canvas id="minimapCanvas" class="minimap-canvas" width="140" height="100"></canvas>
+          <span class="minimap-title" id="minimap-zone-name">🌿 ทุ่งหญ้าเริ่มต้น</span>
+        </div>
+
+        <div class="quick-menu-buttons">
+          <button class="btn-hud-icon" id="btn-open-status">📊 สเตตัส [C]</button>
+          <button class="btn-hud-icon" id="btn-open-party">🚩 ปาร์ตี้ [P]</button>
+          <button class="btn-hud-icon" id="btn-open-inventory">🎒 กระเป๋า [I]</button>
+          <button class="btn-hud-icon" id="btn-open-quests">📜 เควสต์ [J]</button>
+          <button class="btn-hud-icon" id="btn-open-relics">💎 สมุดสมบัติ [T]</button>
+          <button class="btn-hud-icon" id="btn-open-shop">🛍️ ร้าน & กาชา [K]</button>
+          <button class="btn-hud-icon" id="btn-open-zones">🗺️ แผนที่ [M]</button>
+          <button class="btn-hud-icon" id="btn-toggle-sound" title="เปิด/ปิดเสียงเอฟเฟกต์">🔊 เสียง [ON]</button>
+        </div>
+
+        <!-- RIGHT-SIDE: Pinned Active Quests Tracker -->
+        <div class="hud-quest-tracker" id="hud-quest-tracker">
+          <div class="quest-tracker-header">
+            <span>📜 เควสต์ติดตาม (Quest Tracker)</span>
+          </div>
+          <div class="quest-tracker-body" id="quest-tracker-list">
+            <!-- Dynamically populated active quests -->
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM-LEFT: Chat & Combat Event Box -->
+      <div class="hud-bottom-left hud-interactive">
+        <div class="chat-tabs">
+          <button class="chat-tab active" data-tab="all">รวม</button>
+          <button class="chat-tab" data-tab="system">ระบบ</button>
+          <button class="chat-tab" data-tab="loot">ดรอป</button>
+          <button class="chat-tab" data-tab="relic">สมบัติ</button>
+        </div>
+        <div class="chat-messages" id="chat-messages-container">
+          <div class="chat-msg system">[ระบบ] ยินดีต้อนรับสู่โลก Cozy MMORPG 2D!</div>
+        </div>
+        <div class="chat-input-row">
+          <input type="text" id="chat-input" class="chat-input" placeholder="พิมพ์ข้อความคุยในโลก..." />
+          <button id="chat-send-btn" class="chat-send-btn">ส่ง</button>
+        </div>
+      </div>
+
+      <!-- BOTTOM-CENTER: 1 to 9 Skill & Utility Hotbar -->
+      <div class="hud-bottom-center hud-interactive">
+        <div class="pc-skill-action-bar">
+          <div class="skill-slots-container">
+            <!-- Slot 1: Power Strike -->
+            <div class="skill-slot-card" id="slot-1" title="[1] Power Strike (ฟันหนัก 250% ดาเมจ)">
+              <div class="skill-icon-emoji">💥</div>
+              <div class="skill-label-name">Power Strike</div>
+              <span class="skill-hotkey-badge">1</span>
+            </div>
+
+            <!-- Slot 2: Whirlwind -->
+            <div class="skill-slot-card" id="slot-2" title="[2] Whirlwind Slash (หมุนดาบฟันรอบตัว AoE)">
+              <div class="skill-icon-emoji">🌪️</div>
+              <div class="skill-label-name">Whirlwind</div>
+              <span class="skill-hotkey-badge">2</span>
+            </div>
+
+            <!-- Slot 3: Iron Guard -->
+            <div class="skill-slot-card" id="slot-3" title="[3] Iron Guard (เกราะเหล็ก +60 DEF)">
+              <div class="skill-icon-emoji">🛡️</div>
+              <div class="skill-label-name">Iron Guard</div>
+              <span class="skill-hotkey-badge">3</span>
+            </div>
+
+            <!-- Slot 4: Berserk -->
+            <div class="skill-slot-card" id="slot-4" title="[4] Berserk Rage (เร่งความเร็วโจมตี ASPD)">
+              <div class="skill-icon-emoji">⚡</div>
+              <div class="skill-label-name">Berserk</div>
+              <span class="skill-hotkey-badge">4</span>
+            </div>
+
+            <!-- Slot 5: Red Potion -->
+            <div class="skill-slot-card util-slot" id="slot-5" title="[5] Red Potion (ดื่มยาฟื้นพลัง HP)">
+              <div class="skill-icon-emoji">🧪</div>
+              <div class="skill-label-name">HP Potion</div>
+              <span class="skill-hotkey-badge">5</span>
+            </div>
+
+            <!-- Slot 6: Flash Dash -->
+            <div class="skill-slot-card" id="slot-6" title="[6] Flash Dash (พุ่งตัวไปข้างหน้าอย่างรวดเร็ว)">
+              <div class="skill-icon-emoji">💨</div>
+              <div class="skill-label-name">Dash</div>
+              <span class="skill-hotkey-badge">6</span>
+            </div>
+
+            <!-- Slot 7: War Cry / Taunt -->
+            <div class="skill-slot-card" id="slot-7" title="[7] War Cry (คำรามสะกดมอนสเตอร์รอบตัวติดสตัน)">
+              <div class="skill-icon-emoji">📢</div>
+              <div class="skill-label-name">War Cry</div>
+              <span class="skill-hotkey-badge">7</span>
+            </div>
+
+            <!-- Slot 8: First Aid -->
+            <div class="skill-slot-card" id="slot-8" title="[8] First Aid (ปฐมพยาบาลฟื้นฟู HP ฉุกเฉิน)">
+              <div class="skill-icon-emoji">💚</div>
+              <div class="skill-label-name">First Aid</div>
+              <span class="skill-hotkey-badge">8</span>
+            </div>
+
+            <!-- Slot 9: Town Return Scroll -->
+            <div class="skill-slot-card util-slot" id="slot-9" title="[9] Town Scroll (วาร์ปกลับลานเมือง)">
+              <div class="skill-icon-emoji">📜</div>
+              <div class="skill-label-name">Town Portal</div>
+              <span class="skill-hotkey-badge">9</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM-RIGHT: Action & Auto Wheel -->
+      <div class="hud-bottom-right hud-interactive">
+        <div class="action-wheel">
+          <!-- Auto Hunt Button -->
+          <button class="btn-sub-action auto-btn" id="btn-auto-hunt" title="เปิด/ปิด ปล่อยบอทตีมอนสเตอร์อัตโนมัติ">
+            AUTO
+          </button>
+
+          <!-- Auto Potion Button -->
+          <button class="btn-sub-action pot-btn" id="btn-hud-potion" title="ดื่มยาฟื้นพลัง HP">
+            🧪
+          </button>
+
+          <!-- Zone / Map Select Button -->
+          <button class="btn-sub-action zone-btn" id="btn-hud-zone" title="สลับจุดฟาร์มมอนสเตอร์">
+            🗺️
+          </button>
+
+          <!-- Big Attack / Target Button -->
+          <button class="btn-big-attack" id="btn-big-attack" title="โจมตีปกติ [คลิกซ้าย]">
+            ⚔️
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Bottom EXP Strip -->
+    <div class="hud-bottom-bar">
+      <div class="hud-bottom-bar-fill" id="hud-exp-fill"></div>
+    </div>
+
+    <!-- 4. FLOATING PC MODALS / WINDOWS -->
+    <div class="game-modal" id="modal-status">
+      <div class="modal-header">
+        <div class="modal-title">📊 ข้อมูลตัวละคร & เลื่อนขั้นอาชีพ</div>
+        <button class="btn-modal-close" data-close="modal-status">✕</button>
+      </div>
+      <div class="modal-body" id="modal-status-body"></div>
+    </div>
+
+    <div class="game-modal" id="modal-inventory">
+      <div class="modal-header">
+        <div class="modal-title">🎒 สัมภาระ & คราฟต์อุปกรณ์ (Blacksmith)</div>
+        <button class="btn-modal-close" data-close="modal-inventory">✕</button>
+      </div>
+      <div class="modal-body" id="modal-inventory-body"></div>
+    </div>
+
+    <div class="game-modal" id="modal-quests">
+      <div class="modal-header">
+        <div class="modal-title">📜 เควสต์ล่ามอนสเตอร์ประจำอาณาจักร</div>
+        <button class="btn-modal-close" data-close="modal-quests">✕</button>
+      </div>
+      <div class="modal-body" id="modal-quests-body"></div>
+    </div>
+
+    <div class="game-modal" id="modal-relics">
+      <div class="modal-header">
+        <div class="modal-title">💎 สมุดสะสมสมบัติประจำตัวมอนสเตอร์ (Treasure Compendium)</div>
+        <button class="btn-modal-close" data-close="modal-relics">✕</button>
+      </div>
+      <div class="modal-body" id="modal-relics-body"></div>
+    </div>
+
+    <div class="game-modal" id="modal-shop">
+      <div class="modal-header">
+        <div class="modal-title">🛍️ ร้านค้า NPC & ตู้สุ่มกาชาแฟชั่น</div>
+        <button class="btn-modal-close" data-close="modal-shop">✕</button>
+      </div>
+      <div class="modal-body" id="modal-shop-body"></div>
+    </div>
+
+    <div class="game-modal" id="modal-zones">
+      <div class="modal-header">
+        <div class="modal-title">🗺️ แผนที่โลกและจุดฟาร์มมอนสเตอร์</div>
+        <button class="btn-modal-close" data-close="modal-zones">✕</button>
+      </div>
+      <div class="modal-body" id="modal-zones-body"></div>
+    </div>
+
+    <!-- 5. Party Management Modal [P] -->
+    <div class="game-modal" id="modal-party">
+      <div class="modal-header">
+        <div class="modal-title">🚩 จัดการปาร์ตี้ (Party Management - โบนัสแชร์ EXP +25%)</div>
+        <button class="btn-modal-close" data-close="modal-party">✕</button>
+      </div>
+      <div class="modal-body" id="modal-party-body"></div>
+    </div>
+
+    <!-- 6. Party Invitation Toast Popup -->
+    <div id="party-invite-toast" class="party-invite-popup" style="display: none;">
+      <div class="invite-header">💌 คำเชิญร่วมปาร์ตี้</div>
+      <div class="invite-desc" id="party-invite-desc">ผู้เล่นชวนคุณเข้าปาร์ตี้</div>
+      <div class="invite-actions">
+        <button id="btn-party-accept" class="btn-invite-accept">ยอมรับ (+25% EXP)</button>
+        <button id="btn-party-decline" class="btn-invite-decline">ปฏิเสธ</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

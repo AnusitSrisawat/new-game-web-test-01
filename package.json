@@ -1,0 +1,14 @@
+{
+  "name": "cozy-2d-mmorpg",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Cozy 2D MMORPG Web Adventure with Real-time Multiplayer, Auto-farm, and Authoritative Monster Sync",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

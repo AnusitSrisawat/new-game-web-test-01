@@ -1,0 +1,240 @@
+// WebSocket Multiplayer Client Manager with Multi-Zone, Party, Boss & Rich Animation Sync
+export class NetworkManager {
+  constructor(gameEngine, player) {
+    this.game = gameEngine;
+    this.player = player;
+    this.ws = null;
+    this.myPlayerId = null;
+    this.isConnected = false;
+    this.otherPlayers = new Map(); // { [playerId]: playerState }
+    this.currentParty = null;
+
+    this.connect();
+  }
+
+  connect() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}`;
+
+    try {
+      this.ws = new WebSocket(wsUrl);
+
+      this.ws.onopen = () => {
+        this.isConnected = true;
+        this.game.onLog('🌐 เชื่อมต่อเซิร์ฟเวอร์ MMORPG สำเร็จ (Online Sync)', 'system');
+        
+        // Send initial player profile to server
+        this.sendProfileUpdate();
+      };
+
+      this.ws.onmessage = (event) => {
+        this.handleMessage(JSON.parse(event.data));
+      };
+
+      this.ws.onclose = () => {
+        this.isConnected = false;
+        this.game.onLog('⚠️ ขาดการเชื่อมต่อกับเซิร์ฟเวอร์... กำลังพยายามต่อใหม่ใน 3 วินาที', 'system');
+        setTimeout(() => this.connect(), 3000);
+      };
+
+      this.ws.onerror = (err) => {
+        console.warn('WebSocket connection error:', err);
+      };
+    } catch (e) {
+      console.warn('WS Init error:', e);
+    }
+  }
+
+  handleMessage(msg) {
+    switch (msg.type) {
+      case 'init':
+        this.myPlayerId = msg.playerId;
+        // Sync Authoritative World Monsters from Server
+        if (msg.monsters && msg.monsters.length > 0) {
+          this.game.syncMonstersFromServer(msg.monsters);
+        }
+        // Initialize other connected players
+        if (msg.otherPlayers) {
+          msg.otherPlayers.forEach(p => this.otherPlayers.set(p.id, p));
+        }
+        break;
+
+      case 'player_joined':
+        this.otherPlayers.set(msg.player.id, msg.player);
+        this.game.onLog(`👋 [${msg.player.name}] ปรากฏตัวในโลก!`, 'system');
+        break;
+
+      case 'player_left':
+        this.otherPlayers.delete(msg.playerId);
+        break;
+
+      case 'player_profile_updated':
+        if (this.otherPlayers.has(msg.player.id)) {
+          this.otherPlayers.set(msg.player.id, msg.player);
+        }
+        break;
+
+      case 'player_changed_map':
+        if (this.otherPlayers.has(msg.playerId)) {
+          const op = this.otherPlayers.get(msg.playerId);
+          op.currentMap = msg.mapId;
+          op.x = msg.x;
+          op.y = msg.y;
+        }
+        break;
+
+      case 'world_sync':
+        // Synchronize positions and walk animations of all other players
+        msg.players.forEach(p => {
+          if (p.id !== this.myPlayerId) {
+            const existing = this.otherPlayers.get(p.id) || {};
+            this.otherPlayers.set(p.id, { ...existing, ...p });
+          }
+        });
+        break;
+
+      case 'player_attack_effect':
+        // Show rich attack animations (arrow, slash, skills) for another player
+        this.game.handleRemotePlayerAttack(msg);
+        break;
+
+      case 'boss_aoe_telegraph':
+        // Telegraphed Boss AoE Danger Warning Circle on floor!
+        this.game.handleBossAoeTelegraph(msg);
+        break;
+
+      case 'monster_damaged':
+        this.game.onMonsterDamagedFromServer(msg.monsterId, msg.damage, msg.currentHp, msg.isCrit);
+        break;
+
+      case 'monster_killed':
+        this.game.onMonsterKilledFromServer(msg.monsterId, msg.killerId, msg.killerName, msg.isMvp);
+        break;
+
+      case 'monster_respawned':
+        this.game.onMonsterRespawnedFromServer(msg.monster);
+        break;
+
+      case 'party_update':
+        this.currentParty = msg.party;
+        if (this.game.uiController) {
+          this.game.uiController.updatePartyHUD(this.currentParty);
+        }
+        break;
+
+      case 'party_invitation':
+        // Show party invite notification banner
+        this.game.onLog(`💌 [${msg.leaderName}] ชวนคุณเข้าร่วมปาร์ตี้ [${msg.partyName}]`, 'system');
+        if (this.game.uiController) {
+          this.game.uiController.showPartyInviteModal(msg.partyId, msg.partyName, msg.leaderName);
+        }
+        break;
+
+      case 'party_reward_share':
+        this.game.onPartyRewardShared(msg);
+        break;
+
+      case 'chat':
+        this.game.onLog(msg.text, msg.channel || 'chat');
+        break;
+    }
+  }
+
+  send(data) {
+    if (this.isConnected && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(data));
+    }
+  }
+
+  sendPosition(x, y, facing, isMoving = false, walkFrame = 0, currentMap = 'meadows') {
+    this.send({
+      type: 'move',
+      x: Math.round(x),
+      y: Math.round(y),
+      facing: facing,
+      isMoving: isMoving,
+      walkFrame: Math.round(walkFrame),
+      currentMap: currentMap
+    });
+  }
+
+  sendChangeMap(mapId, x = 1600, y = 1200) {
+    this.send({
+      type: 'change_map',
+      mapId,
+      x,
+      y
+    });
+  }
+
+  sendAttackAction(opts = {}) {
+    this.send({
+      type: 'attack_action',
+      weaponType: opts.weaponType || 'sword',
+      skillId: opts.skillId || null,
+      skillName: opts.skillName || null,
+      targetId: opts.targetId || null,
+      targetX: opts.targetX || null,
+      targetY: opts.targetY || null
+    });
+  }
+
+  sendMonsterHit(monsterId, damage, isCrit = false, exp = 35) {
+    this.send({
+      type: 'hit_monster',
+      monsterId: monsterId,
+      damage: damage,
+      isCrit: isCrit,
+      exp: exp
+    });
+  }
+
+  sendProfileUpdate() {
+    const weaponType = (this.player.equipment.weapon && this.player.equipment.weapon.includes('bow')) ? 'bow' : 'sword';
+    this.send({
+      type: 'update_profile',
+      name: this.player.name,
+      level: this.player.baseLevel,
+      classId: this.player.classId,
+      weaponType: weaponType,
+      rebirthCount: this.player.rebirthCount,
+      hp: this.player.currentHp,
+      maxHp: this.player.maxHp,
+      currentMap: this.game ? this.game.currentZone.id : 'meadows'
+    });
+  }
+
+  sendCreateParty(partyName) {
+    this.send({
+      type: 'party_create',
+      partyName
+    });
+  }
+
+  sendInviteParty(targetPlayerId) {
+    this.send({
+      type: 'party_invite',
+      targetPlayerId
+    });
+  }
+
+  sendAcceptParty(partyId) {
+    this.send({
+      type: 'party_accept',
+      partyId
+    });
+  }
+
+  sendLeaveParty() {
+    this.send({
+      type: 'party_leave'
+    });
+  }
+
+  sendChat(text) {
+    this.send({
+      type: 'chat',
+      text: text
+    });
+  }
+}

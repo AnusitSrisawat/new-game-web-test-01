@@ -1,0 +1,109 @@
+// Main Entry Point (Fullscreen PC MMORPG with WASD, Right-Click Target, Left-Click Attack & 1-9 Skills)
+import { Player } from './player.js';
+import { GameEngine } from './game.js';
+import { UIController } from './ui.js';
+import { NetworkManager } from './network.js';
+
+document.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('gameCanvas');
+  const minimapCanvas = document.getElementById('minimapCanvas');
+  const chatContainer = document.getElementById('chat-messages-container');
+
+  // Combat & System Log Callback
+  const addLog = (message, type = 'system') => {
+    if (!chatContainer) return;
+    const msgEl = document.createElement('div');
+    msgEl.className = `chat-msg ${type}`;
+    const time = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    msgEl.innerHTML = `<span style="opacity:0.5; font-size:0.7rem;">[${time}]</span> ${message}`;
+    chatContainer.appendChild(msgEl);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    while (chatContainer.children.length > 60) {
+      chatContainer.removeChild(chatContainer.firstChild);
+    }
+  };
+
+  // 1. Initialize Player & Engine
+  const player = new Player();
+  const game = new GameEngine(canvas, minimapCanvas, player, addLog);
+  const ui = new UIController(player, game);
+  game.setUIController(ui);
+
+  // 2. Initialize Multiplayer Network Sync (WebSocket)
+  const network = new NetworkManager(game, player);
+  game.setNetwork(network);
+
+  // 3. Connect Chat Send
+  const chatInput = document.getElementById('chat-input');
+  const chatSendBtn = document.getElementById('chat-send-btn');
+  const handleSendChat = () => {
+    const txt = chatInput.value.trim();
+    if (txt) {
+      network.sendChat(txt);
+      chatInput.value = '';
+    }
+  };
+  if (chatSendBtn) chatSendBtn.addEventListener('click', handleSendChat);
+  if (chatInput) {
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleSendChat();
+    });
+  }
+
+  // 4. MOUSE CONTROLS: Left Click = Attack / Move, Right Click = Target Selection
+  // Prevent context menu from appearing on right click in the game
+  canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+  });
+
+  canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    if (e.button === 2) {
+      // Right Click: Select / Lock Target
+      e.preventDefault();
+      game.handleRightClick(clickX, clickY);
+    } else if (e.button === 0) {
+      // Left Click: Attack or Move
+      game.handleLeftClick(clickX, clickY);
+    }
+  });
+
+  // 5. KEYBOARD CONTROLS: WASD to Move, 1 to 9 for Skills & Items
+  window.addEventListener('keydown', (e) => {
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+
+    const key = e.key.toLowerCase();
+
+    // WASD Movement
+    if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
+      game.keys[key] = true;
+    }
+
+    // Number keys 1-9 for Skills
+    const num = parseInt(key);
+    if (!isNaN(num) && num >= 1 && num <= 9) {
+      game.useSkillSlot(num);
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+
+    const key = e.key.toLowerCase();
+    if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
+      game.keys[key] = false;
+    }
+  });
+
+  // 6. Periodic UI Sync
+  setInterval(() => {
+    ui.updateHUD();
+  }, 100);
+
+  addLog('🌿 ยินดีต้อนรับสู่ TRIPLE CROWN ONLINE!', 'system');
+  addLog('🕹️ การควบคุม: [WASD] เดิน • [คลิกขวา] ล็อคเป้า • [คลิกซ้าย] โจมตี • [1-9] สกิล', 'chat');
+});

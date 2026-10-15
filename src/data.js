@@ -1,0 +1,922 @@
+// Game Master Data & Configurations
+
+export const CLASSES = {
+  // --- SWORDSMAN TREE ---
+  SWORDSMAN: {
+    id: 'swordsman',
+    category: 'swordsman',
+    name: 'Swordsman (นักดาบ)',
+    tier: 1,
+    maxJob: 50,
+    nextClass: 'knight',
+    baseHp: 200,
+    baseAtk: 25,
+    baseDef: 10,
+    aspd: 1.0,
+    range: 75,
+    weaponType: 'sword',
+    color: '#3b82f6',
+    description: 'ผู้ฝึกดาบขั้นต้น เชี่ยวชาญการต่อสู้ระยะประชิด มีพลังป้องกันและความอดทนสูง'
+  },
+  KNIGHT: {
+    id: 'knight',
+    category: 'swordsman',
+    name: 'Knight (อัศวิน)',
+    tier: 2,
+    maxJob: 50,
+    canRebirth: true,
+    baseHp: 650,
+    baseAtk: 75,
+    baseDef: 35,
+    aspd: 1.2,
+    range: 80,
+    weaponType: 'sword',
+    color: '#1d4ed8',
+    description: 'อัศวินผู้พิทักษ์ เชี่ยวชาญดาบใหญ่และโล่ พร้อมเข้าสู่พิธีจุติ (Rebirth)'
+  },
+  HIGH_SWORDSMAN: {
+    id: 'high_swordsman',
+    category: 'swordsman',
+    name: 'High Swordsman (นักดาบจุติ)',
+    tier: 1.5,
+    maxJob: 50,
+    nextClass: 'high_knight',
+    baseHp: 400,
+    baseAtk: 50,
+    baseDef: 25,
+    aspd: 1.15,
+    range: 80,
+    weaponType: 'sword',
+    isReborn: true,
+    color: '#8b5cf6',
+    description: 'ผู้ผ่านการจุติ มีออร่าแห่งวิญญาณสถิตอยู่ พลังพื้นฐานแข็งแกร่งกว่าเดิม'
+  },
+  HIGH_KNIGHT: {
+    id: 'high_knight',
+    category: 'swordsman',
+    name: 'High Knight (อัศวินจุติ)',
+    tier: 2.5,
+    maxJob: 50,
+    nextClass: 'rune_knight',
+    baseHp: 1200,
+    baseAtk: 140,
+    baseDef: 60,
+    aspd: 1.35,
+    range: 85,
+    weaponType: 'sword',
+    isReborn: true,
+    color: '#7c3aed',
+    description: 'อัศวินระดับสูงผู้ปลดล็อกศักยภาพสูงสุด พร้อมเลื่อนขั้นสู่อาชีพคลาส 3'
+  },
+  RUNE_KNIGHT: {
+    id: 'rune_knight',
+    category: 'swordsman',
+    name: 'Rune Knight (รูนไนท์ - Class 3)',
+    tier: 3,
+    maxJob: 50,
+    baseHp: 3000,
+    baseAtk: 320,
+    baseDef: 120,
+    aspd: 1.6,
+    range: 90,
+    weaponType: 'sword',
+    isReborn: true,
+    color: '#f59e0b',
+    description: 'สุดยอดคลาส 3 สลักอักขระรูนโบราณลงบนคมดาบ ปลดปล่อยพลังทำลายล้างมหาศาล!'
+  },
+
+  // --- ARCHER TREE (สายธนู) ---
+  ARCHER: {
+    id: 'archer',
+    category: 'archer',
+    name: 'Archer (นักธนู)',
+    tier: 1,
+    maxJob: 50,
+    nextClass: 'hunter',
+    baseHp: 160,
+    baseAtk: 32,
+    baseDef: 6,
+    aspd: 1.15,
+    range: 240,
+    weaponType: 'bow',
+    color: '#10b981',
+    description: 'ผู้ฝึกหัดยิงธนู เชี่ยวชาญการโจมตีระยะไกล ความแม่นยำสูงและคล่องตัว'
+  },
+  HUNTER: {
+    id: 'hunter',
+    category: 'archer',
+    name: 'Hunter (ฮันเตอร์)',
+    tier: 2,
+    maxJob: 50,
+    canRebirth: true,
+    baseHp: 520,
+    baseAtk: 92,
+    baseDef: 24,
+    aspd: 1.35,
+    range: 260,
+    weaponType: 'bow',
+    color: '#059669',
+    description: 'นายพรานแห่งพงไพร พร้อมเหยี่ยวคู่ใจ เชี่ยวชาญการวางกับดักและยิงระดม'
+  },
+  HIGH_ARCHER: {
+    id: 'high_archer',
+    category: 'archer',
+    name: 'High Archer (นักธนูจุติ)',
+    tier: 1.5,
+    maxJob: 50,
+    nextClass: 'sniper',
+    baseHp: 340,
+    baseAtk: 65,
+    baseDef: 18,
+    aspd: 1.25,
+    range: 260,
+    weaponType: 'bow',
+    isReborn: true,
+    color: '#047857',
+    description: 'นักธนูผู้ผ่านการจุติ คันศรเปล่งประกายออร่าสีเขียวมรกต ยิงทะลวงเป้าหมาย'
+  },
+  SNIPER: {
+    id: 'sniper',
+    category: 'archer',
+    name: 'Sniper (สไนเปอร์)',
+    tier: 2.5,
+    maxJob: 50,
+    nextClass: 'ranger',
+    baseHp: 960,
+    baseAtk: 175,
+    baseDef: 45,
+    aspd: 1.55,
+    range: 280,
+    weaponType: 'bow',
+    isReborn: true,
+    color: '#065f46',
+    description: 'มือปืนศรสังหาร มองเห็นจุดอ่อนศัตรูในพริบตา คริติคอลรุนแรงไร้เทียมทาน'
+  },
+  RANGER: {
+    id: 'ranger',
+    category: 'archer',
+    name: 'Ranger (เรนเจอร์ - Class 3)',
+    tier: 3,
+    maxJob: 50,
+    baseHp: 2400,
+    baseAtk: 380,
+    baseDef: 85,
+    aspd: 1.85,
+    range: 300,
+    weaponType: 'bow',
+    isReborn: true,
+    color: '#14b8a6',
+    description: 'สุดยอดคลาส 3 ผสานพลังธาตุพายุและสัตว์พิทักษ์ ปล่อยศรดั่งพายุคลั่ง!'
+  }
+};
+
+export const ZONES = [
+  {
+    id: 'town',
+    name: '🏰 Central Town (เมืองหลวง Prontera)',
+    desc: 'ลานกลางเมืองหลวง ปลอดภัย มีน้ำพุศักดิ์สิทธิ์ ร้านค้า และผู้คนสัญจร',
+    reqLevel: 1,
+    isPeaceful: true,
+    bgColor: '#cbd5e1',
+    floorColor: '#94a3b8',
+    monsterIds: []
+  },
+  {
+    id: 'meadows',
+    name: '🌱 Green Meadows (ทุ่งหญ้าเริ่มต้น)',
+    desc: 'ทุ่งหญ้าเขียวขจี อากาศแจ่มใส เหมาะสำหรับผู้เริ่มต้นฝึกฝน',
+    reqLevel: 1,
+    bgColor: '#a7f3d0',
+    floorColor: '#34d399',
+    monsterIds: ['slime', 'sprout', 'horned_rabbit']
+  },
+  {
+    id: 'misty_forest',
+    name: '🌲 Misty Forest (ป่าหมอกลึกลับ)',
+    desc: 'ป่าทึบที่มีหมอกลงหนาทึบและสัตว์ป่าดุร้าย',
+    reqLevel: 15,
+    bgColor: '#94a3b8',
+    floorColor: '#475569',
+    monsterIds: ['wild_boar', 'forest_wolf', 'treant']
+  },
+  {
+    id: 'goblin_caverns',
+    name: '⛏️ Goblin Caverns (ถ้ำก๊อบลินโบราณ)',
+    desc: 'ถ้ำลึกใต้ดิน เต็มไปด้วยนักรบก็อบลิน หมอผี และออร์คยักษ์',
+    reqLevel: 30,
+    bgColor: '#fed7aa',
+    floorColor: '#b45309',
+    monsterIds: ['goblin_scout', 'goblin_shaman', 'ogre']
+  },
+  {
+    id: 'volcano',
+    name: '🌋 Lava Volcano (ภูเขาไฟลาวาเดือด)',
+    desc: 'ดินแดนภูเขาไฟ หินบะซอลต์ และธารลาวาร้อนระอุ โกเลมหินยักษ์',
+    reqLevel: 50,
+    bgColor: '#fecaca',
+    floorColor: '#dc2626',
+    monsterIds: ['crystal_bat', 'stone_golem', 'ancient_golem']
+  },
+  {
+    id: 'boss_lair',
+    name: '🐉 Dragon\'s Lair (รังมังกรโบราณ - World Boss MVP)',
+    desc: 'ลานประลองมังกรบรรพกาล [Ancient Dragon MVP] อันตรายระดับสูงสุด ระวังพื้นที่สีแดง!',
+    reqLevel: 25,
+    isBossRaid: true,
+    bgColor: '#450a0a',
+    floorColor: '#7f1d1d',
+    monsterIds: ['ancient_dragon']
+  }
+];
+
+export const MONSTERS = {
+  slime: {
+    id: 'slime',
+    name: 'Poring Slime',
+    emoji: '💧',
+    level: 1,
+    hp: 40,
+    atk: 6,
+    def: 2,
+    exp: 15,
+    jobExp: 10,
+    drops: [
+      { itemId: 'sticky_mucus', chance: 0.8 },
+      { itemId: 'apple', chance: 0.4 },
+      { itemId: 'relic_slime_core', chance: 0.05, isRelic: true } // 5% chance in demo
+    ]
+  },
+  sprout: {
+    id: 'sprout',
+    name: 'Sprout Mandragora',
+    emoji: '🌱',
+    level: 5,
+    hp: 80,
+    atk: 12,
+    def: 4,
+    exp: 28,
+    jobExp: 22,
+    drops: [
+      { itemId: 'green_leaf', chance: 0.75 },
+      { itemId: 'plant_stem', chance: 0.35 },
+      { itemId: 'relic_mandragora_root', chance: 0.05, isRelic: true }
+    ]
+  },
+  horned_rabbit: {
+    id: 'horned_rabbit',
+    name: 'Horned Rabbit',
+    emoji: '🐰',
+    level: 10,
+    hp: 140,
+    atk: 18,
+    def: 6,
+    exp: 55,
+    jobExp: 45,
+    drops: [
+      { itemId: 'rabbit_fluff', chance: 0.7 },
+      { itemId: 'small_horn', chance: 0.4 },
+      { itemId: 'relic_golden_carrot', chance: 0.04, isRelic: true }
+    ]
+  },
+  wild_boar: {
+    id: 'wild_boar',
+    name: 'Wild Boar',
+    emoji: '🐗',
+    level: 18,
+    hp: 260,
+    atk: 32,
+    def: 12,
+    exp: 110,
+    jobExp: 90,
+    drops: [
+      { itemId: 'boar_meat', chance: 0.8 },
+      { itemId: 'hard_tusk', chance: 0.35 },
+      { itemId: 'relic_boar_crest', chance: 0.04, isRelic: true }
+    ]
+  },
+  forest_wolf: {
+    id: 'forest_wolf',
+    name: 'Shadow Wolf',
+    emoji: '🐺',
+    level: 25,
+    hp: 420,
+    atk: 48,
+    def: 18,
+    exp: 210,
+    jobExp: 175,
+    drops: [
+      { itemId: 'wolf_fur', chance: 0.75 },
+      { itemId: 'sharp_fang', chance: 0.4 },
+      { itemId: 'relic_alpha_eye', chance: 0.03, isRelic: true }
+    ]
+  },
+  treant: {
+    id: 'treant',
+    name: 'Elder Treant',
+    emoji: '🌲',
+    level: 32,
+    hp: 750,
+    atk: 60,
+    def: 30,
+    exp: 360,
+    jobExp: 310,
+    drops: [
+      { itemId: 'ancient_bark', chance: 0.7 },
+      { itemId: 'spirit_amber', chance: 0.3 },
+      { itemId: 'relic_heart_of_forest', chance: 0.03, isRelic: true }
+    ]
+  },
+  goblin_scout: {
+    id: 'goblin_scout',
+    name: 'Goblin Scout',
+    emoji: '👺',
+    level: 38,
+    hp: 950,
+    atk: 78,
+    def: 35,
+    exp: 520,
+    jobExp: 460,
+    drops: [
+      { itemId: 'rusty_dagger', chance: 0.65 },
+      { itemId: 'cloth_scrap', chance: 0.5 },
+      { itemId: 'relic_goblin_badge', chance: 0.025, isRelic: true }
+    ]
+  },
+  goblin_shaman: {
+    id: 'goblin_shaman',
+    name: 'Goblin Shaman',
+    emoji: '🧙',
+    level: 44,
+    hp: 1300,
+    atk: 105,
+    def: 42,
+    exp: 750,
+    jobExp: 680,
+    drops: [
+      { itemId: 'totem_feather', chance: 0.6 },
+      { itemId: 'magic_powder', chance: 0.45 },
+      { itemId: 'relic_shaman_mask', chance: 0.025, isRelic: true }
+    ]
+  },
+  ogre: {
+    id: 'ogre',
+    name: 'Ironhide Ogre',
+    emoji: '👹',
+    level: 50,
+    hp: 2200,
+    atk: 145,
+    def: 60,
+    exp: 1200,
+    jobExp: 1100,
+    drops: [
+      { itemId: 'iron_club_fragment', chance: 0.6 },
+      { itemId: 'ogre_blood', chance: 0.4 },
+      { itemId: 'relic_titan_belt', chance: 0.02, isRelic: true }
+    ]
+  },
+  crystal_bat: {
+    id: 'crystal_bat',
+    name: 'Crystal Bat',
+    emoji: '🦇',
+    level: 56,
+    hp: 2500,
+    atk: 170,
+    def: 70,
+    exp: 1600,
+    jobExp: 1500,
+    drops: [
+      { itemId: 'crystal_shard', chance: 0.7 },
+      { itemId: 'bat_wing', chance: 0.5 },
+      { itemId: 'relic_bat_gem', chance: 0.02, isRelic: true }
+    ]
+  },
+  stone_golem: {
+    id: 'stone_golem',
+    name: 'Rune Stone Golem',
+    emoji: '🗿',
+    level: 65,
+    hp: 4200,
+    atk: 220,
+    def: 120,
+    exp: 2600,
+    jobExp: 2400,
+    drops: [
+      { itemId: 'stone_plate', chance: 0.75 },
+      { itemId: 'rune_dust', chance: 0.4 },
+      { itemId: 'relic_golem_core', chance: 0.015, isRelic: true }
+    ]
+  },
+  ancient_golem: {
+    id: 'ancient_golem',
+    name: 'Ancient Titan Golem (Boss)',
+    emoji: '🌋',
+    level: 75,
+    hp: 9500,
+    atk: 360,
+    def: 180,
+    exp: 6000,
+    jobExp: 5500,
+    drops: [
+      { itemId: 'titan_heart', chance: 0.8 },
+      { itemId: 'ancient_alloy', chance: 0.6 },
+      { itemId: 'relic_primordial_spark', chance: 0.03, isRelic: true }
+    ]
+  },
+  ancient_dragon: {
+    id: 'ancient_dragon',
+    name: 'Ancient Red Dragon MVP (มังกรบรรพกาล)',
+    emoji: '🐉',
+    level: 99,
+    hp: 50000,
+    atk: 580,
+    def: 220,
+    exp: 50000,
+    jobExp: 45000,
+    isMvp: true,
+    drops: [
+      { itemId: 'dragon_scale_blade', chance: 0.35 },
+      { itemId: 'dragon_bone_bow', chance: 0.35 },
+      { itemId: 'dragon_heart_core', chance: 0.8 },
+      { itemId: 'relic_dragon_heart', chance: 0.15, isRelic: true }
+    ]
+  }
+};
+
+export const ITEMS = {
+  // Common / Trash & Materials
+  sticky_mucus: { id: 'sticky_mucus', name: 'Sticky Mucus', price: 5, icon: '🧪', type: 'material', desc: 'เมือกเหนียวจากสไลม์ นำไปขายหรือทำน้ำยาได้' },
+  apple: { id: 'apple', name: 'Fresh Apple', price: 8, icon: '🍎', type: 'consumable', heal: 30, desc: 'แอปเปิ้ลสด ฟื้นฟู HP 30 หน่วย' },
+  green_leaf: { id: 'green_leaf', name: 'Green Leaf', price: 10, icon: '🍃', type: 'material', desc: 'ใบไม้สมุนไพรสด' },
+  plant_stem: { id: 'plant_stem', name: 'Plant Stem', price: 15, icon: '🌾', type: 'material', desc: 'ก้านพืชเหนียวทนทาน ใช้คราฟต์เชือกและด้ามดาบ' },
+  rabbit_fluff: { id: 'rabbit_fluff', name: 'Rabbit Fluff', price: 20, icon: '🧶', type: 'material', desc: 'ขนกระต่ายนุ่มฟู' },
+  small_horn: { id: 'small_horn', name: 'Small Horn', price: 28, icon: '📯', type: 'material', desc: 'เขาเล็กแหลมคม ใช้เป็นส่วนประกอบอาวุธ' },
+  boar_meat: { id: 'boar_meat', name: 'Wild Boar Meat', price: 35, icon: '🥩', type: 'consumable', heal: 90, desc: 'เนื้อหมูป่าชุ่มฉ่ำ ฟื้นฟู HP 90 หน่วย' },
+  hard_tusk: { id: 'hard_tusk', name: 'Hard Tusk', price: 45, icon: '🦴', type: 'material', desc: 'เขี้ยวหมูป่าแข็งแกร่ง' },
+  wolf_fur: { id: 'wolf_fur', name: 'Wolf Fur', price: 60, icon: '🐺', type: 'material', desc: 'ขนหมาป่าสีดำเงา' },
+  sharp_fang: { id: 'sharp_fang', name: 'Sharp Fang', price: 80, icon: '🦷', type: 'material', desc: 'เขี้ยวคมกริบของหมาป่าเงามืด' },
+  ancient_bark: { id: 'ancient_bark', name: 'Ancient Bark', price: 110, icon: '🪵', type: 'material', desc: 'เปลือกไม้โบราณแข็งดั่งเหล็กกล้า' },
+  spirit_amber: { id: 'spirit_amber', name: 'Spirit Amber', price: 150, icon: '🔶', type: 'material', desc: 'อำพันวิญญาณป่า มีพลังธาตุธรรมชาติ' },
+  rusty_dagger: { id: 'rusty_dagger', name: 'Rusty Dagger', price: 130, icon: '🗡️', type: 'material', desc: 'มีดขึ้นสนิมของก็อบลิน หลอมเป็นเศษเหล็กได้' },
+  cloth_scrap: { id: 'cloth_scrap', name: 'Cloth Scrap', price: 90, icon: '🧣', type: 'material', desc: 'เศษผ้าหยาบ' },
+  totem_feather: { id: 'totem_feather', name: 'Totem Feather', price: 180, icon: '🪶', type: 'material', desc: 'ขนนกโทเท็มของหมอผีก็อบลิน' },
+  magic_powder: { id: 'magic_powder', name: 'Magic Powder', price: 220, icon: '✨', type: 'material', desc: 'ผงเวทมนตร์เรืองแสง' },
+  iron_club_fragment: { id: 'iron_club_fragment', name: 'Iron Club Fragment', price: 260, icon: '🔨', type: 'material', desc: 'ชิ้นส่วนกระบองเหล็กยักษ์' },
+  ogre_blood: { id: 'ogre_blood', name: 'Ogre Blood', price: 320, icon: '🩸', type: 'material', desc: 'เลือดออร์คเข้มข้น พลังชีวิตมหาศาล' },
+  crystal_shard: { id: 'crystal_shard', name: 'Crystal Shard', price: 400, icon: '💠', type: 'material', desc: 'เศษคริสตัลระยิบระยับ' },
+  bat_wing: { id: 'bat_wing', name: 'Bat Wing', price: 300, icon: '🦇', type: 'material', desc: 'ปีกค้างคาวคริสตัล' },
+  stone_plate: { id: 'stone_plate', name: 'Stone Plate', price: 500, icon: '🪨', type: 'material', desc: 'แผ่นหินเสริมเวทมนตร์' },
+  rune_dust: { id: 'rune_dust', name: 'Rune Dust', price: 650, icon: '🔮', type: 'material', desc: 'ละอองรูนโบราณ' },
+  titan_heart: { id: 'titan_heart', name: 'Titan Heart Core', price: 1200, icon: '❤️‍🔥', type: 'material', desc: 'แก่นหัวใจไททันโกเลม แหล่งพลังงานอันทรงพลัง' },
+  ancient_alloy: { id: 'ancient_alloy', name: 'Ancient Alloy', price: 950, icon: '🪙', type: 'material', desc: 'โลหะผสมโบราณไร้สนิม' },
+  dragon_heart_core: { id: 'dragon_heart_core', name: 'Dragon Heart Core', price: 5000, icon: '🔥', type: 'material', desc: 'หัวใจมังกรบรรพกาล แหล่งพลังงานเพลิงไร้ที่สิ้นสุด' },
+
+  // Potions
+  hp_potion_s: { id: 'hp_potion_s', name: 'Red Potion (S)', price: 20, icon: '🧪', type: 'consumable', heal: 60, desc: 'ยาเพิ่มพลังขนาดเล็ก ฟื้นฟู 60 HP' },
+  hp_potion_m: { id: 'hp_potion_m', name: 'Red Potion (M)', price: 60, icon: '🧪', type: 'consumable', heal: 200, desc: 'ยาเพิ่มพลังขนาดกลาง ฟื้นฟู 200 HP' },
+  hp_potion_l: { id: 'hp_potion_l', name: 'Red Potion (L)', price: 180, icon: '🧪', type: 'consumable', heal: 600, desc: 'ยาเพิ่มพลังขนาดใหญ่ ฟื้นฟู 600 HP' },
+
+  // Swords (ดาบ)
+  novice_sword: { id: 'novice_sword', name: 'Novice Wooden Sword', type: 'weapon', weaponType: 'sword', atk: 8, def: 0, icon: '🗡️', desc: 'ดาบไม้เริ่มต้น' },
+  iron_blade: { id: 'iron_blade', name: 'Iron Broadsword', type: 'weapon', weaponType: 'sword', atk: 25, def: 5, icon: '⚔️', desc: 'ดาบเหล็กมาตรฐาน คมกริบและมั่นคง' },
+  wolf_fang_saber: { id: 'wolf_fang_saber', name: 'Fang Saber', type: 'weapon', weaponType: 'sword', atk: 55, def: 8, icon: '🗡️', desc: 'ดาบสลักเขี้ยวหมาป่า ความเร็วโจมตีสูง' },
+  goblin_cleaver: { id: 'goblin_cleaver', name: 'Goblin Cleaver', type: 'weapon', weaponType: 'sword', atk: 95, def: 15, icon: '🪓', desc: 'ดาบฟันขนาดใหญ่ของหัวหน้าก็อบลิน' },
+  rune_claymore: { id: 'rune_claymore', name: 'Rune Greatsword', type: 'weapon', weaponType: 'sword', atk: 180, def: 30, icon: '✨', desc: 'ดาบยักษ์สลักรูนโบราณ พลังทำลายร้ายกาจ' },
+  titan_slayer: { id: 'titan_slayer', name: 'Titan Slayer Edge', type: 'weapon', weaponType: 'sword', atk: 350, def: 60, icon: '⚡', desc: 'สุดยอดดาบปราบไททัน แฝงพลังแห่งปฐพี' },
+  dragon_scale_blade: { id: 'dragon_scale_blade', name: 'Dragon Scale Blade (MVP)', type: 'weapon', weaponType: 'sword', atk: 480, def: 80, icon: '🔥⚔️', desc: 'ดาบมังกรในตำนาน หลอมจากเกล็ดมังกรโบราณ ฟันเปลวเพลิงเผาผลาญ' },
+
+  // Bows (ธนู)
+  wooden_bow: { id: 'wooden_bow', name: 'Novice Wooden Bow', type: 'weapon', weaponType: 'bow', atk: 12, def: 0, icon: '🏹', desc: 'คันธนูไม้ฝึกหัด สำหรับนักธนูเริ่มต้น' },
+  hunter_bow: { id: 'hunter_bow', name: 'Great Hunter Bow', type: 'weapon', weaponType: 'bow', atk: 60, def: 4, icon: '🏹', desc: 'คันธนูพรานป่า ยิงไกลและแม่นยำ' },
+  gale_wind_bow: { id: 'gale_wind_bow', name: 'Gale Wing Bow', type: 'weapon', weaponType: 'bow', atk: 175, def: 15, icon: '🍃🏹', desc: 'คันธนูปีกวายุ ยิงศรดั่งสายลมกรรโชก (+10% ASPD)' },
+  dragon_bone_bow: { id: 'dragon_bone_bow', name: 'Dragonbone Longbow (MVP)', type: 'weapon', weaponType: 'bow', atk: 460, def: 40, icon: '🐉🏹', desc: 'สุดยอดคันธนูกระดูกมังกร ยิงศรเพลิงทะลวงเป้าหมายอย่างไร้ความปราณี' },
+
+  // Armors
+  leather_armor: { id: 'leather_armor', name: 'Leather Tunic', type: 'armor', atk: 0, def: 12, hp: 50, icon: '🥋', desc: 'ชุดหนังฟอกทนทาน ป้องกันพื้นฐาน' },
+  wolf_plate: { id: 'wolf_plate', name: 'Wolfguard Armor', type: 'armor', atk: 5, def: 32, hp: 160, icon: '🛡️', desc: 'เกราะเสริมหนังหมาป่า น้ำหนักเบาแต่เหนียวแน่น' },
+  knight_cuirass: { id: 'knight_cuirass', name: 'Knight Cuirass', type: 'armor', atk: 12, def: 68, hp: 400, icon: '🦺', desc: 'เกราะอกอัศวินหล่อเหล็กกล้า ป้องกันสูง' },
+  titan_aegis_suit: { id: 'titan_aegis_suit', name: 'Titan Aegis Armor', type: 'armor', atk: 25, def: 130, hp: 1000, icon: '🦾', desc: 'เกราะโลหะโบราณ สร้างจากแก่นหัวใจไททัน' }
+};
+
+// Rare Unique Relics (1 from each monster) - Collected in the Treasure Compendium for Permanent Stat Buffs
+export const RELICS = {
+  relic_slime_core: {
+    id: 'relic_slime_core',
+    monsterId: 'slime',
+    name: '🫧 Pure Slime Core',
+    desc: 'แก่นหัวใจสไลม์บริสุทธิ์ ให้ความยืดหยุ่นแก่ร่างกาย',
+    icon: '🔮',
+    statBonus: { hp: 80 },
+    bonusText: '+80 Max HP ถาวร'
+  },
+  relic_mandragora_root: {
+    id: 'relic_mandragora_root',
+    monsterId: 'sprout',
+    name: '🌿 Ancient Mandragora Root',
+    desc: 'รากแมนดราโกร่าพันปี มีพลังชีวิตแห่งป่า',
+    icon: '🌱',
+    statBonus: { hp: 120, def: 3 },
+    bonusText: '+120 HP, +3 DEF ถาวร'
+  },
+  relic_golden_carrot: {
+    id: 'relic_golden_carrot',
+    monsterId: 'horned_rabbit',
+    name: '🥕 Horned Rabbit Lucky Charm',
+    desc: 'เครื่องรางกระต่ายมีเขา เพิ่มความคล่องตัวและโชคชะตา',
+    icon: '🐇',
+    statBonus: { atk: 8, aspd: 0.05 },
+    bonusText: '+8 ATK, +5% ASPD ถาวร'
+  },
+  relic_boar_crest: {
+    id: 'relic_boar_crest',
+    monsterId: 'wild_boar',
+    name: '🐗 Savage Boar Crest',
+    desc: 'ตราแห่งหมูป่าดุร้าย พลังการพุ่งชนไร้สิ่งกีดขวาง',
+    icon: '🛡️',
+    statBonus: { atk: 12, hp: 150 },
+    bonusText: '+12 ATK, +150 HP ถาวร'
+  },
+  relic_alpha_eye: {
+    id: 'relic_alpha_eye',
+    monsterId: 'forest_wolf',
+    name: '🐺 Eye of the Alpha Wolf',
+    desc: 'ดวงตาสีเงินของจ่าฝูงหมาป่า มองทะลุจุดอ่อนของศัตรู',
+    icon: '👁️',
+    statBonus: { atk: 22, critRate: 0.05 },
+    bonusText: '+22 ATK, +5% Crit Rate ถาวร'
+  },
+  relic_heart_of_forest: {
+    id: 'relic_heart_of_forest',
+    monsterId: 'treant',
+    name: '🌲 Heart of the Ancient Forest',
+    desc: 'หัวใจพฤกษาพันปี มอบพลังฟื้นฟูและความทนทาน',
+    icon: '💚',
+    statBonus: { def: 18, hp: 300 },
+    bonusText: '+18 DEF, +300 HP ถาวร'
+  },
+  relic_goblin_badge: {
+    id: 'relic_goblin_badge',
+    monsterId: 'goblin_scout',
+    name: '🪙 Cunning Goblin Badge',
+    desc: 'เหรียญตราก็อบลิน เพิ่มการหาเงินและการเอาตัวรอด',
+    icon: '🎖️',
+    statBonus: { goldBonus: 0.1, atk: 15 },
+    bonusText: '+15 ATK, +10% Gold Drop ถาวร'
+  },
+  relic_shaman_mask: {
+    id: 'relic_shaman_mask',
+    monsterId: 'goblin_shaman',
+    name: '🎭 Shamanic Ritual Mask',
+    desc: 'หน้ากากประกอบพิธี บันดาลพลังเวทลึกลับปกป้องผู้ถือ',
+    icon: '👺',
+    statBonus: { atk: 25, def: 20 },
+    bonusText: '+25 ATK, +20 DEF ถาวร'
+  },
+  relic_titan_belt: {
+    id: 'relic_titan_belt',
+    monsterId: 'ogre',
+    name: '🥋 Giant Ogre Belt',
+    desc: 'เข็มขัดเหล็กของออร์ค เพิ่มพลังกายมหาศาล',
+    icon: '🎗️',
+    statBonus: { hp: 500, atk: 35 },
+    bonusText: '+500 HP, +35 ATK ถาวร'
+  },
+  relic_bat_gem: {
+    id: 'relic_bat_gem',
+    monsterId: 'crystal_bat',
+    name: '💎 Crystal Resonance Gem',
+    desc: 'อัญมณีสะท้อนเสียง เพิ่มความว่องไวและการหลบหลีก',
+    icon: '💠',
+    statBonus: { aspd: 0.1, atk: 30 },
+    bonusText: '+30 ATK, +10% ASPD ถาวร'
+  },
+  relic_golem_core: {
+    id: 'relic_golem_core',
+    monsterId: 'stone_golem',
+    name: '🪨 Unbreakable Rune Core',
+    desc: 'แกนกลางหินรูน ไร้ความเสียหายจากอาวุธทั่วไป',
+    icon: '🗿',
+    statBonus: { def: 45, hp: 800 },
+    bonusText: '+45 DEF, +800 HP ถาวร'
+  },
+  relic_primordial_spark: {
+    id: 'relic_primordial_spark',
+    monsterId: 'ancient_golem',
+    name: '⚡ Primordial Titan Spark',
+    desc: 'ประกายแสงกำเนิดโลก มอบพลังของเทพไททันโบราณ',
+    icon: '✨',
+    statBonus: { atk: 80, def: 50, hp: 1200 },
+    bonusText: '+80 ATK, +50 DEF, +1200 HP ถาวร'
+  },
+  relic_dragon_heart: {
+    id: 'relic_dragon_heart',
+    monsterId: 'ancient_dragon',
+    name: '🐉 Ancient Dragon Flame Heart',
+    desc: 'หัวใจมังกรบรรพกาล แผดเผาศัตรูด้วยเปลวเพลิงศักดิ์สิทธิ์',
+    icon: '🔥',
+    statBonus: { atk: 150, def: 80, hp: 2500, critRate: 0.1 },
+    bonusText: '+150 ATK, +80 DEF, +2500 HP, +10% Crit Rate ถาวร (MVP)'
+  }
+};
+
+// Crafting Recipes
+export const CRAFTING_RECIPES = [
+  {
+    resultItemId: 'wooden_bow',
+    goldCost: 150,
+    materials: [
+      { itemId: 'plant_stem', count: 4 },
+      { itemId: 'small_horn', count: 2 }
+    ]
+  },
+  {
+    resultItemId: 'hunter_bow',
+    goldCost: 800,
+    materials: [
+      { itemId: 'hard_tusk', count: 5 },
+      { itemId: 'wolf_fur', count: 6 }
+    ]
+  },
+  {
+    resultItemId: 'iron_blade',
+    goldCost: 200,
+    materials: [
+      { itemId: 'small_horn', count: 3 },
+      { itemId: 'plant_stem', count: 5 }
+    ]
+  },
+  {
+    resultItemId: 'leather_armor',
+    goldCost: 250,
+    materials: [
+      { itemId: 'rabbit_fluff', count: 6 },
+      { itemId: 'sticky_mucus', count: 8 }
+    ]
+  },
+  {
+    resultItemId: 'wolf_fang_saber',
+    goldCost: 800,
+    materials: [
+      { itemId: 'sharp_fang', count: 5 },
+      { itemId: 'hard_tusk', count: 4 }
+    ]
+  },
+  {
+    resultItemId: 'wolf_plate',
+    goldCost: 1000,
+    materials: [
+      { itemId: 'wolf_fur', count: 8 },
+      { itemId: 'ancient_bark', count: 3 }
+    ]
+  },
+  {
+    resultItemId: 'goblin_cleaver',
+    goldCost: 2500,
+    materials: [
+      { itemId: 'rusty_dagger', count: 8 },
+      { itemId: 'totem_feather', count: 4 },
+      { itemId: 'iron_club_fragment', count: 2 }
+    ]
+  },
+  {
+    resultItemId: 'knight_cuirass',
+    goldCost: 3200,
+    materials: [
+      { itemId: 'iron_club_fragment', count: 5 },
+      { itemId: 'magic_powder', count: 6 }
+    ]
+  },
+  {
+    resultItemId: 'rune_claymore',
+    goldCost: 7000,
+    materials: [
+      { itemId: 'crystal_shard', count: 10 },
+      { itemId: 'rune_dust', count: 6 }
+    ]
+  },
+  {
+    resultItemId: 'titan_slayer',
+    goldCost: 18000,
+    materials: [
+      { itemId: 'titan_heart', count: 3 },
+      { itemId: 'ancient_alloy', count: 5 },
+      { itemId: 'stone_plate', count: 8 }
+    ]
+  },
+  {
+    resultItemId: 'titan_aegis_suit',
+    goldCost: 20000,
+    materials: [
+      { itemId: 'titan_heart', count: 4 },
+      { itemId: 'stone_plate', count: 12 },
+      { itemId: 'ogre_blood', count: 8 }
+    ]
+  }
+];
+
+// Costume / Fashion Gacha Pool (Can be pulled with Gold earned from farming)
+export const GACHA_COSTUMES = [
+  {
+    id: 'costume_cat_ears',
+    name: '🐾 Cozy Cat Ears (หูแมวอบอุ่น)',
+    slot: 'head',
+    rarity: 'Rare',
+    rate: 0.25,
+    icon: '🐱',
+    visualColor: '#f472b6',
+    desc: 'หูแมวสุดน่ารัก ดุ๊กดิ๊กไปตามก้าวเดิน (+3% Move Speed)'
+  },
+  {
+    id: 'costume_straw_hat',
+    name: '👒 Farmer Straw Hat (หมวกฟางชิลๆ)',
+    slot: 'head',
+    rarity: 'Common',
+    rate: 0.35,
+    icon: '👒',
+    visualColor: '#facc15',
+    desc: 'หมวกฟางกันแดด เหมาะแก่การปล่อยบอทใต้ร่มไม้ (+2% EXP)'
+  },
+  {
+    id: 'costume_sakura_kimono',
+    name: '🌸 Blossom Haori (ฮาโอริซากุระ)',
+    slot: 'body',
+    rarity: 'Epic',
+    rate: 0.18,
+    icon: '👘',
+    visualColor: '#fb7185',
+    desc: 'ชุดคลุมลายซากุระปลิวไสว สวยสง่างาม (+5% Gold)'
+  },
+  {
+    id: 'costume_angel_wings',
+    name: '🪽 Seraph Wings (ปีกเทวทูตเรืองรอง)',
+    slot: 'back',
+    rarity: 'Epic',
+    rate: 0.14,
+    icon: '🪽',
+    visualColor: '#38bdf8',
+    desc: 'ปีกสีขาวบริสุทธิ์ เปล่งประกายแสงสว่างยามก้าวเดิน (+5% ATK)'
+  },
+  {
+    id: 'costume_celestial_blade',
+    name: '🌌 Starlight Katana (คาตานะละอองดาว)',
+    slot: 'weapon_skin',
+    rarity: 'Legendary',
+    rate: 0.08,
+    icon: '✨🗡️',
+    visualColor: '#a855f7',
+    desc: 'อาวุธแฟชั่นในตำนาน ตวัดดาบพร้อมประกายดาวตกหลากสี (+8% ASPD)'
+  }
+];
+
+// Quests System
+export const QUESTS = [
+  {
+    id: 'q1',
+    title: '🌿 การเริ่มต้นของผู้กล้า',
+    desc: 'ปราบ Poring Slime 5 ตัว ในทุ่งหญ้าเริ่มต้น',
+    targetMonster: 'slime',
+    requiredCount: 5,
+    rewardGold: 100,
+    rewardExp: 80,
+    rewardJobExp: 60,
+    rewardTokens: 1
+  },
+  {
+    id: 'q2',
+    title: '🌱 กำจัดวัชพืชป่วนทุ่ง',
+    desc: 'ปราบ Sprout Mandragora 8 ตัว',
+    targetMonster: 'sprout',
+    requiredCount: 8,
+    rewardGold: 250,
+    rewardExp: 200,
+    rewardJobExp: 180,
+    rewardTokens: 1
+  },
+  {
+    id: 'q3',
+    title: '🐰 กระต่ายเขาแหลม',
+    desc: 'ปราบ Horned Rabbit 10 ตัว',
+    targetMonster: 'horned_rabbit',
+    requiredCount: 10,
+    rewardGold: 600,
+    rewardExp: 550,
+    rewardJobExp: 450,
+    rewardTokens: 2
+  },
+  {
+    id: 'q4',
+    title: '🌲 ภัยคุกคามในป่าหมอก',
+    desc: 'ปราบ Shadow Wolf 12 ตัว ในป่า Misty Forest',
+    targetMonster: 'forest_wolf',
+    requiredCount: 12,
+    rewardGold: 1500,
+    rewardExp: 2400,
+    rewardJobExp: 2000,
+    rewardTokens: 3
+  },
+  {
+    id: 'q5',
+    title: '👺 ขับไล่ฝูงก็อบลิน',
+    desc: 'ปราบ Goblin Scout 15 ตัว ใน Goblin Ruins',
+    targetMonster: 'goblin_scout',
+    requiredCount: 15,
+    rewardGold: 4000,
+    rewardExp: 7500,
+    rewardJobExp: 6800,
+    rewardTokens: 5
+  },
+  {
+    id: 'q6',
+    title: '🌋 ผู้พิทักษ์แห่งถ้ำโบราณ',
+    desc: 'ปราบ Ancient Titan Golem (Boss) 1 ตัว',
+    targetMonster: 'ancient_golem',
+    requiredCount: 1,
+    rewardGold: 15000,
+    rewardExp: 25000,
+    rewardJobExp: 22000,
+    rewardTokens: 10
+  }
+];
+
+// ==========================================
+// 4. REFINEMENT & ENCHANTING SYSTEM SPECIFICATION (+1 to +10)
+// Documented Specification for Future Implementation
+// ==========================================
+export const REFINEMENT_SPEC = {
+  maxLevel: 10,
+  safeLevels: {
+    weapon: 4, // Weapons are 100% safe up to +4
+    armor: 4   // Armors are 100% safe up to +4
+  },
+  materials: {
+    weapon: {
+      tier1: { id: 'phracon', name: 'Phracon (สำหรับอาวุธขั้นต่ำ)' },
+      tier2: { id: 'oridecon', name: 'Oridecon (โอริเดคอน สำหรับอาวุธขั้นสูง)' }
+    },
+    armor: {
+      tier1: { id: 'emveretarcon', name: 'Emveretarcon' },
+      tier2: { id: 'elunium', name: 'Elunium (อีลูเนียม สำหรับชุดเกราะ)' }
+    }
+  },
+  rates: [
+    { level: 1, successRate: 1.00, weaponAtkBonus: 5, armorDefBonus: 3, breakOnFail: false },
+    { level: 2, successRate: 1.00, weaponAtkBonus: 10, armorDefBonus: 6, breakOnFail: false },
+    { level: 3, successRate: 1.00, weaponAtkBonus: 15, armorDefBonus: 9, breakOnFail: false },
+    { level: 4, successRate: 1.00, weaponAtkBonus: 20, armorDefBonus: 12, breakOnFail: false },
+    { level: 5, successRate: 0.80, weaponAtkBonus: 30, armorDefBonus: 18, breakOnFail: true },
+    { level: 6, successRate: 0.60, weaponAtkBonus: 45, armorDefBonus: 26, breakOnFail: true },
+    { level: 7, successRate: 0.45, weaponAtkBonus: 65, armorDefBonus: 36, breakOnFail: true },
+    { level: 8, successRate: 0.30, weaponAtkBonus: 95, armorDefBonus: 50, breakOnFail: true },
+    { level: 9, successRate: 0.20, weaponAtkBonus: 135, armorDefBonus: 70, breakOnFail: true },
+    { level: 10, successRate: 0.10, weaponAtkBonus: 200, armorDefBonus: 100, breakOnFail: true }
+  ]
+};
+
+// ==========================================
+// 5. PET & MONSTER TAMING SYSTEM SPECIFICATION
+// Documented Specification for Future Implementation
+// ==========================================
+export const PET_TAMING_SPEC = {
+  description: 'ระบบจับสัตว์เลี้ยงจากมอนสเตอร์ในแผนที่ด้วยไอเทมเหยื่อล่อ (Taming Items)',
+  tamingMechanic: 'Slot Machine Roulette / Click Timing เมื่อโยนไอเทมเหยื่อใส่เป้าหมาย',
+  hungerStages: ['Starving (หิวโหย)', 'Hungry (หิว)', 'Neutral (ปกติ)', 'Satisfied (อิ่ม)', 'Stuffed (อิ่มแปล้)'],
+  loyaltyStages: ['Awkward (เขินอาย)', 'Shy (ขี้อาย)', 'Neutral (เป็นมิตร)', 'Cordial (สนิทสนม)', 'Loyal (จงรักภักดีสูงสุด)'],
+  tameableMonsters: [
+    {
+      monsterId: 'slime',
+      petName: 'Baby Poring',
+      tamingItem: { id: 'unripe_apple', name: 'Unripe Apple (แอปเปิ้ลดิบ)', icon: '🍏' },
+      foodItem: { id: 'apple_juice', name: 'Apple Juice (น้ำแอปเปิ้ล)' },
+      tameChance: 0.30,
+      passiveBonus: { luk: 5, critRate: 0.03 },
+      bonusDesc: '+5 LUK, +3% Critical Rate เมื่อจงรักภักดี'
+    },
+    {
+      monsterId: 'horned_rabbit',
+      petName: 'Fluffy Lunatic',
+      tamingItem: { id: 'rainbow_carrot', name: 'Rainbow Carrot (แครอทสายรุ้ง)', icon: '🥕' },
+      foodItem: { id: 'carrot_juice', name: 'Carrot Juice (น้ำแครอท)' },
+      tameChance: 0.25,
+      passiveBonus: { aspd: 0.08, flee: 10 },
+      bonusDesc: '+8% ASPD, +10 Flee หลบหลีก'
+    },
+    {
+      monsterId: 'forest_wolf',
+      petName: 'Baby Wolf Pup',
+      tamingItem: { id: 'wolf_meat_bone', name: 'Meaty Bone (กระดูกติดเนื้อ)', icon: '🍖' },
+      foodItem: { id: 'pet_meat', name: 'Pet Food Meat' },
+      tameChance: 0.15,
+      passiveBonus: { atk: 35, critDmg: 0.12 },
+      bonusDesc: '+35 ATK, +12% Critical Damage'
+    },
+    {
+      monsterId: 'ancient_dragon',
+      petName: 'Crimson Dragon Whelp (Rare MVP Pet)',
+      tamingItem: { id: 'dragon_nest_egg', name: 'Golden Dragon Egg (ไข่มังกรทอง)', icon: '🥚' },
+      foodItem: { id: 'fire_crystal', name: 'Flame Heart Core' },
+      tameChance: 0.05,
+      passiveBonus: { atk: 120, maxHp: 1500, critRate: 0.08 },
+      bonusDesc: '+120 ATK, +1500 Max HP, +8% Critical Rate'
+    }
+  ]
+};
+
