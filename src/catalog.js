@@ -17,8 +17,21 @@ const stats = (lv) => ({
   hp: Math.round(0.135 * Math.pow(lv, 2.5) + 10 * lv + 20),
   atk: Math.round(3 + lv * 1.6 + lv * lv * 0.012),
   def: Math.round(lv * 0.9 + lv * lv * 0.003),
-  exp: Math.max(12, Math.round(0.2 * Math.pow(lv, 2.2)))
+  exp: Math.round(14 + 0.2 * Math.pow(lv, 2.2))
 });
+
+// Level plan: every map's monsters are stronger than the previous map's (rows = maps in play order, 4 monsters each; each map spans a 15-level band: 1-15, 16-30, 31-45, ...).
+// Stats come from the curve above, so a higher level always means higher HP/ATK/DEF/EXP.
+const LEVEL_PLAN = {
+  meadows:        { slime: 1, forest_hornet: 5, horned_rabbit: 10, mossy_golem: 15 },
+  misty_forest:   { wild_boar: 16, forest_wolf: 21, jungle_viper: 26, claw_bear: 30 },
+  bandit_hideout: { bandit_rogue: 31, bandit_archer: 36, bandit_brute: 41, bandit_leader: 45 },
+  goblin_caverns: { goblin_scout: 46, fire_imp: 51, treant: 56, chest_mimic: 60 },
+  volcano:        { floating_eye: 61, spectral_armor: 66, mushroom_sporeling: 71, baby_fire_wyrm: 75 },
+  bone_crypt:     { skeleton_warrior: 76, skeleton_archer: 81, skeleton_mage: 86, skeleton_knight: 90 }
+};
+const BOSS_MULT = { bandit_leader: { hp: 2.2, atk: 1.3, exp: 2.5 } };
+const KEEP_STATS = ['slime']; // the very first monster keeps its hand-tuned numbers
 
 // New monsters. `items` is only needed for a monster that has neither an item sheet nor a starter-sheet picture.
 const NEW_MONSTERS = [
@@ -68,6 +81,19 @@ export function installCatalog({ MONSTERS, ITEMS, MONSTER_AI }) {
       def: s.def, exp: Math.round(s.exp * (mult.exp || 1)), drops: []
     };
     MONSTER_AI[nm.id] = nm.ai;
+  }
+
+  // apply the level plan to every monster (old and new)
+  for (const ids of Object.values(LEVEL_PLAN)) {
+    for (const [id, lv] of Object.entries(ids)) {
+      const m = MONSTERS[id];
+      if (!m) continue;
+      m.level = lv;
+      if (KEEP_STATS.includes(id)) continue;
+      const st = stats(lv), mu = BOSS_MULT[id] || {};
+      m.hp = Math.round(st.hp * (mu.hp || 1)); m.atk = Math.round(st.atk * (mu.atk || 1));
+      m.def = st.def; m.exp = Math.round(st.exp * (mu.exp || 1));
+    }
   }
 
   // drops: 3 items per monster
