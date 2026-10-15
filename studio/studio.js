@@ -364,6 +364,12 @@
   // ---- load / save / login ----
   function loadState(payload) {
     state = payload;
+    // An older server (started before this version) doesn't send the item list for drop tables
+    if (!state.itemsInfo) {
+      state.itemsInfo = {};
+      toast('server เป็นเวอร์ชันเก่า — รีสตาร์ท server (npm start) เพื่อใช้ตั้งค่าดรอป', true);
+    }
+    state.defaults.drops ||= {};
     ov = JSON.parse(JSON.stringify(payload.overrides || {}));
     spawns = JSON.parse(JSON.stringify(payload.spawns || []));
     setDirty(false);
