@@ -164,6 +164,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Initialize Player & Engine
   const player = new Player();
   const game = new GameEngine(canvas, minimapCanvas, player, addLog);
+  window.__game = game; // handy for debugging / tests
   const ui = new UIController(player, game);
   game.setUIController(ui);
 

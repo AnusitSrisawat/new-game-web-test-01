@@ -216,12 +216,13 @@ export class NetworkManager {
     });
   }
 
-  sendMonsterHit(monsterId, damage, isCrit = false) {
+  sendMonsterHit(monsterId, damage, isCrit = false, skillId = null) {
     this.send({
       type: 'hit_monster',
       monsterId: monsterId,
       damage: damage,
-      isCrit: isCrit
+      isCrit: isCrit,
+      skillId: skillId
     });
   }
 

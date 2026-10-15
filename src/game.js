@@ -1,7 +1,8 @@
 // 2D Canvas Game Engine with Large Tile World, Camera Follow, Real Sprites, Multiplayer Sync & High-Impact VFX
 import { WorldMap } from './map.js';
 import { getMapDef, TILE_SIZE } from './maps.js';
-import { ZONES, MONSTERS, ITEMS, RELICS, QUESTS } from './data.js';
+import { ZONES, MONSTERS, ITEMS, RELICS, QUESTS, SKILLS } from './data.js';
+import { weaponMatches } from './player.js';
 import { soundEngine } from './audio.js';
 import { monsterSprite, itemSprite, weaponSprite } from './sprites.js';
 
@@ -797,17 +798,124 @@ export class GameEngine {
     }
   }
 
-  // Hotkey Skills Execution (Slots 1 to 9) - Handles Archer vs Swordsman branch dynamically
-  // Hotbar 1-9 is filled by the player. There are no skills yet, so assigned
-  // entries have nothing to run for now; empty slots just say so.
+  // Hotkey 1-4: the 4-slot skill loadout (learned skills only). Rules: docs/SKILLS.md
   useSkillSlot(slot) {
-    const entry = this.player.hotbar[slot - 1];
-    if (!entry) {
-      this.onLog(`ช่อง [${slot}] ว่างอยู่ — ยังไม่ได้ตั้งสกิล/ไอเทมในช่องนี้`, 'system');
+    const id = this.player.skillLoadout[slot - 1];
+    if (!id) {
+      this.onLog(`ช่อง [${slot}] ว่างอยู่ — เปิดหน้าต่างสกิล [V] เพื่อใส่สกิลที่เรียนแล้ว`, 'system');
       return;
     }
-    const item = ITEMS[entry];
-    if (item && item.type === 'consumable') this.usePotionSlot();
+    this.useSkill(id);
+  }
+
+  useSkill(id) {
+    const pl = this.player;
+    const sk = SKILLS[id];
+    if (!sk || !pl.learnedSkills[id]) return;
+    if (sk.kind === 'passive') {
+      this.onLog(`✨ ${sk.name} เป็นสกิลติดตัว ทำงานอัตโนมัติ${weaponMatches(sk.weapon, pl.weaponInfo.type) ? '' : ' (แต่ต้องถืออาวุธให้ตรงชนิด)'}`, 'system');
+      return;
+    }
+    if (!weaponMatches(sk.weapon, pl.weaponInfo.type)) {
+      this.onLog(`🚫 ${sk.name} ต้องถืออาวุธชนิด: ${{ melee: 'ดาบ/ไม้/มือเปล่า', bow: 'ธนู', staff: 'คฑา' }[sk.weapon] || sk.weapon}`, 'system');
+      return;
+    }
+    if ((pl.skillCd[id] || 0) > 0) return;
+    if (pl.currentSp < sk.spCost) {
+      this.onLog(`💧 SP ไม่พอสำหรับ ${sk.name} (ต้องการ ${sk.spCost})`, 'system');
+      return;
+    }
+    const p = this.playerEntity;
+    const mapMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
+    const reach = (sk.range > 0 ? sk.range : pl.attackRange) + 40;
+    let target = null;
+    if (sk.target === 'enemy' || sk.target === 'enemy_area') {
+      const t = this.selectedTarget;
+      if (t && !t.isDead && t.map === this.currentZone.id) target = t;
+      else target = mapMonsters.map(m => ({ m, d: Math.hypot(m.x - p.x, m.y - p.y) })).filter(c => c.d <= reach).sort((a, b) => a.d - b.d)[0]?.m || null;
+      if (!target) { this.onLog('🎯 ไม่มีเป้าหมายให้ใช้สกิล', 'system'); return; }
+      if (Math.hypot(target.x - p.x, target.y - p.y) > reach) { this.onLog('🎯 เป้าหมายไกลเกินไป', 'system'); return; }
+      p.facing = target.x >= p.x ? 1 : -1;
+    }
+    pl.currentSp -= sk.spCost;
+    pl.skillCd[id] = sk.cooldown;
+    p.isAttacking = true;
+    p.attackAnimTimer = ATTACK_ANIM;
+    const color = { damage: '#f97316', heal: '#22c55e', buff: '#38bdf8', debuff: '#a855f7', dash: '#facc15' }[sk.effect] || '#fff';
+    this.addSkillBanner(sk.name.replace(/\s*\(.*\)/, '').toUpperCase(), color);
+
+    if (sk.effect === 'damage') {
+      const cx = sk.target === 'self_area' ? p.x : target.x;
+      const cy = sk.target === 'self_area' ? p.y : target.y;
+      let victims = [target];
+      if (sk.radius > 0) {
+        victims = mapMonsters.filter(m => Math.hypot(m.x - cx, m.y - cy) <= sk.radius);
+        if (target && !victims.includes(target)) victims.unshift(target);
+      }
+      victims = victims.filter(Boolean).slice(0, 8);
+      if (sk.radius > 0) this.addShockwave(cx, cy, color, sk.radius * 0.5);
+      const stat = sk.scalesWith && sk.scalesWith !== 'none' ? (pl.stats[sk.scalesWith] || 0) * (sk.statCoef || 0) : 0;
+      soundEngine.playCritHit();
+      for (const m of victims) {
+        for (let h = 0; h < Math.max(1, sk.hits); h++) {
+          setTimeout(() => {
+            if (m.isDead) return;
+            const crit = Math.random() <= pl.critRate;
+            let dmg = Math.max(1, pl.attack * sk.power / 100 + stat - m.def) * (0.9 + Math.random() * 0.2);
+            if (crit) dmg *= 1.6;
+            dmg = Math.floor(dmg);
+            m.flashTimer = 0.15;
+            m.squashTimer = 0.18;
+            this.addParticle(m.x, m.y, color, 10);
+            this.addSlashEffect(m.x, m.y, p.facing, 'heavy');
+            this.network?.sendMonsterHit(m.id, dmg, crit, id);
+          }, h * 110);
+        }
+      }
+      if (this.network) this.network.sendAttackAction({ weaponType: pl.weaponInfo.type, skillId: id, skillName: sk.name, targetId: target?.id, targetX: cx, targetY: cy });
+      if (!target?.id) this.triggerScreenShake(3);
+    } else if (sk.effect === 'heal') {
+      const stat = sk.scalesWith && sk.scalesWith !== 'none' ? (pl.stats[sk.scalesWith] || 0) * (sk.statCoef || 0) : 0;
+      const heal = Math.floor(pl.maxHp * sk.power / 100 + stat);
+      pl.currentHp = Math.min(pl.maxHp, pl.currentHp + heal);
+      soundEngine.playPotion();
+      this.addHealSpiral(p.x, p.y);
+      this.addFloatingText(p.x, p.y - 35, `+${heal} HP`, '#22c55e', 18);
+    } else if (sk.effect === 'buff') {
+      pl.activeBuffs[id] = sk.duration;
+      soundEngine.playPotion();
+      this.addShockwave(p.x, p.y, color, 60);
+      this.addParticle(p.x, p.y, color, 20);
+    } else if (sk.effect === 'dash') {
+      let dx = p.facing, dy = 0;
+      const t = this.selectedTarget;
+      if (t && !t.isDead) { const d = Math.hypot(t.x - p.x, t.y - p.y) || 1; dx = (t.x - p.x) / d; dy = (t.y - p.y) / d; }
+      for (let d = 12; d <= sk.range; d += 12) {
+        const nx = p.x + dx * 12, ny = p.y + dy * 12;
+        if (!this.worldMap.isWalkable(nx, ny, 16)) break;
+        p.x = nx; p.y = ny;
+      }
+      p.targetX = p.x; p.targetY = p.y;
+      this.addShockwave(p.x, p.y, color, 45);
+      this.addParticle(p.x, p.y, color, 16);
+    }
+    pl.saveToStorage();
+    this.uiController?.updateHUD();
+  }
+
+  // Quick SP potion slot (button / E)
+  useSpPotionSlot() {
+    if (this.player.currentSp >= this.player.maxSp) { this.onLog('SP เต็มอยู่แล้ว', 'system'); return; }
+    const res = this.player.useSpPotion(this.player.spPotionSlot);
+    if (res) {
+      soundEngine.playPotion();
+      this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 35, `+${res.restored} SP`, '#38bdf8', 18);
+      this.addParticle(this.playerEntity.x, this.playerEntity.y, '#38bdf8', 16);
+      this.onLog(`💧 ดื่ม ${res.itemName} ฟื้นฟู +${res.restored} SP`, 'system');
+      this.uiController?.updateHUD();
+    } else {
+      this.onLog('⚠️ ไม่มียา SP เหลือในกระเป๋า (ซื้อได้ที่ร้านค้า)', 'system');
+    }
   }
 
   // Quick HP potion slot (button / Q): drinks the chosen potion, or the weakest owned
@@ -959,6 +1067,7 @@ export class GameEngine {
     if (p.buffs.berserk > 0) p.buffs.berserk = Math.max(0, p.buffs.berserk - dt);
     if (p.buffs.concentration > 0) p.buffs.concentration = Math.max(0, p.buffs.concentration - dt);
 
+    this.player.tickSkills(dt);
     p.bobTimer += dt * 6;
     p.attackCooldown -= dt;
 
@@ -974,7 +1083,7 @@ export class GameEngine {
 
     if (vx !== 0 || vy !== 0) {
       const len = Math.hypot(vx, vy);
-      const speed = 195;
+      const speed = 195 * this.player.moveMul;
       const stepX = (vx / len) * speed * dt;
       const stepY = (vy / len) * speed * dt;
 
@@ -1011,7 +1120,7 @@ export class GameEngine {
         const attackRange = this.player.attackRange;
 
         if (dist > attackRange) {
-          const speed = 175;
+          const speed = 175 * this.player.moveMul;
           const stepX = (dx / dist) * speed * dt;
           const stepY = (dy / dist) * speed * dt;
           if (this.worldMap.isWalkable(p.x + stepX, p.y, 16)) { p.x += stepX; hasMoved = true; }
@@ -1031,7 +1140,7 @@ export class GameEngine {
         const dy = p.targetY - p.y;
         const dist = Math.hypot(dx, dy);
         if (dist > 6) {
-          const speed = 180;
+          const speed = 180 * this.player.moveMul;
           const stepX = (dx / dist) * speed * dt;
           const stepY = (dy / dist) * speed * dt;
           if (this.worldMap.isWalkable(p.x + stepX, p.y, 16)) { p.x += stepX; hasMoved = true; }
@@ -1054,6 +1163,20 @@ export class GameEngine {
         this.addHealSpiral(p.x, p.y);
         this.addFloatingText(p.x, p.y - 30, `+${result.healed} HP`, '#22c55e', 14);
         this.onLog(`🥤 Auto: ดื่ม ${result.itemName} ฟื้นฟู +${result.healed} HP`, 'system');
+        this.uiController?.updateHUD();
+      }
+    }
+
+    // Auto SP potion
+    this.spPotionCooldown = Math.max(0, (this.spPotionCooldown || 0) - dt);
+    const asp = this.player.auto.spPotion;
+    if (asp.enabled && this.spPotionCooldown <= 0 && this.player.currentSp < this.player.maxSp * (asp.percent / 100) && this.player.ownedSpPotions().length) {
+      const r = this.player.useSpPotion(asp.itemId);
+      if (r) {
+        this.spPotionCooldown = 1.0;
+        soundEngine.playPotion();
+        this.addFloatingText(p.x, p.y - 30, `+${r.restored} SP`, '#38bdf8', 14);
+        this.onLog(`💧 Auto: ดื่ม ${r.itemName} ฟื้นฟู +${r.restored} SP`, 'system');
         this.uiController?.updateHUD();
       }
     }

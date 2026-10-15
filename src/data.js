@@ -219,6 +219,9 @@ export const ITEMS = {
   hp_potion_m: { id: 'hp_potion_m', name: 'Red Potion (M)', price: 60, icon: '🧪', type: 'consumable', heal: 200, desc: 'ยาเพิ่มพลังขนาดกลาง ฟื้นฟู 200 HP' },
   hp_potion_l: { id: 'hp_potion_l', name: 'Red Potion (L)', price: 180, icon: '🧪', type: 'consumable', heal: 600, desc: 'ยาเพิ่มพลังขนาดใหญ่ ฟื้นฟู 600 HP' },
 
+  sp_potion_s: { id: 'sp_potion_s', name: 'Blue Potion (S)', price: 30, icon: '💧', type: 'consumable', sp: 40, desc: 'ยาฟื้นฟู SP ขนาดเล็ก ฟื้นฟู 40 SP' },
+  sp_potion_m: { id: 'sp_potion_m', name: 'Blue Potion (M)', price: 90, icon: '💧', type: 'consumable', sp: 120, desc: 'ยาฟื้นฟู SP ขนาดกลาง ฟื้นฟู 120 SP' },
+
   // Starter & staves
   wooden_stick: { id: 'wooden_stick', name: 'Wooden Stick (กิ่งไม้)', type: 'weapon', weaponType: 'stick', atk: 3, def: 0, reqLevel: 1, icon: '🌿', desc: 'กิ่งไม้ที่เก็บได้ข้างทาง อาวุธเริ่มต้นของนักผจญภัย' },
   apprentice_staff: { id: 'apprentice_staff', name: 'Apprentice Staff', type: 'weapon', weaponType: 'staff', atk: 14, def: 0, reqLevel: 8, icon: '🪄', desc: 'คฑาฝึกหัด ยิงลูกพลังเวทได้ไกล (ดาเมจตาม INT)' },
