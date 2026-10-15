@@ -123,10 +123,53 @@ export const SCHEMA = {
   },
   skills: {
     label: 'สกิล',
-    freeForm: true, // ids are created in Studio; the game does not use them yet
+    freeForm: true, // new skills can be created in Studio (defaults live in src/skills.js). Not run by the game yet.
     fields: {
       name: text('ชื่อสกิล', 60),
-      desc: text('คำอธิบาย', 200)
+      desc: text('คำอธิบาย', 200),
+      kind: select('ประเภท', [
+        { value: 'active', label: 'Active (กดใช้)' },
+        { value: 'passive', label: 'Passive (ติดตัวถาวร)' }
+      ]),
+      rarity: select('ความหายาก (กาชา/ราคาสมุด)', [
+        { value: 'common', label: 'Common' }, { value: 'uncommon', label: 'Uncommon' },
+        { value: 'rare', label: 'Rare' }, { value: 'epic', label: 'Epic' }
+      ]),
+      weapon: select('อาวุธที่ต้องถือ', [
+        { value: 'any', label: 'ไม่จำกัด' }, { value: 'melee', label: 'ประชิด (มือเปล่า/กิ่งไม้/ดาบ)' },
+        { value: 'bow', label: 'ธนู' }, { value: 'staff', label: 'คฑา' }
+      ]),
+      target: select('เป้าหมาย', [
+        { value: 'enemy', label: 'ศัตรู 1 ตัว' }, { value: 'enemy_area', label: 'พื้นที่รอบเป้าหมาย' },
+        { value: 'self_area', label: 'พื้นที่รอบตัวเอง' }, { value: 'self', label: 'ตัวเอง' }
+      ]),
+      effect: select('ผลลัพธ์', [
+        { value: 'damage', label: 'ทำดาเมจ' }, { value: 'heal', label: 'ฟื้น HP' }, { value: 'buff', label: 'บัฟตัวเอง' },
+        { value: 'debuff', label: 'ดีบัฟศัตรู' }, { value: 'dash', label: 'พุ่งตัว' }
+      ]),
+      power: num('พลัง (% ของ ATK ต่อฮิต / % ของ Max HP ถ้าฟื้น HP)', 0, 5000),
+      hits: num('จำนวนฮิต', 1, 20),
+      scalesWith: select('เพิ่มดาเมจ/ฟื้นตามสเตตัส', [
+        { value: 'none', label: 'ไม่เพิ่ม' }, { value: 'str', label: 'STR' }, { value: 'dex', label: 'DEX' },
+        { value: 'int', label: 'INT' }, { value: 'vit', label: 'VIT' }, { value: 'agi', label: 'AGI' }, { value: 'luk', label: 'LUK' }
+      ]),
+      statCoef: num('ตัวคูณสเตตัส (สเตตัส × ค่านี้ ถูกบวกเพิ่ม)', 0, 50, 0.1),
+      radius: num('รัศมีพื้นที่ (px)', 0, 1000),
+      range: num('ระยะใช้ (px, 0 = ตามระยะอาวุธ/พุ่ง)', 0, 1500),
+      spCost: num('SP ที่ใช้', 0, 1000),
+      cooldown: num('คูลดาวน์ (วินาที)', 0, 600, 0.5),
+      duration: num('ระยะเวลาบัฟ/ดีบัฟ (วินาที)', 0, 600),
+      slowPct: num('ทำให้ศัตรูช้าลง (%)', 0, 100),
+      stunSec: num('สตัน (วินาที)', 0, 10, 0.1),
+      bonusAtkPct: num('ATK (%)', -100, 300),
+      bonusDefPct: num('DEF (%)', -100, 300),
+      bonusHpPct: num('Max HP (%)', -100, 300),
+      bonusAspdPct: num('ความเร็วโจมตี (%)', -100, 300),
+      bonusCritPct: num('โอกาสคริ (จุด %)', -100, 100),
+      bonusSpPct: num('Max SP (%)', -100, 300),
+      bonusMovePct: num('ความเร็วเดิน (%)', -100, 300),
+      bookSellPrice: num('ราคาขายสมุดสกิล (Gold)', 0, 100000000),
+      gachaWeight: num('น้ำหนักในตู้กาชา (ยิ่งมากยิ่งออกง่าย, 0 = ไม่ออก)', 0, 1000, 0.5)
     }
   }
 };
@@ -222,7 +265,7 @@ export function sanitizeOverrides(raw, known) {
 
 // Copy the editable fields of the current data so they can be restored / shown as "default".
 export function snapshotEditable(data) {
-  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {}, drops: {}, ui: { main: { ...UI_DEFAULTS } }, objects: {} };
+  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {}, drops: {}, ui: { main: { ...UI_DEFAULTS } }, objects: {}, skills: {} };
   const pick = (obj, fields) => {
     const o = {};
     for (const k of Object.keys(fields)) if (obj && obj[k] !== undefined) o[k] = obj[k];
@@ -240,6 +283,7 @@ export function snapshotEditable(data) {
   }
   for (const [id, it] of Object.entries(data.ITEMS)) snap.items[id] = pick(it, SCHEMA.items.fields);
   data.QUESTS.forEach(q => { snap.quests[q.id] = pick(q, SCHEMA.quests.fields); });
+  for (const [id, sk] of Object.entries(data.SKILLS || {})) snap.skills[id] = pick(sk, SCHEMA.skills.fields);
   return snap;
 }
 
@@ -281,7 +325,9 @@ export function applyOverrides(data, o) {
     if (data.MONSTERS[id]) data.MONSTERS[id].drops = list.map(d => ({ itemId: d.itemId, chance: d.chance }));
   }
   if (o.ui && o.ui.main) data.UI = { ...UI_DEFAULTS, ...o.ui.main };
-  data.SKILLS = { ...(data.SKILLS || {}), ...(o.skills || {}) };
+  // skills: merge field by field, so editing one value of a default skill keeps the rest
+  data.SKILLS = data.SKILLS || {};
+  for (const [id, p] of Object.entries(o.skills || {})) data.SKILLS[id] = { ...(data.SKILLS[id] || {}), ...p };
 }
 
 export function validateSpawns(raw, mapIds, monsterIds) {
@@ -296,4 +342,10 @@ export function validateSpawns(raw, mapIds, monsterIds) {
     out.push({ map: s.map, templateId: s.templateId, count, respawn });
   }
   return out;
+}
+
+// Put the live data back to the untouched defaults (also removes skills that were only added through Studio).
+export function restoreDefaults(data, defaults) {
+  applyOverrides(data, defaults);
+  if (data.SKILLS) for (const id of Object.keys(data.SKILLS)) if (!defaults.skills || !defaults.skills[id]) delete data.SKILLS[id];
 }

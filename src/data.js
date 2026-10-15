@@ -1,4 +1,5 @@
 import { installCatalog, pruneItems, applyFacing } from './catalog.js';
+import { SKILL_DEFAULTS } from './skills.js';
 
 // Game Master Data & Configurations
 
@@ -648,3 +649,6 @@ export const MONSTER_AI = {
 installCatalog({ MONSTERS, ITEMS, MONSTER_AI });
 pruneItems({ MONSTERS, ITEMS, CRAFTING_RECIPES });
 applyFacing(MONSTERS);
+
+// Skill data (draft; the game does not run skills yet). Edited in Studio, see docs/SKILLS.md
+export const SKILLS = JSON.parse(JSON.stringify(SKILL_DEFAULTS));
