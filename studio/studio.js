@@ -274,7 +274,7 @@
       h('div', { class: 'group-title' }, 'ไอเทมที่ดรอป (ตั้ง % ได้ เพิ่ม/ลบได้)'),
       dropsEditor(id),
       h('div', { class: 'group-title' }, 'ค่าพลัง'),
-      h('div', { class: 'fields' }, ...fieldsFor('monsters', id, ['name', 'level', 'hp', 'atk', 'def', 'exp'])),
+      h('div', { class: 'fields' }, ...fieldsFor('monsters', id, ['name', 'level', 'hp', 'atk', 'def', 'exp', 'size'])),
       h('div', { class: 'group-title' }, 'พฤติกรรม'),
       h('div', { class: 'fields' }, ...fieldsFor('ai', id, ['speed', 'aggro', 'attackRange', 'attackCooldown', 'leash', 'wanderRadius']))
     ));
