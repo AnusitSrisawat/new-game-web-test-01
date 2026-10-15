@@ -134,6 +134,11 @@ export class NetworkManager {
         }
         break;
 
+      case 'reload_data':
+        this.game.onLog('🛠️ ข้อมูลเกมถูกอัปเดตจาก Studio — กำลังโหลดใหม่...', 'system');
+        setTimeout(() => window.location.reload(), 1200);
+        break;
+
       case 'monsters_sync':
         this.game.onMonstersSync(msg.list || []);
         break;

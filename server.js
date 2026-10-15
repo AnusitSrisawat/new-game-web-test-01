@@ -5,8 +5,10 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
-import { MONSTERS, ZONES, WEAPON_TYPES, MONSTER_AI, MONSTER_AI_DEFAULT } from './src/data.js';
-import { getMapDef } from './src/maps.js';
+import crypto from 'crypto';
+import { MONSTERS, ZONES, WEAPON_TYPES, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS } from './src/data.js';
+import { getMapDef, MAP_DEFS } from './src/maps.js';
+import { SCHEMA, sanitizeOverrides, snapshotEditable, applyOverrides, validateSpawns } from './src/overrides.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,7 +31,9 @@ const MIME_TYPES = {
 // 1. Create HTTP Server for Static Assets
 const server = http.createServer((req, res) => {
   let reqPath = req.url.split('?')[0];
+  if (reqPath.startsWith('/api/')) { handleApi(req, res, reqPath); return; }
   if (reqPath === '/') reqPath = '/index.html';
+  if (reqPath === '/studio' || reqPath === '/studio/') reqPath = '/studio/index.html';
 
   let decoded;
   try { decoded = decodeURIComponent(reqPath); } catch { decoded = null; }
@@ -37,7 +41,7 @@ const server = http.createServer((req, res) => {
   const rel = filePath === null ? null : path.relative(__dirname, filePath).split(path.sep);
   const allowed = rel !== null && !decoded.includes('\0') && (
     (rel.length === 1 && ['index.html', 'style.css'].includes(rel[0])) ||
-    (rel.length > 1 && ['src', 'assets'].includes(rel[0]) && !rel.includes('..'))
+    (rel.length > 1 && ['src', 'assets', 'studio'].includes(rel[0]) && !rel.includes('..'))
   );
   if (!allowed) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -63,43 +67,29 @@ const server = http.createServer((req, res) => {
   });
 });
 
-// 2. Authoritative World State: Fixed Monsters Per Map
-const FIXED_MONSTERS_DATA = [
-  // --- GREEN MEADOWS (ทุ่งหญ้าเริ่มต้น) ---
-  { id: 'm_slime_1', map: 'meadows', templateId: 'slime', name: 'Poring Slime', level: 1, maxHp: 40, x: 620, y: 880 },
-  { id: 'm_slime_2', map: 'meadows', templateId: 'slime', name: 'Poring Slime', level: 1, maxHp: 40, x: 740, y: 950 },
-  { id: 'm_slime_3', map: 'meadows', templateId: 'slime', name: 'Poring Slime', level: 2, maxHp: 45, x: 550, y: 1050 },
-  { id: 'm_slime_4', map: 'meadows', templateId: 'slime', name: 'Poring Slime', level: 3, maxHp: 55, x: 850, y: 820 },
-  { id: 'm_rabbit_1', map: 'meadows', templateId: 'horned_rabbit', name: 'Horned Rabbit', level: 8, maxHp: 120, x: 980, y: 680 },
-  { id: 'm_rabbit_2', map: 'meadows', templateId: 'horned_rabbit', name: 'Horned Rabbit', level: 10, maxHp: 140, x: 1120, y: 780 },
-  { id: 'm_rabbit_3', map: 'meadows', templateId: 'horned_rabbit', name: 'Horned Rabbit', level: 12, maxHp: 160, x: 1250, y: 920 },
-  { id: 'm_sprout_1', map: 'meadows', templateId: 'sprout', name: 'Sprout Mandragora', level: 5, maxHp: 80, x: 1420, y: 620 },
-  { id: 'm_sprout_2', map: 'meadows', templateId: 'sprout', name: 'Sprout Mandragora', level: 6, maxHp: 95, x: 1520, y: 550 },
+// 2. Game data (defaults + Studio overrides) and the monsters built from the spawn table
+const DATA_DIR = path.join(__dirname, 'data');
+const OVERRIDES_FILE = path.join(DATA_DIR, 'overrides.json');
+const SPAWNS_FILE = path.join(DATA_DIR, 'spawns.json');
+const gameData = { ZONES, MAP_DEFS, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS };
+const DEFAULTS = snapshotEditable(gameData); // untouched values, to restore before re-applying overrides
+const KNOWN = {
+  zones: new Set(ZONES.map(z => z.id)),
+  maps: new Set(Object.keys(MAP_DEFS)),
+  monsters: new Set(Object.keys(MONSTERS)),
+  ai: new Set(Object.keys(MONSTERS)),
+  items: new Set(Object.keys(ITEMS)),
+  quests: new Set(QUESTS.map(q => q.id))
+};
 
-  // --- MISTY FOREST (ป่าหมอกลึกลับ) ---
-  { id: 'm_boar_1', map: 'misty_forest', templateId: 'wild_boar', name: 'Wild Boar', level: 18, maxHp: 260, x: 700, y: 800 },
-  { id: 'm_boar_2', map: 'misty_forest', templateId: 'wild_boar', name: 'Wild Boar', level: 20, maxHp: 300, x: 880, y: 950 },
-  { id: 'm_wolf_1', map: 'misty_forest', templateId: 'forest_wolf', name: 'Shadow Wolf', level: 25, maxHp: 420, x: 1350, y: 720 },
-  { id: 'm_wolf_2', map: 'misty_forest', templateId: 'forest_wolf', name: 'Shadow Wolf', level: 28, maxHp: 480, x: 1550, y: 890 },
-  { id: 'm_treant_1', map: 'misty_forest', templateId: 'treant', name: 'Elder Treant', level: 32, maxHp: 750, x: 2100, y: 1100 },
+function readJson(file, fallback) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf-8')); } catch { return fallback; }
+}
+let overrides = sanitizeOverrides(readJson(OVERRIDES_FILE, {}), KNOWN);
+let spawns = validateSpawns(readJson(SPAWNS_FILE, []), KNOWN.maps, KNOWN.monsters);
+applyOverrides(gameData, overrides);
 
-  // --- GOBLIN CAVERNS (ถ้ำก๊อบลินโบราณ) ---
-  { id: 'm_scout_1', map: 'goblin_caverns', templateId: 'goblin_scout', name: 'Goblin Scout', level: 38, maxHp: 950, x: 920, y: 820 },
-  { id: 'm_scout_2', map: 'goblin_caverns', templateId: 'goblin_scout', name: 'Goblin Scout', level: 40, maxHp: 1050, x: 1150, y: 960 },
-  { id: 'm_shaman_1', map: 'goblin_caverns', templateId: 'goblin_shaman', name: 'Goblin Shaman', level: 44, maxHp: 1300, x: 1650, y: 780 },
-  { id: 'm_ogre_1', map: 'goblin_caverns', templateId: 'ogre', name: 'Ironhide Ogre', level: 50, maxHp: 2200, x: 2350, y: 900 },
-
-  // --- LAVA VOLCANO (ภูเขาไฟลาวา) ---
-  { id: 'm_bat_1', map: 'volcano', templateId: 'crystal_bat', name: 'Crystal Bat', level: 56, maxHp: 2500, x: 1100, y: 700 },
-  { id: 'm_bat_2', map: 'volcano', templateId: 'crystal_bat', name: 'Crystal Bat', level: 58, maxHp: 2700, x: 1350, y: 850 },
-  { id: 'm_golem_1', map: 'volcano', templateId: 'stone_golem', name: 'Rune Stone Golem', level: 65, maxHp: 4200, x: 1850, y: 950 },
-  { id: 'm_titan_1', map: 'volcano', templateId: 'ancient_golem', name: 'Ancient Titan Golem (Boss)', level: 75, maxHp: 9500, x: 2400, y: 1100 },
-
-  // --- DRAGON'S LAIR (WORLD BOSS RAID INSTANCE) ---
-  { id: 'm_dragon_mvp', map: 'boss_lair', templateId: 'ancient_dragon', name: 'Ancient Red Dragon MVP (มังกรบรรพกาล)', level: 99, maxHp: 50000, x: 1600, y: 1100, isMvp: true }
-];
-
-// Re-lay the monsters of every map as a spiral around the map centre: weaker ones near the
+// Lay the monsters of every map out as a spiral around the map centre: weaker ones near the
 // middle (where players spawn), stronger ones further out. Maps are square.
 function layoutMonsters(list) {
   const byMap = new Map();
@@ -112,7 +102,8 @@ function layoutMonsters(list) {
     const cx = def.spawn.x;
     const cy = def.spawn.y;
     const limit = def.width / 2 - 200; // keep clear of the wall
-    const regular = group.filter(m => m.templateId !== 'ancient_dragon').sort((a, b) => a.level - b.level);
+    const bosses = group.filter(m => m.isMvp);
+    const regular = group.filter(m => !m.isMvp).sort((a, b) => a.level - b.level);
     regular.forEach((m, i) => {
       const t = regular.length > 1 ? i / (regular.length - 1) : 0;
       const radius = Math.min(limit, 500 + t * (limit - 500));
@@ -120,29 +111,159 @@ function layoutMonsters(list) {
       m.x = Math.round(cx + Math.cos(angle) * radius);
       m.y = Math.round(cy + Math.sin(angle) * radius);
     });
-    for (const m of group.filter(m => m.templateId === 'ancient_dragon')) {
-      m.x = cx;
-      m.y = cy - 900; // far enough north that spawning players are outside its aggro range
-    }
+    bosses.forEach((m, i) => {
+      // far enough from the spawn that arriving players are outside the boss's aggro range
+      m.x = Math.round(cx + (i - (bosses.length - 1) / 2) * 400);
+      m.y = Math.round(cy - 900);
+    });
   }
 }
-layoutMonsters(FIXED_MONSTERS_DATA);
 
-// Active State on Server
-const monsters = FIXED_MONSTERS_DATA.map(m => ({
-  ...m,
-  currentHp: m.maxHp,
-  isDead: false,
-  respawnTimer: 0,
-  spawnX: m.x,
-  spawnY: m.y,
-  ai: { ...MONSTER_AI_DEFAULT, ...(MONSTER_AI[m.templateId] || {}) },
-  targetId: null,      // player currently being chased (last attacker wins aggro)
-  attackCd: Math.random() * 1.5,
-  wander: null,        // {x, y} stroll destination
-  wanderTimer: Math.random() * 3,
-  moved: false
-}));
+// Active monsters (rebuilt in place whenever the spawn table or monster data changes)
+const monsters = [];
+function buildMonsters() {
+  monsters.length = 0;
+  const counters = {};
+  for (const sp of spawns) {
+    const t = MONSTERS[sp.templateId];
+    if (!t) continue;
+    for (let i = 0; i < sp.count; i++) {
+      const n = counters[sp.templateId] = (counters[sp.templateId] || 0) + 1;
+      const id = sp.templateId === 'ancient_dragon' ? (n === 1 ? 'm_dragon_mvp' : `m_dragon_mvp_${n}`) : `m_${sp.templateId}_${n}`;
+      monsters.push({
+        id, map: sp.map, templateId: sp.templateId, name: t.name, level: t.level, maxHp: t.hp,
+        isMvp: !!t.isMvp, respawn: sp.respawn, x: 0, y: 0
+      });
+    }
+  }
+  layoutMonsters(monsters);
+  for (const m of monsters) {
+    Object.assign(m, {
+      currentHp: m.maxHp,
+      isDead: false,
+      respawnTimer: 0,
+      spawnX: m.x,
+      spawnY: m.y,
+      ai: { ...MONSTER_AI_DEFAULT, ...(MONSTER_AI[m.templateId] || {}) },
+      targetId: null,      // player currently being chased (last attacker wins aggro)
+      attackCd: Math.random() * 1.5,
+      wander: null,        // {x, y} stroll destination
+      wanderTimer: Math.random() * 3,
+      moved: false
+    });
+  }
+}
+buildMonsters();
+
+// ---------------------------------------------------------------------------
+// Studio API (dev tool at /studio). Reads are open for the game client; everything else needs
+// the studio token (STUDIO_TOKEN env, or a random one printed at startup).
+// ---------------------------------------------------------------------------
+const STUDIO_TOKEN = process.env.STUDIO_TOKEN || crypto.randomBytes(9).toString('base64url');
+const STUDIO_TOKEN_FROM_ENV = !!process.env.STUDIO_TOKEN;
+const STUDIO_ENABLED = process.env.NODE_ENV !== 'production' || STUDIO_TOKEN_FROM_ENV;
+
+function sendJson(res, status, body) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=UTF-8', 'Cache-Control': 'no-store' });
+  res.end(JSON.stringify(body));
+}
+
+function tokenOk(req) {
+  const got = String(req.headers['x-studio-token'] || '');
+  const a = Buffer.from(got);
+  const b = Buffer.from(STUDIO_TOKEN);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function readBody(req, limit = 256 * 1024) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', c => {
+      size += c.length;
+      if (size > limit) { reject(new Error('too large')); req.destroy(); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+    req.on('error', reject);
+  });
+}
+
+function writeJsonAtomic(file, value) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  // keep the previous version (last 20) so a bad edit can be rolled back
+  if (fs.existsSync(file)) {
+    const bdir = path.join(DATA_DIR, 'backups');
+    fs.mkdirSync(bdir, { recursive: true });
+    fs.copyFileSync(file, path.join(bdir, `${path.basename(file, '.json')}-${Date.now()}.json`));
+    const old = fs.readdirSync(bdir).filter(f => f.startsWith(path.basename(file, '.json') + '-')).sort();
+    old.slice(0, Math.max(0, old.length - 20)).forEach(f => fs.unlinkSync(path.join(bdir, f)));
+  }
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(value, null, 2));
+  fs.renameSync(tmp, file);
+}
+
+function studioPayload() {
+  return {
+    schema: SCHEMA,
+    defaults: DEFAULTS,
+    current: snapshotEditable(gameData),
+    overrides,
+    spawns,
+    mapIds: Array.from(KNOWN.maps),
+    monsters: Object.fromEntries(Object.entries(MONSTERS).map(([id, m]) => [id, { name: m.name, emoji: m.emoji }])),
+    zoneNames: Object.fromEntries(ZONES.map(z => [z.id, DEFAULTS.zones[z.id].name])),
+    spawnLimits: { count: [0, 60], respawn: [1, 3600] }
+  };
+}
+
+async function handleApi(req, res, reqPath) {
+  try {
+    // Public: the game client applies these on load
+    if (req.method === 'GET' && reqPath === '/api/overrides') {
+      sendJson(res, 200, overrides);
+      return;
+    }
+    if (!STUDIO_ENABLED || !reqPath.startsWith('/api/studio/')) {
+      sendJson(res, 404, { error: 'not found' });
+      return;
+    }
+    if (!tokenOk(req)) {
+      await new Promise(r => setTimeout(r, 400)); // slow down guessing
+      sendJson(res, 401, { error: 'invalid token' });
+      return;
+    }
+    if (req.method === 'GET' && reqPath === '/api/studio/data') {
+      sendJson(res, 200, studioPayload());
+      return;
+    }
+    if (req.method === 'PUT' && reqPath === '/api/studio/save') {
+      const body = JSON.parse(await readBody(req) || '{}');
+      const newOverrides = sanitizeOverrides(body.overrides, KNOWN);
+      const newSpawns = validateSpawns(body.spawns, KNOWN.maps, KNOWN.monsters);
+      writeJsonAtomic(OVERRIDES_FILE, newOverrides);
+      writeJsonAtomic(SPAWNS_FILE, newSpawns);
+      overrides = newOverrides;
+      spawns = newSpawns;
+      applyOverrides(gameData, DEFAULTS);   // back to defaults...
+      applyOverrides(gameData, overrides);  // ...then the new edits
+      buildMonsters();
+      for (const [ws, pl] of players.entries()) {
+        const md = getMapDef(pl.currentMap);
+        pl.x = Math.min(pl.x, md.width - 64);
+        pl.y = Math.min(pl.y, md.height - 64);
+      }
+      broadcast({ type: 'reload_data' });
+      console.log('🛠️  Studio: game data saved & reloaded');
+      sendJson(res, 200, studioPayload());
+      return;
+    }
+    sendJson(res, 404, { error: 'not found' });
+  } catch (e) {
+    sendJson(res, 400, { error: e.message || 'bad request' });
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Validation helpers & limits (the client is never trusted for combat numbers)
@@ -489,7 +610,7 @@ wss.on('connection', (ws) => {
           if (m.currentHp <= 0) {
             m.isDead = true;
             m.targetId = null;
-            m.respawnTimer = m.isMvp ? 60 : 8;
+            m.respawnTimer = m.respawn;
             broadcast({
               type: 'monster_killed',
               monsterId: m.id,
@@ -899,5 +1020,6 @@ server.listen(PORT, () => {
   console.log(`🌐 HTTP & WebSocket: http://localhost:${PORT}`);
   console.log(`🐉 Boss Raid Instance & Party System Active`);
   console.log(`👥 Persistent Monster State & Multi-Zone Ready`);
+  if (STUDIO_ENABLED) console.log(`🛠️  Studio: http://localhost:${PORT}/studio   token: ${STUDIO_TOKEN}${STUDIO_TOKEN_FROM_ENV ? ' (from STUDIO_TOKEN)' : ' (random, set STUDIO_TOKEN to keep it)'}`);
   console.log(`===============================================`);
 });

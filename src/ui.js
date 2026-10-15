@@ -674,6 +674,9 @@ export class UIController {
       html = '<div style="font-size:0.68rem; color:#94a3b8; text-align:center;">สำเร็จทุกเควสต์แล้ว! 🎉</div>';
     }
 
+    // The HUD refreshes ~10x/second; rebuilding identical HTML swallowed clicks on the claim button
+    if (html === this.lastQuestHtml) return;
+    this.lastQuestHtml = html;
     listEl.innerHTML = html;
 
     listEl.querySelectorAll('.btn-tracker-claim').forEach(btn => {
@@ -1092,16 +1095,22 @@ export class UIController {
     const body = document.getElementById('modal-zones-body');
     if (!body) return;
 
-    let html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">';
+    let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
     ZONES.forEach((z, idx) => {
       const isCur = this.gameEngine.currentZoneIndex === idx;
       const locked = this.player.baseLevel < z.reqLevel;
+      const def = getMapDef(z.id);
 
       html += `
-        <div class="zone-card" data-idx="${idx}" style="background:rgba(0,0,0,0.3); border:2px solid ${isCur ? '#fbbf24' : 'rgba(255,255,255,0.1)'}; padding:12px; border-radius:8px; cursor:${locked ? 'not-allowed' : 'pointer'}; opacity:${locked ? '0.45' : '1'};">
-          <div style="font-weight:700; font-size:0.92rem; color:${isCur ? '#fbbf24' : '#fff'};">${z.name}</div>
-          <p style="font-size:0.75rem; color:#94a3b8; margin:4px 0;">${z.desc}</p>
-          <div style="font-size:0.72rem; color:#38bdf8;">${locked ? `🔒 ปลดล็อกที่ Lv.${z.reqLevel}` : '✅ เดินทางได้'}</div>
+        <div class="zone-card" data-idx="${idx}" style="display:flex; align-items:center; gap:14px; background:rgba(0,0,0,0.3); border:2px solid ${isCur ? '#fbbf24' : 'rgba(255,255,255,0.1)'}; padding:10px 14px; border-radius:8px; cursor:${locked ? 'not-allowed' : 'pointer'}; opacity:${locked ? '0.45' : '1'};">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:0.92rem; color:${isCur ? '#fbbf24' : '#fff'};">${z.name}${isCur ? ' <span style="font-size:0.7rem; color:#fbbf24;">(อยู่ที่นี่)</span>' : ''}</div>
+            <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">${z.desc}</div>
+          </div>
+          <div style="text-align:right; white-space:nowrap; font-size:0.72rem;">
+            <div style="color:#38bdf8;">${locked ? `🔒 ปลดล็อกที่ Lv.${z.reqLevel}` : '✅ เดินทางได้'}</div>
+            <div style="color:#94a3b8; margin-top:2px;">${def.width / TILE_SIZE}×${def.height / TILE_SIZE} ช่อง</div>
+          </div>
         </div>
       `;
     });
