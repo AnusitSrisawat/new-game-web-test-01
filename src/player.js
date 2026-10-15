@@ -256,6 +256,16 @@ export class Player {
     return false;
   }
 
+  // Reset all allocated stats back to base and refund the points (free for now)
+  resetStats() {
+    let refund = 0;
+    STAT_KEYS.forEach(k => { refund += Math.max(0, this.stats[k] - 5); this.stats[k] = 5; });
+    this.statPoints += refund;
+    this.currentHp = Math.min(this.currentHp, this.maxHp);
+    this.saveToStorage();
+    return refund;
+  }
+
   // Inventory Management
   addItem(itemId, count = 1) {
     if (RELICS[itemId]) {

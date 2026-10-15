@@ -264,9 +264,10 @@ export class GameEngine {
     }
   }
 
-  onMonsterKilledFromServer(monsterId, killerId, killerName) {
+  onMonsterKilledFromServer(monsterId, killerId, killerName, damage, isCrit) {
     const m = this.monsters.find(item => item.id === monsterId);
     if (m) {
+      if (damage > 0) this.addFloatingText(m.x, m.y - 20, `${damage}`, isCrit ? '#f59e0b' : '#ffffff', isCrit ? 22 : 16, isCrit);
       m.isDead = true;
       m.currentHp = 0;
       this.addParticle(m.x, m.y, '#f59e0b', 25);
@@ -535,7 +536,7 @@ export class GameEngine {
         const distToPlayer = Math.hypot(m.x - this.playerEntity.x, m.y - this.playerEntity.y);
         const attackRange = this.player.attackRange;
         if (distToPlayer <= attackRange) {
-          this.performPlayerAttack(m);
+          this.tryPlayerAttack(m);
         }
         return;
       }
@@ -545,7 +546,7 @@ export class GameEngine {
       const distToTarget = Math.hypot(this.selectedTarget.x - this.playerEntity.x, this.selectedTarget.y - this.playerEntity.y);
       const attackRange = this.player.attackRange;
       if (distToTarget <= attackRange) {
-        this.performPlayerAttack(this.selectedTarget);
+        this.tryPlayerAttack(this.selectedTarget);
         return;
       }
     }
@@ -982,6 +983,18 @@ export class GameEngine {
     }, 600);
   }
 
+  // Manual / auto attack entry point: respects the ASPD cooldown so clicking fast doesn't attack faster
+  tryPlayerAttack(monster) {
+    const p = this.playerEntity;
+    if (!monster || p.attackCooldown > 0) return false;
+    this.performPlayerAttack(monster);
+    let aspd = this.player.aspd;
+    if (p.buffs.berserk > 0) aspd *= 1.5;
+    if (p.buffs.concentration > 0) aspd *= 1.25;
+    p.attackCooldown = 1.0 / aspd;
+    return true;
+  }
+
   performPlayerAttack(monster) {
     const p = this.playerEntity;
     p.facing = monster.x >= p.x ? 1 : -1;
@@ -1128,11 +1141,7 @@ export class GameEngine {
           p.walkFrame += dt * 10;
         } else {
           if (p.attackCooldown <= 0) {
-            this.performPlayerAttack(target);
-            let aspd = this.player.aspd;
-            if (p.buffs.berserk > 0) aspd *= 1.5;
-            if (p.buffs.concentration > 0) aspd *= 1.25;
-            p.attackCooldown = 1.0 / aspd;
+            this.tryPlayerAttack(target);
           }
         }
       } else {
