@@ -34,6 +34,7 @@ export class GameEngine {
     this.vfxList = [];
     this.particles = [];
     this.floatingTexts = [];
+    this.lootOrbs = []; // Dropped gold / EXP / items that pop out, wait, then fly into the player
     this.attackEffects = [];
     this.afterimages = [];
     this.projectiles = []; // Arrows & spells
@@ -157,6 +158,7 @@ export class GameEngine {
   }
 
   changeMap(mapId) {
+    this.flushLoot();
     const idx = ZONES.findIndex(z => z.id === mapId);
     if (idx !== -1) {
       this.currentZoneIndex = idx;
@@ -271,20 +273,13 @@ export class GameEngine {
           }
         });
 
-        // Drop handling
+        // Drop handling: roll drops, then let them pop out and fly into the player
         if (m.drops) {
           m.drops.forEach(drop => {
             if (Math.random() <= drop.chance) {
               const item = ITEMS[drop.itemId] || RELICS[drop.itemId];
               if (item) {
-                const addRes = this.player.addItem(drop.itemId, 1);
-                if (addRes.isRelic) {
-                  this.onLog(`💎 ค้นพบสมบัติในตำนาน! [${item.name}] บันทึกลงสมุดสมบัติสำเร็จ!`, 'relic');
-                  this.addSkillBanner(`💎 RELIC FOUND: ${item.name}`, '#a855f7');
-                  this.addShockwave(m.x, m.y, '#a855f7', 80);
-                } else {
-                  this.onLog(`🎁 ได้รับไอเทม: ${item.icon} ${item.name}`, 'loot');
-                }
+                this.spawnLootOrb(m.x, m.y, 'item', { itemId: drop.itemId, icon: item.icon, isRelic: !!RELICS[drop.itemId] });
               }
             }
           });
@@ -333,9 +328,12 @@ export class GameEngine {
 
   // Server-calculated EXP / gold reward (solo kill or party share)
   onRewardFromServer(msg) {
-    this.player.gainExp(msg.exp);
-    this.player.gold += msg.gold || 0;
-    this.player.saveToStorage();
+    // EXP / gold are applied when the orbs reach the player.
+    const src = this.monsters.find(item => item.id === msg.monsterId);
+    const ox = src ? src.x : this.playerEntity.x;
+    const oy = src ? src.y : this.playerEntity.y;
+    if (msg.gold > 0) this.spawnLootOrb(ox, oy, 'gold', { amount: msg.gold });
+    if (msg.exp > 0) this.spawnLootOrb(ox, oy, 'exp', { amount: msg.exp });
     if (msg.shared) {
       this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 45, `+${msg.exp} EXP [Party]`, '#4ade80', 16);
       this.onLog(`🤝 [ปาร์ตี้ x${msg.shareCount}] ปราบ [${msg.monsterName}] โดย ${msg.fromName} • ได้ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
@@ -608,6 +606,129 @@ export class GameEngine {
     const pct = Math.max(0, (monster.currentHp / monster.maxHp) * 100);
     fillEl.style.width = `${pct}%`;
     fillEl.style.backgroundColor = monster.isMvp ? '#ef4444' : '#f59e0b';
+  }
+
+  // ---- Loot orbs: pop out of the monster, linger briefly, then home in on the player ----
+  spawnLootOrb(x, y, kind, data = {}) {
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 28 + Math.random() * 34;
+    this.lootOrbs.push({
+      kind, ...data,
+      x, y,
+      startX: x, startY: y,
+      landX: x + Math.cos(ang) * dist,
+      landY: y + Math.sin(ang) * dist * 0.6,
+      t: 0,                                  // pop-out progress time
+      popTime: 0.45,
+      delay: 0.5 + Math.random() * 0.3,      // pause on the ground before flying in
+      state: 'pop',                          // pop -> wait -> fly
+      speed: 120,
+      bob: Math.random() * 6
+    });
+  }
+
+  collectLootOrb(o) {
+    const pl = this.playerEntity;
+    if (o.kind === 'gold') {
+      this.player.gold += o.amount;
+      this.player.saveToStorage();
+      this.addFloatingText(pl.x, pl.y - 40, `+${o.amount} G`, '#fbbf24', 15);
+      this.addParticle(pl.x, pl.y - 10, '#fbbf24', 4);
+    } else if (o.kind === 'exp') {
+      this.player.gainExp(o.amount);
+      this.player.saveToStorage();
+      this.addFloatingText(pl.x, pl.y - 52, `+${o.amount} EXP`, '#4ade80', 15);
+      this.addParticle(pl.x, pl.y - 10, '#4ade80', 4);
+    } else {
+      const item = ITEMS[o.itemId] || RELICS[o.itemId];
+      const res = this.player.addItem(o.itemId, 1);
+      if (res.isRelic) {
+        this.onLog(`💎 ค้นพบสมบัติในตำนาน! [${item.name}] บันทึกลงสมุดสมบัติสำเร็จ!`, 'relic');
+        this.addSkillBanner(`💎 RELIC FOUND: ${item.name}`, '#a855f7');
+        this.addShockwave(pl.x, pl.y, '#a855f7', 80);
+      } else {
+        this.onLog(`🎁 ได้รับไอเทม: ${item.icon} ${item.name}`, 'loot');
+        this.addFloatingText(pl.x, pl.y - 64, `${item.icon} ${item.name}`, '#ffffff', 14);
+      }
+    }
+  }
+
+  // Instantly collect everything (used on map change so nothing is lost)
+  flushLoot() {
+    for (const o of this.lootOrbs) this.collectLootOrb(o);
+    this.lootOrbs = [];
+  }
+
+  updateLootOrbs(dt) {
+    const pl = this.playerEntity;
+    for (let i = this.lootOrbs.length - 1; i >= 0; i--) {
+      const o = this.lootOrbs[i];
+      if (o.state === 'pop') {
+        o.t += dt;
+        const k = Math.min(1, o.t / o.popTime);
+        o.x = o.startX + (o.landX - o.startX) * k;
+        o.y = o.startY + (o.landY - o.startY) * k - Math.sin(k * Math.PI) * 38;
+        if (k >= 1) { o.state = 'wait'; o.t = 0; }
+      } else if (o.state === 'wait') {
+        o.t += dt;
+        if (o.t >= o.delay) o.state = 'fly';
+      } else {
+        o.speed += 900 * dt;
+        const dx = pl.x - o.x;
+        const dy = (pl.y - 12) - o.y;
+        const d = Math.hypot(dx, dy);
+        const step = o.speed * dt;
+        if (d <= step + 8) {
+          this.collectLootOrb(o);
+          this.lootOrbs.splice(i, 1);
+          continue;
+        }
+        o.x += (dx / d) * step;
+        o.y += (dy / d) * step;
+      }
+    }
+  }
+
+  drawLootOrbs(ctx) {
+    const now = performance.now() / 1000;
+    for (const o of this.lootOrbs) {
+      const hover = o.state === 'wait' ? Math.sin(now * 5 + o.bob) * 2 : 0;
+      const x = o.x, y = o.y + hover;
+      ctx.save();
+      // ground shadow
+      if (o.state !== 'fly') {
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(o.landX, o.landY + 8, 7, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (o.kind === 'item') {
+        ctx.shadowColor = o.isRelic ? '#a855f7' : '#fde68a';
+        ctx.shadowBlur = 10;
+        ctx.font = '20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(o.icon || '🎁', x, y);
+      } else {
+        const gold = o.kind === 'gold';
+        ctx.shadowColor = gold ? '#fbbf24' : '#4ade80';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = gold ? '#fbbf24' : '#4ade80';
+        ctx.strokeStyle = gold ? '#b45309' : '#166534';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, gold ? 8 : 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = gold ? '#78350f' : '#052e16';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(gold ? 'G' : 'XP', x, y + 0.5);
+      }
+      ctx.restore();
+    }
   }
 
   addFloatingText(x, y, text, color = '#ffffff', fontSize = 16, isCrit = false) {
@@ -1052,6 +1173,8 @@ export class GameEngine {
       if (a.life <= 0) this.afterimages.splice(i, 1);
     }
 
+    this.updateLootOrbs(dt);
+
     // Update Floating texts
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
       const ft = this.floatingTexts[i];
@@ -1156,6 +1279,8 @@ export class GameEngine {
       ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    this.drawLootOrbs(ctx);
 
     // 13. Render Floating Damage Numbers
     for (const ft of this.floatingTexts) {
