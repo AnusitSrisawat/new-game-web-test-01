@@ -667,7 +667,7 @@ export class GameEngine {
         this.addShockwave(pl.x, pl.y, '#a855f7', 80);
       } else {
         this.onLog(`🎁 ได้รับไอเทม: ${item.icon} ${item.name}`, 'loot');
-        this.addFloatingText(pl.x, pl.y - 64, `${item.icon} ${item.name}`, '#ffffff', 14);
+        this.addFloatingText(pl.x, pl.y - 64, `${item.name}`, '#ffffff', 14);
       }
     }
   }
