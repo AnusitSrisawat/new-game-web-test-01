@@ -122,9 +122,10 @@ export class GameEngine {
 
   // Zoom in/out (mouse wheel, +/- keys, buttons). Can't zoom out past the edge of the map.
   setZoom(z) {
-    const minForMap = Math.max(window.innerWidth / this.worldMap.width, window.innerHeight / this.worldMap.height);
-    const min = Math.min(1, Math.max(0.4, minForMap));
-    this.zoom = Math.min(2.5, Math.max(min, Number.isFinite(z) ? z : 1));
+    // The camera may never show anything outside the map: the view (screen size / zoom) must fit
+    // inside the map on both axes, even on very large screens (this can force a zoom above 1).
+    const min = Math.max(window.innerWidth / this.worldMap.width, window.innerHeight / this.worldMap.height);
+    this.zoom = Math.max(min, Math.min(2.5, Number.isFinite(z) ? z : 1));
     this.camera.w = window.innerWidth / this.zoom;
     this.camera.h = window.innerHeight / this.zoom;
     try { localStorage.setItem('zoom', String(this.zoom)); } catch (e) { /* ignore */ }
