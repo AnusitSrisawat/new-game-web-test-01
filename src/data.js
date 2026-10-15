@@ -52,7 +52,7 @@ export const ZONES = [
     reqLevel: 34,
     bgColor: '#fde68a',
     floorColor: '#92400e',
-    monsterIds: ['bandit_rogue', 'bandit_archer', 'bandit_brute']
+    monsterIds: ['bandit_rogue', 'bandit_archer', 'bandit_brute', 'bandit_leader']
   },
   {
     id: 'goblin_caverns',
