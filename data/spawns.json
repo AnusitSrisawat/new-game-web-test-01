@@ -48,15 +48,27 @@
     "respawn": 8
   },
   {
-    "map": "misty_forest",
-    "templateId": "treant",
-    "count": 6,
+    "map": "bandit_hideout",
+    "templateId": "bandit_rogue",
+    "count": 10,
     "respawn": 8
   },
   {
-    "map": "misty_forest",
-    "templateId": "mossy_golem",
-    "count": 6,
+    "map": "bandit_hideout",
+    "templateId": "bandit_archer",
+    "count": 8,
+    "respawn": 8
+  },
+  {
+    "map": "bandit_hideout",
+    "templateId": "bandit_brute",
+    "count": 8,
+    "respawn": 8
+  },
+  {
+    "map": "bandit_hideout",
+    "templateId": "bandit_leader",
+    "count": 3,
     "respawn": 8
   },
   {
@@ -67,32 +79,20 @@
   },
   {
     "map": "goblin_caverns",
-    "templateId": "bandit_rogue",
-    "count": 10,
-    "respawn": 8
-  },
-  {
-    "map": "goblin_caverns",
-    "templateId": "bandit_archer",
-    "count": 8,
-    "respawn": 8
-  },
-  {
-    "map": "goblin_caverns",
-    "templateId": "bandit_brute",
-    "count": 8,
-    "respawn": 8
-  },
-  {
-    "map": "goblin_caverns",
     "templateId": "chest_mimic",
     "count": 6,
     "respawn": 8
   },
   {
     "map": "goblin_caverns",
-    "templateId": "bandit_leader",
-    "count": 3,
+    "templateId": "treant",
+    "count": 6,
+    "respawn": 8
+  },
+  {
+    "map": "goblin_caverns",
+    "templateId": "mossy_golem",
+    "count": 6,
     "respawn": 8
   },
   {
@@ -103,13 +103,13 @@
   },
   {
     "map": "volcano",
-    "templateId": "baby_fire_wyrm",
+    "templateId": "floating_eye",
     "count": 10,
     "respawn": 8
   },
   {
     "map": "volcano",
-    "templateId": "floating_eye",
+    "templateId": "baby_fire_wyrm",
     "count": 10,
     "respawn": 8
   },
@@ -117,12 +117,6 @@
     "map": "volcano",
     "templateId": "stone_golem",
     "count": 8,
-    "respawn": 8
-  },
-  {
-    "map": "volcano",
-    "templateId": "ancient_golem",
-    "count": 3,
     "respawn": 8
   },
   {
@@ -150,9 +144,15 @@
     "respawn": 8
   },
   {
-    "map": "bone_crypt",
+    "map": "haunted_ruins",
     "templateId": "spectral_armor",
     "count": 8,
+    "respawn": 8
+  },
+  {
+    "map": "haunted_ruins",
+    "templateId": "ancient_golem",
+    "count": 3,
     "respawn": 8
   },
   {
