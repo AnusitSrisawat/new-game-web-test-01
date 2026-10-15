@@ -26,19 +26,14 @@
           <div class="unit-status-col">
             <div class="unit-name-row">
               <span class="unit-name" id="hud-unit-name">Rin</span>
-              <span class="unit-class-badge" id="hud-unit-class">Swordsman</span>
-              <span class="unit-reborn-badge" id="hud-unit-reborn" style="display:none;">★ Reborn</span>
+              <span class="unit-class-badge" id="hud-unit-weapon">กิ่งไม้</span>
             </div>
 
-            <!-- Dual Levels Row: Base Level & Job Level -->
+            <!-- Level -->
             <div class="unit-levels-row">
               <div class="level-badge base">
                 <span class="lvl-label">BASE</span>
                 <span class="lvl-num" id="hud-base-lvl">Lv. 1</span>
-              </div>
-              <div class="level-badge job">
-                <span class="lvl-label">JOB</span>
-                <span class="lvl-num" id="hud-job-lvl">Lv. 1 / 50</span>
               </div>
             </div>
 
@@ -69,15 +64,6 @@
                 </div>
                 <span class="bar-val-text" id="hud-base-exp-text">0 / 85 (0%)</span>
               </div>
-
-              <!-- Job EXP Bar -->
-              <div class="hud-bar-row">
-                <span class="bar-tag job-exp">JOB</span>
-                <div class="hud-bar">
-                  <div class="hud-bar-fill job-exp" id="hud-job-exp-fill" style="width: 0%;"></div>
-                </div>
-                <span class="bar-val-text" id="hud-job-exp-text">0 / 60 (0%)</span>
-              </div>
             </div>
 
             <!-- Currencies Row -->
@@ -86,13 +72,6 @@
               <span>🎟️ <b id="hud-token-text">5</b> Token</span>
             </div>
           </div>
-        </div>
-
-        <!-- Class Advance / Rebirth Alert Banner (Appears when Job Lv 50 is reached!) -->
-        <div id="hud-class-advance-alert" class="hud-job-alert" style="display: none;">
-          <span id="hud-job-alert-icon">🌟</span>
-          <span id="hud-job-alert-text">Job Lv.50 บรรลุแล้ว!</span>
-          <button id="hud-job-alert-btn" class="btn-advance-quick">เปลี่ยนอาชีพ</button>
         </div>
 
         <!-- Stat Point Notification Badge -->
@@ -109,7 +88,7 @@
         <!-- MID-LEFT: Party HUD Widget -->
         <div class="hud-party-widget hud-interactive" id="hud-party-widget">
           <div class="party-widget-header">
-            <span>🚩 ปาร์ตี้ (+25% EXP)</span>
+            <span>🚩 ปาร์ตี้</span>
             <button id="btn-open-party-modal" class="btn-party-mini">จัดการ [P]</button>
           </div>
           <div class="party-members-list" id="party-members-list">
@@ -166,12 +145,14 @@
       </div>
 
       <!-- BOTTOM-LEFT: Chat & Combat Event Box -->
-      <div class="hud-bottom-left hud-interactive">
+      <button id="chat-icon-btn" class="chat-icon-btn hud-interactive" title="เปิดแชท" style="display:none;">💬<span id="chat-unread" class="chat-unread" style="display:none;">0</span></button>
+      <div class="hud-bottom-left hud-interactive" id="chat-panel">
         <div class="chat-tabs">
           <button class="chat-tab active" data-tab="all">รวม</button>
           <button class="chat-tab" data-tab="system">ระบบ</button>
           <button class="chat-tab" data-tab="loot">ดรอป</button>
           <button class="chat-tab" data-tab="relic">สมบัติ</button>
+          <button id="chat-collapse-btn" class="chat-collapse-btn" title="ซ่อนแชท (เหลือแค่ไอคอน)">▾</button>
         </div>
         <div class="chat-messages" id="chat-messages-container">
           <div class="chat-msg system">[ระบบ] ยินดีต้อนรับสู่โลก Cozy MMORPG 2D!</div>
@@ -186,66 +167,49 @@
       <div class="hud-bottom-center hud-interactive">
         <div class="pc-skill-action-bar">
           <div class="skill-slots-container">
-            <!-- Slot 1: Power Strike -->
-            <div class="skill-slot-card" id="slot-1" title="[1] Power Strike (ฟันหนัก 250% ดาเมจ)">
-              <div class="skill-icon-emoji">💥</div>
-              <div class="skill-label-name">Power Strike</div>
+            <div class="skill-slot-card empty" id="slot-1" title="[1] ช่องว่าง">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">1</span>
             </div>
-
-            <!-- Slot 2: Whirlwind -->
-            <div class="skill-slot-card" id="slot-2" title="[2] Whirlwind Slash (หมุนดาบฟันรอบตัว AoE)">
-              <div class="skill-icon-emoji">🌪️</div>
-              <div class="skill-label-name">Whirlwind</div>
+            <div class="skill-slot-card empty" id="slot-2" title="[2] ช่องว่าง">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">2</span>
             </div>
-
-            <!-- Slot 3: Iron Guard -->
-            <div class="skill-slot-card" id="slot-3" title="[3] Iron Guard (เกราะเหล็ก +60 DEF)">
-              <div class="skill-icon-emoji">🛡️</div>
-              <div class="skill-label-name">Iron Guard</div>
+            <div class="skill-slot-card empty" id="slot-3" title="[3] ช่องว่าง">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">3</span>
             </div>
-
-            <!-- Slot 4: Berserk -->
-            <div class="skill-slot-card" id="slot-4" title="[4] Berserk Rage (เร่งความเร็วโจมตี ASPD)">
-              <div class="skill-icon-emoji">⚡</div>
-              <div class="skill-label-name">Berserk</div>
+            <div class="skill-slot-card empty" id="slot-4" title="[4] ช่องว่าง">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">4</span>
             </div>
-
-            <!-- Slot 5: Red Potion -->
-            <div class="skill-slot-card util-slot" id="slot-5" title="[5] Red Potion (ดื่มยาฟื้นพลัง HP)">
-              <div class="skill-icon-emoji">🧪</div>
-              <div class="skill-label-name">HP Potion</div>
+            <div class="skill-slot-card empty" id="slot-5" title="[5] ช่องว่าง">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">5</span>
             </div>
-
-            <!-- Slot 6: Flash Dash -->
-            <div class="skill-slot-card" id="slot-6" title="[6] Flash Dash (พุ่งตัวไปข้างหน้าอย่างรวดเร็ว)">
-              <div class="skill-icon-emoji">💨</div>
-              <div class="skill-label-name">Dash</div>
+            <div class="skill-slot-card empty" id="slot-6" title="[6] ช่องว่าง">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">6</span>
             </div>
-
-            <!-- Slot 7: War Cry / Taunt -->
-            <div class="skill-slot-card" id="slot-7" title="[7] War Cry (คำรามสะกดมอนสเตอร์รอบตัวติดสตัน)">
-              <div class="skill-icon-emoji">📢</div>
-              <div class="skill-label-name">War Cry</div>
+            <div class="skill-slot-card empty" id="slot-7" title="[7] ช่องว่าง">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">7</span>
             </div>
-
-            <!-- Slot 8: First Aid -->
-            <div class="skill-slot-card" id="slot-8" title="[8] First Aid (ปฐมพยาบาลฟื้นฟู HP ฉุกเฉิน)">
-              <div class="skill-icon-emoji">💚</div>
-              <div class="skill-label-name">First Aid</div>
+            <div class="skill-slot-card empty" id="slot-8" title="[8] ช่องว่าง">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">8</span>
             </div>
-
-            <!-- Slot 9: Town Return Scroll -->
-            <div class="skill-slot-card util-slot" id="slot-9" title="[9] Town Scroll (วาร์ปกลับลานเมือง)">
-              <div class="skill-icon-emoji">📜</div>
-              <div class="skill-label-name">Town Portal</div>
+            <div class="skill-slot-card empty" id="slot-9" title="[9] ช่องว่าง">
+              <div class="skill-icon-emoji"></div>
+              <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">9</span>
             </div>
           </div>
@@ -286,7 +250,7 @@
     <!-- 4. FLOATING PC MODALS / WINDOWS -->
     <div class="game-modal" id="modal-status">
       <div class="modal-header">
-        <div class="modal-title">📊 ข้อมูลตัวละคร & เลื่อนขั้นอาชีพ</div>
+        <div class="modal-title">📊 ข้อมูลตัวละคร</div>
         <button class="btn-modal-close" data-close="modal-status">✕</button>
       </div>
       <div class="modal-body" id="modal-status-body"></div>

@@ -24,8 +24,10 @@ export class NetworkManager {
         this.isConnected = true;
         this.game.onLog('🌐 เชื่อมต่อเซิร์ฟเวอร์ MMORPG สำเร็จ (Online Sync)', 'system');
         
-        // Send initial player profile to server
+        // Send initial player profile, then keep level/HP/weapon in sync
         this.sendProfileUpdate();
+        clearInterval(this.profileTimer);
+        this.profileTimer = setInterval(() => this.sendProfileUpdate(), 1500);
       };
 
       this.ws.onmessage = (event) => {
@@ -34,6 +36,7 @@ export class NetworkManager {
 
       this.ws.onclose = () => {
         this.isConnected = false;
+        clearInterval(this.profileTimer);
         this.game.onLog('⚠️ ขาดการเชื่อมต่อกับเซิร์ฟเวอร์... กำลังพยายามต่อใหม่ใน 3 วินาที', 'system');
         setTimeout(() => this.connect(), 3000);
       };
@@ -186,7 +189,7 @@ export class NetworkManager {
   sendAttackAction(opts = {}) {
     this.send({
       type: 'attack_action',
-      weaponType: opts.weaponType || 'sword',
+      weaponType: opts.weaponType || this.player.weaponInfo.type,
       skillId: opts.skillId || null,
       skillName: opts.skillName || null,
       targetId: opts.targetId || null,
@@ -205,14 +208,11 @@ export class NetworkManager {
   }
 
   sendProfileUpdate() {
-    const weaponType = (this.player.equipment.weapon && this.player.equipment.weapon.includes('bow')) ? 'bow' : 'sword';
     this.send({
       type: 'update_profile',
       name: this.player.name,
       level: this.player.baseLevel,
-      classId: this.player.classId,
-      weaponType: weaponType,
-      rebirthCount: this.player.rebirthCount,
+      weaponType: this.player.weaponInfo.type,
       hp: this.player.currentHp,
       maxHp: this.player.maxHp,
       currentMap: this.game ? this.game.currentZone.id : 'meadows'

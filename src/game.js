@@ -1,6 +1,6 @@
 // 2D Canvas Game Engine with Large Tile World, Camera Follow, Real Sprites, Multiplayer Sync & High-Impact VFX
 import { WorldMap } from './map.js';
-import { ZONES, MONSTERS, ITEMS, RELICS, CLASSES, QUESTS } from './data.js';
+import { ZONES, MONSTERS, ITEMS, RELICS, QUESTS } from './data.js';
 import { soundEngine } from './audio.js';
 
 export class GameEngine {
@@ -182,7 +182,6 @@ export class GameEngine {
         atk: template.atk,
         def: template.def,
         exp: template.exp,
-        jobExp: template.jobExp,
         drops: template.drops,
         isMvp: !!template.isMvp,
         x: sm.x,
@@ -288,14 +287,14 @@ export class GameEngine {
 
   // Server-calculated EXP / gold reward (solo kill or party share)
   onRewardFromServer(msg) {
-    this.player.gainExp(msg.exp, msg.jobExp);
+    this.player.gainExp(msg.exp);
     this.player.gold += msg.gold || 0;
     this.player.saveToStorage();
     if (msg.shared) {
       this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 45, `+${msg.exp} EXP [Party]`, '#4ade80', 16);
-      this.onLog(`🤝 [ปาร์ตี้ x${msg.shareCount}] ปราบ [${msg.monsterName}] โดย ${msg.fromName} • ได้ +${msg.exp} Base EXP, +${msg.jobExp} Job EXP, +${msg.gold} G`, 'system');
+      this.onLog(`🤝 [ปาร์ตี้ x${msg.shareCount}] ปราบ [${msg.monsterName}] โดย ${msg.fromName} • ได้ +${msg.exp} EXP, +${msg.gold} G`, 'system');
     } else {
-      this.onLog(`⚔️ ปราบ [${msg.monsterName}] สำเร็จ! ได้รับ +${msg.exp} Base EXP, +${msg.jobExp} Job EXP, +${msg.gold} G`, 'chat');
+      this.onLog(`⚔️ ปราบ [${msg.monsterName}] สำเร็จ! ได้รับ +${msg.exp} EXP, +${msg.gold} G`, 'chat');
     }
   }
 
@@ -355,14 +354,15 @@ export class GameEngine {
 
   // Handle Remote Player Attack Animations & VFX
   handleRemotePlayerAttack(msg) {
-    if (msg.weaponType === 'bow' || (msg.classId && msg.classId.includes('archer'))) {
+    if (msg.weaponType === 'bow' || msg.weaponType === 'staff') {
+      const kind = msg.weaponType === 'staff' ? 'bolt' : 'arrow';
       soundEngine.playBowShoot();
       // Spawn arrow flying from other player to their target
       if (msg.targetX && msg.targetY) {
-        this.spawnArrow(msg.x, msg.y, msg.targetX, msg.targetY, msg.targetId, 0, false, msg.playerId);
+        this.spawnArrow(msg.x, msg.y, msg.targetX, msg.targetY, msg.targetId, 0, false, msg.playerId, kind);
       } else {
         const targetX = msg.x + (msg.facing || 1) * 220;
-        this.spawnArrow(msg.x, msg.y, targetX, msg.y, null, 0, false, msg.playerId);
+        this.spawnArrow(msg.x, msg.y, targetX, msg.y, null, 0, false, msg.playerId, kind);
       }
     } else {
       soundEngine.playSlash();
@@ -378,7 +378,7 @@ export class GameEngine {
   }
 
   // Spawn Ranged Arrow Projectile
-  spawnArrow(startX, startY, targetX, targetY, targetMonsterId, damage = 0, isCrit = false, ownerId = null) {
+  spawnArrow(startX, startY, targetX, targetY, targetMonsterId, damage = 0, isCrit = false, ownerId = null, kind = 'arrow') {
     const angle = Math.atan2(targetY - startY, targetX - startX);
     const speed = 750; // px/sec
 
@@ -393,6 +393,7 @@ export class GameEngine {
       targetId: targetMonsterId,
       damage,
       isCrit,
+      kind,
       ownerId: ownerId || (this.network ? this.network.myPlayerId : 'self'),
       life: 0.8,
       trail: []
@@ -518,7 +519,7 @@ export class GameEngine {
         this.selectedTarget = m;
         this.updateTargetHUD(m);
         const distToPlayer = Math.hypot(m.x - this.playerEntity.x, m.y - this.playerEntity.y);
-        const attackRange = this.player.currentClass.range || 75;
+        const attackRange = this.player.attackRange;
         if (distToPlayer <= attackRange) {
           this.performPlayerAttack(m);
         }
@@ -528,7 +529,7 @@ export class GameEngine {
 
     if (this.selectedTarget && !this.selectedTarget.isDead) {
       const distToTarget = Math.hypot(this.selectedTarget.x - this.playerEntity.x, this.selectedTarget.y - this.playerEntity.y);
-      const attackRange = this.player.currentClass.range || 75;
+      const attackRange = this.player.attackRange;
       if (distToTarget <= attackRange) {
         this.performPlayerAttack(this.selectedTarget);
         return;
@@ -606,381 +607,16 @@ export class GameEngine {
   }
 
   // Hotkey Skills Execution (Slots 1 to 9) - Handles Archer vs Swordsman branch dynamically
+  // Hotbar 1-9 is filled by the player. There are no skills yet, so assigned
+  // entries have nothing to run for now; empty slots just say so.
   useSkillSlot(slot) {
-    const p = this.playerEntity;
-    const cd = p.skillCooldowns;
-    const isArcher = this.player.currentClass.category === 'archer';
-
-    if (isArcher) {
-      // ==========================================
-      // ARCHER HOTBAR SKILLS (1-9)
-      // ==========================================
-      if (slot === 1) {
-        // [1] Double Strafe (ยิงศรคู่ 2 นัดซ้อน)
-        if (cd[1] > 0) return;
-        if (!this.selectedTarget || this.selectedTarget.isDead) {
-          this.onLog('⚠️ กรุณาคลิกขวาเลือกเป้าหมายก่อนใช้สกิล Double Strafe', 'system');
-          return;
-        }
-        cd[1] = 2.5;
-        const target = this.selectedTarget;
-        const dmgPerArrow = Math.floor(this.player.attack * 1.4);
-
-        p.isAttacking = true;
-        p.attackAnimTimer = 0.25;
-        p.facing = target.x >= p.x ? 1 : -1;
-        soundEngine.playBowShoot();
-
-        this.addSkillBanner('🏹 DOUBLE STRAFE!', '#10b981');
-        this.onLog(`🏹 [1] ใช้สกิล Double Strafe ยิงศรคู่ระเบิดพลัง 2 ดอกติด!`, 'chat');
-
-        // Spawn 2 rapid arrows
-        this.spawnArrow(p.x, p.y, target.x, target.y, target.id, dmgPerArrow, false);
-        setTimeout(() => {
-          soundEngine.playBowShoot();
-          this.spawnArrow(p.x, p.y, target.x, target.y, target.id, dmgPerArrow, true);
-        }, 120);
-
-        if (this.network) {
-          this.network.sendAttackAction({
-            weaponType: 'bow',
-            skillId: 1,
-            skillName: 'Double Strafe',
-            targetId: target.id,
-            targetX: target.x,
-            targetY: target.y
-          });
-        }
-
-      } else if (slot === 2) {
-        // [2] Arrow Shower (ฝนธนูระดมยิง AoE)
-        if (cd[2] > 0) return;
-        cd[2] = 4.5;
-
-        p.isAttacking = true;
-        p.attackAnimTimer = 0.35;
-        soundEngine.playBowShoot();
-
-        const targetX = this.selectedTarget ? this.selectedTarget.x : p.x + p.facing * 160;
-        const targetY = this.selectedTarget ? this.selectedTarget.y : p.y;
-
-        this.addSkillBanner('🌧️ ARROW SHOWER!', '#14b8a6');
-        this.addShockwave(targetX, targetY, '#14b8a6', 150);
-        this.triggerScreenShake(5);
-        this.onLog(`🌧️ [2] ใช้สกิล Arrow Shower ยิงห่าฝนลูกศรถล่มพื้นที่ AoE!`, 'chat');
-
-        // Rain down 8 arrows into the circle
-        for (let i = 0; i < 8; i++) {
-          setTimeout(() => {
-            const rx = targetX + (Math.random() - 0.5) * 160;
-            const ry = targetY + (Math.random() - 0.5) * 120;
-            this.spawnArrow(rx, ry - 300, rx, ry, null, Math.floor(this.player.attack * 1.5), false);
-          }, i * 50);
-        }
-
-        // Damage all monsters in radius
-        const liveMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
-        for (const m of liveMonsters) {
-          if (Math.hypot(m.x - targetX, m.y - targetY) < 160) {
-            const dmg = Math.floor(this.player.attack * 1.5);
-            m.flashTimer = 0.15;
-            this.addParticle(m.x, m.y, '#14b8a6', 8);
-            if (this.network) {
-              this.network.sendMonsterHit(m.id, dmg, false);
-            }
-          }
-        }
-
-        if (this.network) {
-          this.network.sendAttackAction({
-            weaponType: 'bow',
-            skillId: 2,
-            skillName: 'Arrow Shower',
-            targetX,
-            targetY
-          });
-        }
-
-      } else if (slot === 3) {
-        // [3] Improve Concentration (+25% ASPD, +15% Crit)
-        if (cd[3] > 0) return;
-        cd[3] = 12.0;
-        p.buffs.concentration = 8.0;
-        soundEngine.playIronGuard();
-
-        this.addSkillBanner('🎯 IMPROVE CONCENTRATION', '#10b981');
-        this.addShockwave(p.x, p.y, '#10b981', 80);
-        this.addParticle(p.x, p.y, '#34d399', 30);
-        this.addFloatingText(p.x, p.y - 45, '🎯 +25% ASPD & +15% CRIT!', '#10b981', 18);
-        this.onLog(`🎯 [3] ใช้สกิล Improve Concentration เล็งเป้าสมาธิ เพิ่มความเร็วโจมตีและคริติคอล 8 วินาที`, 'chat');
-
-      } else if (slot === 4) {
-        // [4] Falcon Assault / Blitz Beat (เหยี่ยวโฉบจู่โจม)
-        if (cd[4] > 0) return;
-        if (!this.selectedTarget || this.selectedTarget.isDead) {
-          this.onLog('⚠️ กรุณาคลิกขวาเลือกเป้าหมายก่อนใช้สกิล Falcon Assault', 'system');
-          return;
-        }
-        cd[4] = 6.0;
-        const target = this.selectedTarget;
-        const dmg = Math.floor(this.player.attack * 3.2);
-
-        soundEngine.playFalconCry();
-        this.triggerScreenShake(7);
-        this.addSkillBanner('🦅 FALCON ASSAULT!', '#fbbf24');
-
-        // Visual Falcon Dive
-        this.vfxList.push({
-          type: 'falcon_dive',
-          startX: p.x,
-          startY: p.y - 120,
-          targetX: target.x,
-          targetY: target.y,
-          life: 0.4,
-          maxLife: 0.4
-        });
-
-        setTimeout(() => {
-          this.addShockwave(target.x, target.y, '#fbbf24', 90);
-          this.addParticle(target.x, target.y, '#f59e0b', 35);
-          target.flashTimer = 0.2;
-          target.squashTimer = 0.25;
-          this.addFloatingText(target.x, target.y - 30, `🦅 ${dmg}`, '#fbbf24', 24, true);
-
-          if (this.network) {
-            this.network.sendMonsterHit(target.id, dmg, true);
-          }
-        }, 220);
-
-        this.onLog(`🦅 [4] สั่งเหยี่ยวคู่ใจโฉบจู่โจมศัตรู Falcon Assault ทำดาเมจทะลวง ${dmg}!`, 'chat');
-
-        if (this.network) {
-          this.network.sendAttackAction({
-            weaponType: 'bow',
-            skillId: 4,
-            skillName: 'Falcon Assault',
-            targetId: target.id,
-            targetX: target.x,
-            targetY: target.y
-          });
-        }
-
-      } else if (slot === 5) {
-        // [5] Red Potion
-        this.usePotionSlot();
-
-      } else if (slot === 6) {
-        // [6] Tumble / Evade (กลิ้งตัวหลบอย่างว่องไว)
-        if (cd[6] > 0) return;
-        cd[6] = 4.5;
-        soundEngine.playDash();
-
-        this.addSkillBanner('🤸 TUMBLE EVADE', '#34d399');
-        this.addAfterimage(p.x, p.y, p.facing);
-
-        // Quick evasive backflip / tumble away from facing direction
-        const rollDist = -150 * p.facing;
-        if (this.worldMap.isWalkable(p.x + rollDist, p.y, 16)) {
-          p.x += rollDist;
-          p.targetX = p.x;
-        }
-        this.addAfterimage(p.x, p.y, p.facing);
-        this.addParticle(p.x, p.y, '#34d399', 25);
-        this.addShockwave(p.x, p.y, '#34d399', 50);
-        this.onLog(`🤸 [6] กลิ้งตัวหลบหลีก Tumble Evade ออกจากระยะประชิดทันควัน!`, 'chat');
-
-      } else if (slot === 7) {
-        // [7] Ankle Snare (กับดักล็อคขามอนสเตอร์)
-        if (cd[7] > 0) return;
-        cd[7] = 8.0;
-        soundEngine.playWarCry();
-
-        const trapX = this.selectedTarget ? this.selectedTarget.x : p.x + p.facing * 70;
-        const trapY = this.selectedTarget ? this.selectedTarget.y : p.y;
-
-        this.groundTraps.push({
-          x: trapX,
-          y: trapY,
-          radius: 40,
-          life: 8.0,
-          maxLife: 8.0
-        });
-
-        this.addSkillBanner('🕸️ ANKLE SNARE TRAP', '#a3e635');
-        this.addShockwave(trapX, trapY, '#a3e635', 45);
-        this.onLog(`🕸️ [7] วางกับดัก Ankle Snare ตรึงมอนสเตอร์ให้อยู่กับที่`, 'chat');
-
-      } else if (slot === 8) {
-        // [8] First Aid
-        this.useFirstAidSlot();
-
-      } else if (slot === 9) {
-        // [9] Town Portal
-        this.useTownPortalSlot();
-      }
-
-    } else {
-      // ==========================================
-      // SWORDSMAN HOTBAR SKILLS (1-9)
-      // ==========================================
-      if (slot === 1) {
-        // 1: Power Strike
-        if (cd[1] > 0) return;
-        if (!this.selectedTarget || this.selectedTarget.isDead) {
-          this.onLog('⚠️ กรุณาคลิกขวาเลือกเป้าหมายก่อนใช้สกิล Power Strike', 'system');
-          return;
-        }
-        cd[1] = 3.0;
-        const target = this.selectedTarget;
-        const dmg = Math.floor(this.player.attack * 2.5);
-
-        p.isAttacking = true;
-        p.attackAnimTimer = 0.28;
-        p.attackCombo = 2;
-        soundEngine.playPowerStrike();
-
-        this.triggerScreenShake(8);
-        this.addSkillBanner('💥 POWER STRIKE', '#f59e0b');
-        this.addFissure(target.x, target.y);
-        this.addShockwave(target.x, target.y, '#f59e0b', 75);
-        this.addParticle(target.x, target.y, '#f97316', 30);
-        this.addSlashEffect(target.x, target.y, p.facing, 'heavy');
-
-        target.flashTimer = 0.2;
-        target.squashTimer = 0.25;
-        const angle = Math.atan2(target.y - p.y, target.x - p.x);
-        target.knockbackX = Math.cos(angle) * 35;
-        target.knockbackY = Math.sin(angle) * 35;
-
-        this.onLog(`💥 [1] ใช้สกิล Power Strike ฟันดาบหนักระเบิดพลัง ${dmg} ดาเมจ!`, 'chat');
-        if (this.network) {
-          this.network.sendAttackAction({
-            weaponType: 'sword',
-            skillId: 1,
-            skillName: 'Power Strike',
-            targetId: target.id
-          });
-          this.network.sendMonsterHit(target.id, dmg, true);
-        }
-
-      } else if (slot === 2) {
-        // 2: Whirlwind Slash
-        if (cd[2] > 0) return;
-        cd[2] = 4.5;
-
-        p.isAttacking = true;
-        p.attackAnimTimer = 0.35;
-        soundEngine.playWhirlwind();
-
-        this.addSkillBanner('🌪️ WHIRLWIND SLASH', '#38bdf8');
-        this.addCycloneEffect(p.x, p.y);
-        this.addShockwave(p.x, p.y, '#38bdf8', 130);
-        this.addParticle(p.x, p.y, '#38bdf8', 40);
-        this.triggerScreenShake(5);
-
-        this.onLog(`🌪️ [2] ใช้สกิล Whirlwind Slash พายุหมุนดาบฟันรอบตัว 360°!`, 'chat');
-        const liveMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
-        for (const m of liveMonsters) {
-          if (Math.hypot(m.x - p.x, m.y - p.y) < 220) {
-            const dmg = Math.floor(this.player.attack * 1.6);
-            m.flashTimer = 0.15;
-            m.squashTimer = 0.18;
-            const a = Math.atan2(m.y - p.y, m.x - p.x);
-            m.knockbackX = Math.cos(a) * 22;
-            m.knockbackY = Math.sin(a) * 22;
-            this.addSlashEffect(m.x, m.y, p.facing, 'normal');
-            if (this.network) {
-              this.network.sendMonsterHit(m.id, dmg, false);
-            }
-          }
-        }
-
-        if (this.network) {
-          this.network.sendAttackAction({
-            weaponType: 'sword',
-            skillId: 2,
-            skillName: 'Whirlwind Slash'
-          });
-        }
-
-      } else if (slot === 3) {
-        // 3: Iron Guard
-        if (cd[3] > 0) return;
-        cd[3] = 12.0;
-        p.buffs.def = 6.0;
-        soundEngine.playIronGuard();
-
-        this.addSkillBanner('🛡️ IRON GUARD (+60 DEF)', '#60a5fa');
-        this.addBarrierEffect(p.x, p.y);
-        this.addShockwave(p.x, p.y, '#60a5fa', 65);
-        this.addParticle(p.x, p.y, '#93c5fd', 25);
-        this.addFloatingText(p.x, p.y - 45, `🛡️ IRON GUARD (+60 DEF)`, '#60a5fa', 18);
-        this.onLog(`🛡️ [3] ใช้สกิล Iron Guard กางเกราะบาเรียป้องกัน +60 DEF 6 วินาที`, 'chat');
-
-      } else if (slot === 4) {
-        // 4: Berserk Rage
-        if (cd[4] > 0) return;
-        cd[4] = 16.0;
-        p.buffs.berserk = 8.0;
-        soundEngine.playBerserk();
-
-        this.triggerScreenShake(6);
-        this.addSkillBanner('⚡ BERSERK RAGE!', '#ef4444');
-        this.addShockwave(p.x, p.y, '#ef4444', 90);
-        this.addParticle(p.x, p.y, '#ef4444', 40);
-        this.addFloatingText(p.x, p.y - 50, `⚡ BERSERK RAGE!`, '#ef4444', 24, true);
-        this.onLog(`⚡ [4] ปลดปล่อย Berserk Rage! ระเบิดพลังออร่าเพลิงแดง เร่งความเร็วโจมตี ASPD`, 'chat');
-
-      } else if (slot === 5) {
-        this.usePotionSlot();
-
-      } else if (slot === 6) {
-        // 6: Flash Dash
-        if (cd[6] > 0) return;
-        cd[6] = 5.0;
-        soundEngine.playDash();
-
-        this.addSkillBanner('💨 FLASH DASH', '#cbd5e1');
-        this.addAfterimage(p.x, p.y, p.facing);
-        const dashDist = 140 * p.facing;
-        if (this.worldMap.isWalkable(p.x + dashDist, p.y, 16)) {
-          p.x += dashDist;
-          p.targetX = p.x;
-        }
-        this.addAfterimage(p.x, p.y, p.facing);
-        this.addParticle(p.x, p.y, '#cbd5e1', 30);
-        this.addShockwave(p.x, p.y, '#94a3b8', 45);
-        this.addFloatingText(p.x, p.y - 30, `💨 FLASH DASH`, '#94a3b8', 16);
-        this.onLog(`💨 [6] ใช้สกิล Flash Dash พุ่งตัวพริบตาไปข้างหน้า!`, 'chat');
-
-      } else if (slot === 7) {
-        // 7: War Cry
-        if (cd[7] > 0) return;
-        cd[7] = 10.0;
-        soundEngine.playWarCry();
-
-        this.triggerScreenShake(6);
-        this.addSkillBanner('📢 WAR CRY (STUN)', '#fbbf24');
-        this.addSonicWave(p.x, p.y);
-        this.addParticle(p.x, p.y, '#f59e0b', 35);
-
-        const liveMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
-        for (const m of liveMonsters) {
-          if (Math.hypot(m.x - p.x, m.y - p.y) < 200) {
-            m.stunTimer = 3.0; // 3 seconds stun!
-            m.flashTimer = 0.2;
-            this.addFloatingText(m.x, m.y - 25, '⭐ STUNNED!', '#fbbf24', 16);
-          }
-        }
-        this.onLog(`📢 [7] ใช้สกิล War Cry คำรามสะกดศัตรูในระยะ 200px ให้ติดสถานะสตัน 3 วินาที!`, 'chat');
-
-      } else if (slot === 8) {
-        this.useFirstAidSlot();
-
-      } else if (slot === 9) {
-        this.useTownPortalSlot();
-      }
+    const entry = this.player.hotbar[slot - 1];
+    if (!entry) {
+      this.onLog(`ช่อง [${slot}] ว่างอยู่ — ยังไม่ได้ตั้งสกิล/ไอเทมในช่องนี้`, 'system');
+      return;
     }
+    const item = ITEMS[entry];
+    if (item && item.type === 'consumable') this.usePotionSlot();
   }
 
   usePotionSlot() {
@@ -1054,16 +690,16 @@ export class GameEngine {
     damage = Math.floor(damage * variance);
     if (isCrit) damage = Math.floor(damage * 1.6);
 
-    const isArcher = this.player.currentClass.category === 'archer';
+    const weapon = this.player.weaponInfo;
 
-    if (isArcher) {
-      // ARCHER RANGED BOW ATTACK: Launch projectile
+    if (weapon.projectile) {
+      // RANGED ATTACK (bow arrow / staff magic bolt): launch projectile
       soundEngine.playBowShoot();
-      this.spawnArrow(p.x, p.y, monster.x, monster.y, monster.id, damage, isCrit);
+      this.spawnArrow(p.x, p.y, monster.x, monster.y, monster.id, damage, isCrit, null, weapon.projectile);
 
       if (this.network) {
         this.network.sendAttackAction({
-          weaponType: 'bow',
+          weaponType: weapon.type,
           targetId: monster.id,
           targetX: monster.x,
           targetY: monster.y
@@ -1071,7 +707,7 @@ export class GameEngine {
       }
 
     } else {
-      // SWORDSMAN MELEE SWORD ATTACK
+      // MELEE ATTACK (fist / stick / sword)
       if (isCrit) {
         soundEngine.playCritHit();
         this.triggerScreenShake(5);
@@ -1091,7 +727,7 @@ export class GameEngine {
 
       if (this.network) {
         this.network.sendAttackAction({
-          weaponType: 'sword',
+          weaponType: weapon.type,
           targetId: monster.id
         });
         this.network.sendMonsterHit(monster.id, damage, isCrit);
@@ -1182,7 +818,7 @@ export class GameEngine {
         const dy = target.y - p.y;
         const dist = Math.hypot(dx, dy);
         p.facing = dx >= 0 ? 1 : -1;
-        const attackRange = this.player.currentClass.range || 75;
+        const attackRange = this.player.attackRange;
 
         if (dist > attackRange) {
           const speed = 175;
@@ -1563,6 +1199,22 @@ export class GameEngine {
       }
       ctx.stroke();
 
+      if (pr.kind === 'bolt') {
+        // Magic bolt: glowing orb
+        ctx.save();
+        ctx.translate(pr.x, pr.y);
+        const glow = ctx.createRadialGradient(0, 0, 1, 0, 0, 14);
+        glow.addColorStop(0, pr.isCrit ? '#fde68a' : '#e9d5ff');
+        glow.addColorStop(0.5, pr.isCrit ? 'rgba(245,158,11,0.7)' : 'rgba(168,85,247,0.7)');
+        glow.addColorStop(1, 'rgba(168,85,247,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        continue;
+      }
+
       // Arrow Body with Angle
       ctx.save();
       ctx.translate(pr.x, pr.y);
@@ -1706,8 +1358,10 @@ export class GameEngine {
     ctx.translate(x, y);
     ctx.scale(facing || 1, 1);
 
-    const isReborn = isLocal ? (this.player.rebirthCount > 0) : (remoteProfile && remoteProfile.rebirthCount > 0);
-    const isArcher = isLocal ? (this.player.currentClass.category === 'archer') : (remoteProfile && (remoteProfile.weaponType === 'bow' || (remoteProfile.classId && remoteProfile.classId.includes('archer'))));
+    // No classes: the outfit is the same for everyone, only the held weapon differs
+    const wType = isLocal ? this.player.weaponInfo.type : ((remoteProfile && remoteProfile.weaponType) || 'fist');
+    const isReborn = false;
+    const isArcher = false;
 
     // Rebirth Aura
     if (isReborn) {
@@ -1821,8 +1475,10 @@ export class GameEngine {
     ctx.arc(0, -21, 14, Math.PI * 0.9, Math.PI * 2.1);
     ctx.fill();
 
-    // WEAPON RENDERING (Bow vs Sword)
-    if (isArcher) {
+    // WEAPON RENDERING (by weapon type)
+    if (wType === 'fist') {
+      // bare hands: nothing held
+    } else if (wType === 'bow') {
       // --- ARTICULATED HUNTER LONGBOW ---
       ctx.save();
       ctx.translate(12, 2);
@@ -1863,6 +1519,43 @@ export class GameEngine {
         ctx.stroke();
       }
 
+      ctx.restore();
+
+    } else if (wType === 'stick' || wType === 'staff') {
+      // --- STICK / STAFF ---
+      ctx.save();
+      let swing = 0.35;
+      const attacking = isLocal ? (this.playerEntity && this.playerEntity.attackAnimTimer > 0) : (remoteProfile && remoteProfile.isAttacking);
+      if (attacking) {
+        const prog = isLocal ? (1 - (this.playerEntity.attackAnimTimer / 0.22)) : 0.5;
+        swing = wType === 'staff' ? -0.3 + prog * 0.8 : -1.2 + prog * 2.6;
+      }
+      ctx.translate(8, 6);
+      ctx.rotate(swing);
+      const isStaff = wType === 'staff';
+      ctx.strokeStyle = isStaff ? '#7c3aed' : '#78350f';
+      ctx.lineWidth = isStaff ? 4 : 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, 8);
+      ctx.lineTo(0, isStaff ? -30 : -22);
+      ctx.stroke();
+      if (isStaff) {
+        ctx.fillStyle = attacking ? '#fde68a' : '#c084fc';
+        ctx.shadowColor = '#a855f7';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(0, -33, 6, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // little leaves on the twig
+        ctx.strokeStyle = '#16a34a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -12); ctx.lineTo(5, -17);
+        ctx.moveTo(0, -18); ctx.lineTo(-5, -23);
+        ctx.stroke();
+      }
       ctx.restore();
 
     } else {
@@ -1957,10 +1650,9 @@ export class GameEngine {
     ctx.fillText(`${partyIcon}${op.name}`, x, y - 44);
 
     // Job Title & Level
-    const jobName = op.classId ? op.classId.toUpperCase() : 'ADVENTURER';
     ctx.font = '9px sans-serif';
     ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(`[${jobName}] Lv.${op.level || 1}`, x, y - 34);
+    ctx.fillText(`Lv.${op.level || 1}`, x, y - 34);
 
     // Mini Overhead Health Bar
     const maxHp = op.maxHp || 200;

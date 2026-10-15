@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
-import { MONSTERS, ZONES } from './src/data.js';
+import { MONSTERS, ZONES, WEAPON_TYPES } from './src/data.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -114,6 +114,7 @@ const monsters = FIXED_MONSTERS_DATA.map(m => ({
 const WORLD_W = 3200;
 const WORLD_H = 2400;
 const ZONE_IDS = new Set(ZONES.map(z => z.id));
+const WEAPON_TYPE_IDS = new Set(Object.keys(WEAPON_TYPES));
 const MAX_PARTY_SIZE = 6;
 const PARTY_EXP_BONUS = 1.25;
 const MAX_HIT_RANGE = 700;      // px between player and monster for a hit to count
@@ -153,7 +154,7 @@ function monsterGold(template, isMvp) {
 const players = new Map();
 
 // Parties
-// party: { id, name, leaderId, leaderName, members: [{id,name,classId,level,hp,maxHp,map}],
+// party: { id, name, leaderId, leaderName, members: [{id,name,level,hp,maxHp,map}],
 //          settings: { expShare: 'share'|'killer', autoAccept, minLevel, maxLevel } }
 const parties = new Map();
 let nextPartyId = 1;
@@ -221,7 +222,6 @@ function syncMember(p) {
   const mem = party && party.members.find(m => m.id === p.id);
   if (!mem) return;
   mem.name = p.name;
-  mem.classId = p.classId;
   mem.level = p.level;
   mem.hp = p.hp;
   mem.maxHp = p.maxHp;
@@ -237,7 +237,7 @@ function levelAllowed(party, level) {
 function addToParty(party, p) {
   p.partyId = party.id;
   party.members.push({
-    id: p.id, name: p.name, classId: p.classId, level: p.level,
+    id: p.id, name: p.name, level: p.level,
     hp: p.hp, maxHp: p.maxHp, map: p.currentMap
   });
   invites.get(p.id)?.delete(party.id);
@@ -298,7 +298,6 @@ function applySettings(party, raw = {}) {
 function rewardKill(killer, m) {
   const template = MONSTERS[m.templateId] || {};
   const exp = template.exp || 35;
-  const jobExp = template.jobExp || 20;
   const gold = monsterGold(template, !!m.isMvp);
 
   const party = killer.partyId ? parties.get(killer.partyId) : null;
@@ -323,7 +322,6 @@ function rewardKill(killer, m) {
       monsterId: m.id,
       monsterName: m.name,
       exp: Math.max(1, Math.floor(exp * mult)),
-      jobExp: Math.max(1, Math.floor(jobExp * mult)),
       gold: Math.floor(gold * mult),
       shared,
       shareCount: n,
@@ -338,10 +336,8 @@ wss.on('connection', (ws) => {
   const playerState = {
     id: playerId,
     name: `Adventurer #${Math.floor(100 + Math.random() * 900)}`,
-    classId: 'swordsman',
-    weaponType: 'sword',
+    weaponType: 'stick',
     level: 1,
-    rebirthCount: 0,
     currentMap: 'meadows',
     x: 750 + (Math.random() - 0.5) * 60,
     y: 1220 + (Math.random() - 0.5) * 60,
@@ -386,9 +382,7 @@ wss.on('connection', (ws) => {
         case 'update_profile': {
           if (data.name !== undefined) p.name = cleanText(data.name, 16, p.name);
           if (data.level !== undefined) p.level = clampInt(data.level, 1, 999, p.level);
-          if (typeof data.classId === 'string') p.classId = cleanText(data.classId, 32, p.classId);
-          if (data.weaponType === 'sword' || data.weaponType === 'bow') p.weaponType = data.weaponType;
-          if (data.rebirthCount !== undefined) p.rebirthCount = clampInt(data.rebirthCount, 0, 10, 0);
+          if (WEAPON_TYPE_IDS.has(data.weaponType)) p.weaponType = data.weaponType;
           if (data.maxHp !== undefined) p.maxHp = clampInt(data.maxHp, 1, 500000, p.maxHp);
           if (data.hp !== undefined) p.hp = clampInt(data.hp, 0, p.maxHp, p.hp);
           p.hp = Math.min(p.hp, p.maxHp);
@@ -426,8 +420,7 @@ wss.on('connection', (ws) => {
           broadcast({
             type: 'player_attack_effect',
             playerId: p.id,
-            classId: p.classId,
-            weaponType: data.weaponType === 'bow' ? 'bow' : (data.weaponType === 'sword' ? 'sword' : p.weaponType),
+            weaponType: WEAPON_TYPE_IDS.has(data.weaponType) ? data.weaponType : p.weaponType,
             x: p.x,
             y: p.y,
             facing: p.facing,

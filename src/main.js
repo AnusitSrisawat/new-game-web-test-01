@@ -9,6 +9,27 @@ document.addEventListener('DOMContentLoaded', () => {
   const minimapCanvas = document.getElementById('minimapCanvas');
   const chatContainer = document.getElementById('chat-messages-container');
 
+  // Chat can be collapsed to a 💬 icon (remembered between visits)
+  let chatCollapsed = false;
+  let unread = 0;
+  const chatPanel = document.getElementById('chat-panel');
+  const chatIconBtn = document.getElementById('chat-icon-btn');
+  const setChatCollapsed = (collapsed) => {
+    chatCollapsed = collapsed;
+    if (chatPanel) chatPanel.classList.toggle('collapsed', collapsed);
+    if (chatIconBtn) chatIconBtn.style.display = collapsed ? 'block' : 'none';
+    if (!collapsed) {
+      unread = 0;
+      const badge = document.getElementById('chat-unread');
+      if (badge) badge.style.display = 'none';
+      if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    try { localStorage.setItem('chat_collapsed', collapsed ? '1' : '0'); } catch (e) { /* ignore */ }
+  };
+  document.getElementById('chat-collapse-btn')?.addEventListener('click', () => setChatCollapsed(true));
+  chatIconBtn?.addEventListener('click', () => setChatCollapsed(false));
+  try { if (localStorage.getItem('chat_collapsed') === '1') setChatCollapsed(true); } catch (e) { /* ignore */ }
+
   // Combat & System Log Callback
   const addLog = (message, type = 'system') => {
     if (!chatContainer) return;
@@ -17,6 +38,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const time = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     msgEl.innerHTML = `<span style="opacity:0.5; font-size:0.7rem;">[${time}]</span> ${String(message).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]))}`;
     chatContainer.appendChild(msgEl);
+    if (chatCollapsed && type !== 'system') {
+      unread++;
+      const badge = document.getElementById('chat-unread');
+      if (badge) { badge.textContent = unread > 99 ? '99+' : unread; badge.style.display = 'block'; }
+    }
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
     while (chatContainer.children.length > 60) {
@@ -105,5 +131,5 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 100);
 
   addLog('🌿 ยินดีต้อนรับสู่ TRIPLE CROWN ONLINE!', 'system');
-  addLog('🕹️ การควบคุม: [WASD] เดิน • [คลิกขวา] ล็อคเป้า • [คลิกซ้าย] โจมตี • [1-9] สกิล', 'chat');
+  addLog('🕹️ การควบคุม: [WASD] เดิน • [คลิกขวา] ล็อคเป้า • [คลิกซ้าย] โจมตี', 'chat');
 });

@@ -1,5 +1,5 @@
 // UI Controller for PC MMORPG Fullscreen Edition
-import { ZONES, ITEMS, RELICS, CRAFTING_RECIPES, GACHA_COSTUMES, QUESTS } from './data.js';
+import { ZONES, ITEMS, RELICS, CRAFTING_RECIPES, GACHA_COSTUMES, QUESTS, WEAPON_TYPES, STAT_KEYS } from './data.js';
 import { soundEngine } from './audio.js';
 
 export class UIController {
@@ -211,10 +211,8 @@ export class UIController {
   updateHUD() {
     // Unit Frame at Top-Left
     const nameEl = document.getElementById('hud-unit-name');
-    const classEl = document.getElementById('hud-unit-class');
-    const rebornEl = document.getElementById('hud-unit-reborn');
+    const weaponEl = document.getElementById('hud-unit-weapon');
     const baseLvlEl = document.getElementById('hud-base-lvl');
-    const jobLvlEl = document.getElementById('hud-job-lvl');
 
     const hpFill = document.getElementById('hud-hp-fill');
     const hpText = document.getElementById('hud-hp-text');
@@ -222,28 +220,17 @@ export class UIController {
     const spText = document.getElementById('hud-sp-text');
     const baseExpFill = document.getElementById('hud-base-exp-fill');
     const baseExpText = document.getElementById('hud-base-exp-text');
-    const jobExpFill = document.getElementById('hud-job-exp-fill');
-    const jobExpText = document.getElementById('hud-job-exp-text');
 
     const goldEl = document.getElementById('hud-gold-text');
     const tokenEl = document.getElementById('hud-token-text');
 
     if (nameEl) nameEl.textContent = this.player.name;
-    if (classEl) classEl.textContent = this.player.currentClass.name;
-    if (rebornEl) {
-      if (this.player.rebirthCount > 0) {
-        rebornEl.style.display = 'inline-block';
-        rebornEl.textContent = `★ Reborn x${this.player.rebirthCount}`;
-      } else {
-        rebornEl.style.display = 'none';
-      }
+    if (weaponEl) {
+      const w = ITEMS[this.player.equipment.weapon];
+      weaponEl.textContent = w ? w.name.replace(/\s*\(.*\)/, '') : 'มือเปล่า';
     }
 
     if (baseLvlEl) baseLvlEl.textContent = `Lv. ${this.player.baseLevel}`;
-    if (jobLvlEl) {
-      jobLvlEl.textContent = this.player.jobLevel >= 50 ? 'Lv. 50 (MAX)' : `Lv. ${this.player.jobLevel} / 50`;
-    }
-
     // 1. HP & SP Bars
     if (hpFill && hpText) {
       const hpPct = Math.max(0, (this.player.currentHp / this.player.maxHp) * 100);
@@ -263,59 +250,8 @@ export class UIController {
       baseExpText.textContent = `${this.player.baseExp} / ${maxB} (${bPct.toFixed(1)}%)`;
     }
 
-    // 3. Job EXP Bar
-    if (jobExpFill && jobExpText) {
-      if (this.player.jobLevel >= 50) {
-        jobExpFill.style.width = '100%';
-        jobExpText.textContent = 'JOB MAX (100%)';
-      } else {
-        const maxJ = this.player.maxJobExp;
-        const jPct = Math.min(100, (this.player.jobExp / maxJ) * 100);
-        jobExpFill.style.width = `${jPct}%`;
-        jobExpText.textContent = `${this.player.jobExp} / ${maxJ} (${jPct.toFixed(1)}%)`;
-      }
-    }
-
     if (goldEl) goldEl.textContent = this.player.gold.toLocaleString();
     if (tokenEl) tokenEl.textContent = this.player.gachaTokens.toLocaleString();
-
-    // 4. Job Advancement & Rebirth Alert Banner
-    const advanceAlert = document.getElementById('hud-class-advance-alert');
-    const advanceText = document.getElementById('hud-job-alert-text');
-    const advanceBtn = document.getElementById('hud-job-alert-btn');
-    const canAdvance = this.player.canAdvanceClass();
-    const canRebirth = this.player.canRebirth();
-
-    if (advanceAlert && advanceText && advanceBtn) {
-      if (canAdvance) {
-        advanceAlert.style.display = 'flex';
-        const targetName = canAdvance === 'knight' ? 'Knight (คลาส 2)' : canAdvance === 'high_knight' ? 'High Knight (คลาส 2 จุติ)' : 'Rune Knight (คลาส 3)';
-        advanceText.textContent = `🌟 Job 50! เลื่อนขั้นเป็น ${targetName}`;
-        advanceBtn.textContent = 'เปลี่ยนอาชีพ';
-        advanceBtn.onclick = () => {
-          if (this.player.advanceClass()) {
-            this.gameEngine.onLog(`🎉 ยินดีด้วย! คุณได้เลื่อนขั้นเป็น ${this.player.currentClass.name} สำเร็จ!`, 'system');
-            this.gameEngine.triggerScreenShake(6);
-            this.gameEngine.addShockwave(this.gameEngine.playerEntity.x, this.gameEngine.playerEntity.y, '#f59e0b', 90);
-            this.renderAll();
-          }
-        };
-      } else if (canRebirth) {
-        advanceAlert.style.display = 'flex';
-        advanceText.textContent = '🔮 Knight Job 50! ปลดล็อคพิธีจุติ Rebirth Lv.1';
-        advanceBtn.textContent = 'เข้าสู่พิธีจุติ';
-        advanceBtn.onclick = () => {
-          if (this.player.rebirth()) {
-            this.gameEngine.onLog('🔮 เข้าสู่พิธีจุติ Rebirth สำเร็จ! เริ่มต้นใหม่พร้อมโบนัส All Stats +15% ถาวร!', 'system');
-            this.gameEngine.triggerScreenShake(8);
-            this.gameEngine.addShockwave(this.gameEngine.playerEntity.x, this.gameEngine.playerEntity.y, '#c084fc', 120);
-            this.renderAll();
-          }
-        };
-      } else {
-        advanceAlert.style.display = 'none';
-      }
-    }
 
     // 5. Stat Points Notification Alert
     const statAlert = document.getElementById('hud-stat-point-alert');
@@ -334,44 +270,26 @@ export class UIController {
     // 6. Update Pinned Active Quest Tracker Widget
     this.updateQuestTrackerWidget();
 
-    // 7. Dynamic Hotbar Icons, Names & Cooldown Badges 1-9
+    // 7. Hotbar 1-9: the player assigns these; empty by default
     const p = this.gameEngine.playerEntity;
-    const isArcher = this.player.currentClass.category === 'archer';
-    const slotMeta = isArcher ? {
-      1: { icon: '🏹', name: 'Double Strafe', title: '[1] Double Strafe (ยิงศรคู่ 280% ดาเมจ)' },
-      2: { icon: '🌧️', name: 'Arrow Shower', title: '[2] Arrow Shower (ฝนธนูระดมยิง AoE)' },
-      3: { icon: '🎯', name: 'Improve Con', title: '[3] Improve Concentration (+25% ASPD, +15% Crit)' },
-      4: { icon: '🦅', name: 'Falcon Assault', title: '[4] Falcon Assault (เหยี่ยวโฉบทำลายล้าง)' },
-      5: { icon: '🧪', name: 'HP Potion', title: '[5] Red Potion (ดื่มยาฟื้น HP)' },
-      6: { icon: '🤸', name: 'Tumble Evade', title: '[6] Tumble Evade (กลิ้งตัวหลบ)' },
-      7: { icon: '🕸️', name: 'Ankle Snare', title: '[7] Ankle Snare (กับดักล็อคขามอนสเตอร์)' },
-      8: { icon: '💚', name: 'First Aid', title: '[8] First Aid (ปฐมพยาบาล)' },
-      9: { icon: '📜', name: 'Town Portal', title: '[9] Town Portal (วาร์ปกลับเมือง)' }
-    } : {
-      1: { icon: '💥', name: 'Power Strike', title: '[1] Power Strike (ฟันหนัก 250% ดาเมจ)' },
-      2: { icon: '🌪️', name: 'Whirlwind', title: '[2] Whirlwind Slash (หมุนดาบรอบตัว AoE)' },
-      3: { icon: '🛡️', name: 'Iron Guard', title: '[3] Iron Guard (เกราะเหล็ก +60 DEF)' },
-      4: { icon: '⚡', name: 'Berserk', title: '[4] Berserk Rage (เร่งความเร็วโจมตี ASPD)' },
-      5: { icon: '🧪', name: 'HP Potion', title: '[5] Red Potion (ดื่มยาฟื้น HP)' },
-      6: { icon: '💨', name: 'Dash', title: '[6] Flash Dash (พุ่งตัวไปข้างหน้า)' },
-      7: { icon: '📢', name: 'War Cry', title: '[7] War Cry (คำรามสะกดมอนสเตอร์สตัน)' },
-      8: { icon: '💚', name: 'First Aid', title: '[8] First Aid (ปฐมพยาบาล)' },
-      9: { icon: '📜', name: 'Town Portal', title: '[9] Town Portal (วาร์ปกลับเมือง)' }
-    };
+    const slotMeta = {};
+    this.player.hotbar.forEach((entry, i) => {
+      const it = entry && ITEMS[entry];
+      if (it) slotMeta[i + 1] = { icon: it.icon || '📦', name: it.name, title: `[${i + 1}] ${it.name}` };
+    });
 
     if (p && p.skillCooldowns) {
       for (let slot = 1; slot <= 9; slot++) {
         const el = document.getElementById(`slot-${slot}`);
         if (!el) continue;
 
-        const meta = slotMeta[slot];
-        if (meta) {
-          el.title = meta.title;
-          const iconEl = el.querySelector('.skill-icon-emoji');
-          if (iconEl && iconEl.textContent !== meta.icon) iconEl.textContent = meta.icon;
-          const nameEl = el.querySelector('.skill-label-name');
-          if (nameEl && nameEl.textContent !== meta.name) nameEl.textContent = meta.name;
-        }
+        const meta = slotMeta[slot] || { icon: '', name: '', title: `[${slot}] ช่องว่าง` };
+        el.title = meta.title;
+        el.classList.toggle('empty', !slotMeta[slot]);
+        const iconEl = el.querySelector('.skill-icon-emoji');
+        if (iconEl && iconEl.textContent !== meta.icon) iconEl.textContent = meta.icon;
+        const nameEl = el.querySelector('.skill-label-name');
+        if (nameEl && nameEl.textContent !== meta.name) nameEl.textContent = meta.name;
 
         const cd = p.skillCooldowns[slot] || 0;
         let mask = el.querySelector('.skill-cd-mask');
@@ -436,214 +354,89 @@ export class UIController {
           st.claimed = true;
           this.player.gold += q.rewardGold;
           this.player.gachaTokens += q.rewardTokens;
-          this.player.gainExp(q.rewardExp, q.rewardJobExp);
+          this.player.gainExp(q.rewardExp);
           this.player.saveToStorage();
-          this.gameEngine.onLog(`🎁 รับรางวัลเควสต์: +${q.rewardGold} Gold, +${q.rewardTokens} Token, +${q.rewardJobExp} Job Exp`, 'quest');
+          this.gameEngine.onLog(`🎁 รับรางวัลเควสต์: +${q.rewardGold} Gold, +${q.rewardTokens} Token`, 'quest');
           this.updateHUD();
         }
       });
     });
   }
 
-  // 1. Status & Advancement Modal
+  // 1. Status Modal (level, stat allocation, derived combat stats, gear)
   renderStatusModal() {
     const body = document.getElementById('modal-status-body');
     if (!body) return;
 
-    const canAdvance = this.player.canAdvanceClass();
-    const canRebirth = this.player.canRebirth();
-
-    let advanceHtml = '';
-    if (canAdvance) {
-      const targetName = canAdvance === 'knight' ? 'Knight (คลาส 2)' : canAdvance === 'high_knight' ? 'High Knight (คลาส 2 จุติ)' : 'Rune Knight (คลาส 3)';
-      advanceHtml = `
-        <div style="background:linear-gradient(135deg,rgba(59,130,246,0.3),rgba(16,185,129,0.2)); border:1px solid #3b82f6; padding:12px; border-radius:8px; margin-bottom:12px; text-align:center;">
-          <h4 style="color:#60a5fa; margin-bottom:4px;">🌟 สามารถเลื่อนขั้นอาชีพได้แล้ว!</h4>
-          <p style="font-size:0.85rem; color:#cbd5e1; margin-bottom:8px;">Job Lv. 50 บรรลุแล้ว! เลื่อนขั้นเป็น <b>${targetName}</b></p>
-          <button id="modal-btn-advance" class="btn-primary" style="padding:6px 16px;">เปลี่ยนอาชีพ</button>
-        </div>
-      `;
-    } else if (canRebirth) {
-      advanceHtml = `
-        <div style="background:linear-gradient(135deg,rgba(168,85,247,0.3),rgba(236,72,153,0.2)); border:1px solid #a855f7; padding:12px; border-radius:8px; margin-bottom:12px; text-align:center;">
-          <h4 style="color:#c084fc; margin-bottom:4px;">🔮 เข้าสู่พิธีกรรมจุติ (Rebirth)</h4>
-          <p style="font-size:0.85rem; color:#cbd5e1; margin-bottom:8px;">Knight Job 50! ทำการจุติเพื่อเริ่มใหม่ที่ Lv.1 พร้อมรับ <b>โบนัส All Stats +15% ถาวร</b> และออร่าเรืองแสง</p>
-          <button id="modal-btn-rebirth" class="btn-special" style="padding:6px 16px;">เข้าสู่พิธีจุติ</button>
-        </div>
-      `;
-    }
-
-    const maxB = this.player.maxBaseExp;
-    const bPct = Math.min(100, (this.player.baseExp / maxB) * 100);
-    const maxJ = this.player.maxJobExp;
-    const jPct = this.player.jobLevel >= 50 ? 100 : Math.min(100, (this.player.jobExp / maxJ) * 100);
-
-    const isArcher = this.player.currentClass.category === 'archer';
+    const pl = this.player;
+    const maxB = pl.maxBaseExp;
+    const bPct = Math.min(100, (pl.baseExp / maxB) * 100);
+    const w = ITEMS[pl.equipment.weapon];
+    const a = ITEMS[pl.equipment.armor];
+    const info = pl.weaponInfo;
+    const wtName = WEAPON_TYPES[info.type] ? WEAPON_TYPES[info.type].name : info.type;
+    const statHelp = {
+      str: 'ดาเมจอาวุธประชิด (กิ่งไม้/ดาบ/มือเปล่า)',
+      agi: 'ความเร็วโจมตี',
+      vit: 'HP สูงสุด และ DEF',
+      dex: 'ดาเมจธนู และเสริมดาเมจรวม',
+      int: 'ดาเมจคฑา (เวท)',
+      luk: 'โอกาสคริติคอล'
+    };
+    const row = (l, v) => `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span>${l}</span> <b>${v}</b></div>`;
 
     body.innerHTML = `
-      ${advanceHtml}
-
-      <!-- Class Branch Switcher (Swordsman vs Archer) -->
-      <div style="background:rgba(30,41,59,0.7); border:1px solid #475569; padding:8px 12px; border-radius:8px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-        <div>
-          <span style="font-size:0.75rem; color:#94a3b8;">สายอาชีพ:</span>
-          <b style="color:${isArcher ? '#10b981' : '#3b82f6'}; margin-left:6px; font-size:0.85rem;">${this.player.currentClass.name}</b>
-        </div>
-        <div>
-          <button id="modal-btn-switch-swordsman" class="btn-class-switch ${!isArcher ? 'active' : ''}">⚔️ นักดาบ</button>
-          <button id="modal-btn-switch-archer" class="btn-class-switch ${isArcher ? 'active' : ''}">🏹 นักธนู</button>
-        </div>
-      </div>
-
-      <!-- Dual Levels & EXP Cards -->
       <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(245,158,11,0.3); border-radius:8px; padding:10px 14px; margin-bottom:12px;">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px;">
-          <div>
-            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:3px;">
-              <span style="font-weight:700; color:#38bdf8;">⭐ Base Level: Lv. ${this.player.baseLevel}</span>
-              <span style="color:#94a3b8; font-size:0.75rem;">${bPct.toFixed(1)}%</span>
-            </div>
-            <div style="width:100%; height:8px; background:#1e293b; border-radius:4px; overflow:hidden;">
-              <div style="width:${bPct}%; height:100%; background:linear-gradient(90deg,#0284c7,#38bdf8);"></div>
-            </div>
-            <div style="font-size:0.7rem; color:#94a3b8; margin-top:2px; text-align:right;">${this.player.baseExp.toLocaleString()} / ${maxB.toLocaleString()} EXP</div>
-          </div>
-
-          <div>
-            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:3px;">
-              <span style="font-weight:700; color:#fbbf24;">✨ Job Level: Lv. ${this.player.jobLevel} / 50</span>
-              <span style="color:#94a3b8; font-size:0.75rem;">${this.player.jobLevel >= 50 ? 'MAX' : `${jPct.toFixed(1)}%`}</span>
-            </div>
-            <div style="width:100%; height:8px; background:#1e293b; border-radius:4px; overflow:hidden;">
-              <div style="width:${jPct}%; height:100%; background:linear-gradient(90deg,#d97706,#fbbf24);"></div>
-            </div>
-            <div style="font-size:0.7rem; color:#94a3b8; margin-top:2px; text-align:right;">${this.player.jobLevel >= 50 ? 'JOB LEVEL 50 MAXED' : `${this.player.jobExp.toLocaleString()} / ${maxJ.toLocaleString()} Job EXP`}</div>
-          </div>
+        <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:3px;">
+          <span style="font-weight:700; color:#38bdf8;">⭐ Level ${pl.baseLevel}</span>
+          <span style="color:#94a3b8; font-size:0.75rem;">${bPct.toFixed(1)}%</span>
         </div>
-
-        <!-- Career Progression Roadmap -->
-        <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:8px; display:flex; align-items:center; justify-content:space-between; font-size:0.7rem; color:#94a3b8; flex-wrap:wrap; gap:4px;">
-          <span style="font-weight:700; color:#cbd5e1;">เส้นทางอาชีพ:</span>
-          ${isArcher ? `
-            <span style="${this.player.classId === 'archer' ? 'color:#10b981; font-weight:800; background:rgba(16,185,129,0.2); padding:1px 6px; border-radius:4px;' : ''}">1. Archer</span> ➔
-            <span style="${this.player.classId === 'hunter' ? 'color:#10b981; font-weight:800; background:rgba(16,185,129,0.2); padding:1px 6px; border-radius:4px;' : ''}">2. Hunter</span> ➔
-            <span style="${this.player.classId === 'high_archer' ? 'color:#c084fc; font-weight:800; background:rgba(168,85,247,0.2); padding:1px 6px; border-radius:4px;' : ''}">3. High Archer (จุติ)</span> ➔
-            <span style="${this.player.classId === 'sniper' ? 'color:#c084fc; font-weight:800; background:rgba(168,85,247,0.2); padding:1px 6px; border-radius:4px;' : ''}">4. Sniper</span> ➔
-            <span style="${this.player.classId === 'ranger' ? 'color:#14b8a6; font-weight:800; background:rgba(20,184,166,0.2); padding:1px 6px; border-radius:4px;' : ''}">5. Ranger (คลาส 3)</span>
-          ` : `
-            <span style="${this.player.classId === 'swordsman' ? 'color:#facc15; font-weight:800; background:rgba(245,158,11,0.2); padding:1px 6px; border-radius:4px;' : ''}">1. Swordsman</span> ➔
-            <span style="${this.player.classId === 'knight' ? 'color:#facc15; font-weight:800; background:rgba(245,158,11,0.2); padding:1px 6px; border-radius:4px;' : ''}">2. Knight</span> ➔
-            <span style="${this.player.classId === 'high_swordsman' ? 'color:#c084fc; font-weight:800; background:rgba(168,85,247,0.2); padding:1px 6px; border-radius:4px;' : ''}">3. High Swordsman (จุติ)</span> ➔
-            <span style="${this.player.classId === 'high_knight' ? 'color:#c084fc; font-weight:800; background:rgba(168,85,247,0.2); padding:1px 6px; border-radius:4px;' : ''}">4. High Knight</span> ➔
-            <span style="${this.player.classId === 'rune_knight' ? 'color:#f43f5e; font-weight:800; background:rgba(244,63,94,0.2); padding:1px 6px; border-radius:4px;' : ''}">5. Rune Knight (คลาส 3)</span>
-          `}
+        <div style="width:100%; height:8px; background:#1e293b; border-radius:4px; overflow:hidden;">
+          <div style="width:${bPct}%; height:100%; background:linear-gradient(90deg,#0284c7,#38bdf8);"></div>
         </div>
+        <div style="font-size:0.7rem; color:#94a3b8; margin-top:2px; text-align:right;">${pl.baseExp.toLocaleString()} / ${maxB.toLocaleString()} EXP</div>
+        <div style="font-size:0.72rem; color:#94a3b8; margin-top:4px;">เลเวลใช้เป็นเงื่อนไขสวมอาวุธ/เกราะหายาก</div>
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
         <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
           <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
             <span style="font-weight:700;">📊 จัดสรรค่าสเตตัส</span>
-            <span style="color:#f59e0b; font-size:0.85rem;">แต้มคงเหลือ: <b>${this.player.statPoints}</b></span>
+            <span style="color:#f59e0b; font-size:0.85rem;">แต้มคงเหลือ: <b>${pl.statPoints}</b></span>
           </div>
-          ${['str', 'agi', 'vit', 'dex', 'luk'].map(s => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-              <span style="font-weight:600; text-transform:uppercase;">${s}</span>
-              <span>${this.player.stats[s]}</span>
-              <button class="btn-stat-add" data-stat="${s}" ${this.player.statPoints > 0 ? '' : 'disabled'} style="width:24px; height:24px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">+</button>
+          ${STAT_KEYS.map(k => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05);" title="${statHelp[k]}">
+              <span style="font-weight:600; text-transform:uppercase; width:42px;">${k}</span>
+              <span style="flex:1; font-size:0.68rem; color:#94a3b8;">${statHelp[k]}</span>
+              <b style="width:30px; text-align:right; margin-right:8px;">${pl.stats[k]}</b>
+              <button class="btn-stat-add" data-stat="${k}" ${pl.statPoints > 0 ? '' : 'disabled'} style="width:24px; height:24px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">+</button>
             </div>
           `).join('')}
         </div>
         <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); font-size:0.85rem;">
           <h4 style="margin-bottom:8px;">⚔️ ข้อมูลพลังรบรวม</h4>
-          <div style="display:flex; justify-content:space-between; padding:4px 0;"><span>คลาสปัจจุบัน:</span> <b style="color:#facc15;">${this.player.currentClass.name}</b></div>
-          <div style="display:flex; justify-content:space-between; padding:4px 0;"><span>Job Level:</span> <b>${this.player.jobLevel} / 50</b></div>
-          <div style="display:flex; justify-content:space-between; padding:4px 0;"><span>Max HP:</span> <b>${this.player.maxHp}</b></div>
-          <div style="display:flex; justify-content:space-between; padding:4px 0;"><span>Total ATK:</span> <b>${this.player.attack}</b></div>
-          <div style="display:flex; justify-content:space-between; padding:4px 0;"><span>Total DEF:</span> <b>${this.player.defense}</b></div>
-          <div style="display:flex; justify-content:space-between; padding:4px 0;"><span>ASPD:</span> <b>${this.player.aspd}/s</b></div>
-          <div style="display:flex; justify-content:space-between; padding:4px 0;"><span>Crit Rate:</span> <b>${(this.player.critRate * 100).toFixed(1)}%</b></div>
-          <div style="display:flex; justify-content:space-between; padding:4px 0;"><span>สมบัติ Relic:</span> <b>${this.player.collectedRelics.length}/12 ชิ้น</b></div>
+          ${row('อาวุธ:', w ? w.name : 'มือเปล่า')}
+          ${row('ประเภท / ระยะโจมตี:', `${wtName} / ${info.range}px`)}
+          ${row('เกราะ:', a ? a.name : '-')}
+          ${row('Max HP:', pl.maxHp)}
+          ${row('Total ATK:', pl.attack)}
+          ${row('Total DEF:', pl.defense)}
+          ${row('ASPD:', `${pl.aspd}/s`)}
+          ${row('Crit Rate:', `${(pl.critRate * 100).toFixed(1)}%`)}
+          ${row('สมบัติ Relic:', `${pl.collectedRelics.length}/12 ชิ้น`)}
         </div>
       </div>
     `;
 
     body.querySelectorAll('.btn-stat-add').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const s = e.currentTarget.dataset.stat;
-        if (this.player.allocateStat(s)) {
+        const k = e.currentTarget.dataset.stat;
+        if (this.player.allocateStat(k)) {
           this.renderStatusModal();
           this.updateHUD();
         }
       });
     });
-
-    const advBtn = document.getElementById('modal-btn-advance');
-    if (advBtn) {
-      advBtn.addEventListener('click', () => {
-        if (this.player.advanceClass()) {
-          this.gameEngine.onLog(`🎉 เลื่อนขั้นอาชีพสำเร็จเป็น ${this.player.currentClass.name}!`, 'system');
-          this.renderStatusModal();
-          this.updateHUD();
-        }
-      });
-    }
-
-    const rebBtn = document.getElementById('modal-btn-rebirth');
-    if (rebBtn) {
-      rebBtn.addEventListener('click', () => {
-        if (confirm('ยืนยันเข้าสู่พิธีจุติ (Rebirth) เพื่อเริ่มต้นใหม่ที่เลเวล 1 พร้อมโบนัสถาวร +15% All Stats?')) {
-          if (this.player.rebirth()) {
-            this.gameEngine.onLog(`🌟 ถือกำเนิดใหม่เป็น High Swordsman! ได้รับออร่าวิญญาณพิเศษ`, 'system');
-            this.renderStatusModal();
-            this.updateHUD();
-          }
-        }
-      });
-    }
-
-    // Class Branch Switcher Buttons (Swordsman vs Archer)
-    const switchSwordsmanBtn = document.getElementById('modal-btn-switch-swordsman');
-    if (switchSwordsmanBtn) {
-      switchSwordsmanBtn.addEventListener('click', () => {
-        if (this.player.currentClass.category !== 'swordsman') {
-          this.player.switchClassBranch('swordsman');
-          if (this.gameEngine.network) {
-            this.gameEngine.network.sendProfile(
-              this.player.name,
-              this.player.baseLevel,
-              this.player.jobLevel,
-              this.player.classId,
-              this.player.equipment?.weapon
-            );
-          }
-          this.gameEngine.onLog(`⚔️ สลับสายอาชีพเป็น: ${this.player.currentClass.name}`, 'system');
-          this.renderStatusModal();
-          this.updateHUD();
-        }
-      });
-    }
-
-    const switchArcherBtn = document.getElementById('modal-btn-switch-archer');
-    if (switchArcherBtn) {
-      switchArcherBtn.addEventListener('click', () => {
-        if (this.player.currentClass.category !== 'archer') {
-          this.player.switchClassBranch('archer');
-          if (this.gameEngine.network) {
-            this.gameEngine.network.sendProfile(
-              this.player.name,
-              this.player.baseLevel,
-              this.player.jobLevel,
-              this.player.classId,
-              this.player.equipment?.weapon
-            );
-          }
-          this.gameEngine.onLog(`🏹 สลับสายอาชีพเป็น: ${this.player.currentClass.name}`, 'system');
-          this.renderStatusModal();
-          this.updateHUD();
-        }
-      });
-    }
   }
 
   // 2. Inventory & Crafting Modal
@@ -668,6 +461,7 @@ export class UIController {
             <div style="font-size:24px;">${item.icon || '📦'}</div>
             <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.name}</div>
             <div style="color:#f59e0b;">x${count}</div>
+            ${item.reqLevel > 1 ? `<div style="color:${this.player.baseLevel >= item.reqLevel ? '#94a3b8' : '#ef4444'}; font-size:0.68rem;">ต้องการ Lv.${item.reqLevel}</div>` : ''}
             ${item.type === 'weapon' || item.type === 'armor' ? `<button class="btn-inv-equip" data-id="${k}" style="margin-top:3px; padding:2px 6px; background:#2563eb; color:#fff; border:none; border-radius:3px; cursor:pointer; font-size:0.68rem;">สวมใส่</button>` : ''}
           </div>
         `;
@@ -722,7 +516,11 @@ export class UIController {
     body.querySelectorAll('.btn-inv-equip').forEach(b => {
       b.addEventListener('click', (e) => {
         const id = e.currentTarget.dataset.id;
-        this.player.equipItem(id);
+        const res = this.player.equipItem(id);
+        if (!res.ok) {
+          this.gameEngine.onLog(`🚫 สวมใส่ ${ITEMS[id].name} ไม่ได้: ${res.reason}`, 'system');
+          return;
+        }
         this.gameEngine.onLog(`🛡️ สวมใส่ ${ITEMS[id].name}`, 'system');
         this.renderInventoryModal();
         this.updateHUD();
@@ -787,7 +585,7 @@ export class UIController {
           st.claimed = true;
           this.player.gold += q.rewardGold;
           this.player.gachaTokens += q.rewardTokens;
-          this.player.gainExp(q.rewardExp, q.rewardJobExp);
+          this.player.gainExp(q.rewardExp);
           this.player.saveToStorage();
           this.gameEngine.onLog(`🎁 รับรางวัลเควสต์: +${q.rewardGold} Gold, +${q.rewardTokens} Token`, 'quest');
           this.renderQuestsModal();
@@ -1030,36 +828,46 @@ export class UIController {
     });
 
     if (!party) {
-      const zoneOpts = ZONES.map(z => `<option value="${z.id}">${esc(z.name)}</option>`).join('');
-      body.innerHTML = `
-        <div style="${box}">
-          <h4 style="margin-bottom:8px;">🚩 สร้างปาร์ตี้ใหม่</h4>
-          <div style="margin-bottom:8px;"><input type="text" id="input-party-name" maxlength="24" style="${inp} width:100%;" value="กิลด์ผู้กล้า" placeholder="ชื่อปาร์ตี้"></div>
-          ${settingsFields({ expShare: 'share', autoAccept: false, minLevel: 1, maxLevel: 999 }, false)}
-          <button id="btn-create-party-submit" style="${btn('linear-gradient(135deg,#3b82f6,#2563eb)')} margin-top:10px; padding:7px 16px;">สร้างปาร์ตี้</button>
-        </div>
-        <div style="${box}">
-          <h4 style="margin-bottom:8px;">🔎 ค้นหาปาร์ตี้</h4>
-          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:0.8rem; color:#cbd5e1; margin-bottom:8px;">
-            เลเวลหัวหน้า <input type="number" id="pf-min" min="1" value="1" style="${inp} width:60px;"> -
-            <input type="number" id="pf-max" min="1" value="999" style="${inp} width:60px;">
-            แมพ <select id="pf-map" style="${inp}"><option value="">ทุกแมพ</option>${zoneOpts}</select>
-            <button id="btn-party-search" style="${btn('#0ea5e9')}">ค้นหา</button>
-          </div>
-          <div id="party-search-results" style="font-size:0.8rem; color:#94a3b8;">กด “ค้นหา” เพื่อดูปาร์ตี้ที่เปิดอยู่</div>
-        </div>`;
+      const tab = this.partyTab === 'find' ? 'find' : 'create';
+      const tabBtn = (id, label) => `<button class="btn-party-tab" data-tab="${id}" style="flex:1; padding:8px; border:none; border-bottom:3px solid ${tab === id ? '#3b82f6' : 'transparent'}; background:${tab === id ? 'rgba(59,130,246,0.15)' : 'transparent'}; color:${tab === id ? '#fff' : '#94a3b8'}; font-weight:700; cursor:pointer;">${label}</button>`;
+      const tabs = `<div style="display:flex; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.1);">${tabBtn('create', '🚩 สร้างปาร์ตี้')}${tabBtn('find', '🔎 ค้นหาปาร์ตี้')}</div>`;
 
-      document.getElementById('btn-create-party-submit').addEventListener('click', () => {
-        const name = document.getElementById('input-party-name').value.trim() || `${this.player.name}'s Party`;
-        net?.sendCreateParty(name, readSettings());
-      });
-      const search = () => net?.sendPartyListRequest({
-        minLevel: Number(document.getElementById('pf-min').value) || 1,
-        maxLevel: Number(document.getElementById('pf-max').value) || 999,
-        map: document.getElementById('pf-map').value || undefined
-      });
-      document.getElementById('btn-party-search').addEventListener('click', search);
-      if (net && net.partyList && net.partyList.length) this.onPartyListReceived(net.partyList);
+      if (tab === 'create') {
+        body.innerHTML = `${tabs}
+          <div style="${box}">
+            <div style="margin-bottom:8px;"><input type="text" id="input-party-name" maxlength="24" style="${inp} width:100%;" value="กิลด์ผู้กล้า" placeholder="ชื่อปาร์ตี้"></div>
+            ${settingsFields({ expShare: 'share', autoAccept: false, minLevel: 1, maxLevel: 999 }, false)}
+            <button id="btn-create-party-submit" style="${btn('linear-gradient(135deg,#3b82f6,#2563eb)')} margin-top:10px; padding:7px 16px;">สร้างปาร์ตี้</button>
+          </div>`;
+        document.getElementById('btn-create-party-submit').addEventListener('click', () => {
+          const name = document.getElementById('input-party-name').value.trim() || `${this.player.name}'s Party`;
+          net?.sendCreateParty(name, readSettings());
+        });
+      } else {
+        const zoneOpts = ZONES.map(z => `<option value="${z.id}">${esc(z.name)}</option>`).join('');
+        body.innerHTML = `${tabs}
+          <div style="${box}">
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:0.8rem; color:#cbd5e1; margin-bottom:8px;">
+              เลเวลหัวหน้า <input type="number" id="pf-min" min="1" value="1" style="${inp} width:60px;"> -
+              <input type="number" id="pf-max" min="1" value="999" style="${inp} width:60px;">
+              แมพ <select id="pf-map" style="${inp}"><option value="">ทุกแมพ</option>${zoneOpts}</select>
+              <button id="btn-party-search" style="${btn('#0ea5e9')}">ค้นหา</button>
+            </div>
+            <div id="party-search-results" style="font-size:0.8rem; color:#94a3b8;">กำลังค้นหา...</div>
+          </div>`;
+        const search = () => net?.sendPartyListRequest({
+          minLevel: Number(document.getElementById('pf-min').value) || 1,
+          maxLevel: Number(document.getElementById('pf-max').value) || 999,
+          map: document.getElementById('pf-map').value || undefined
+        });
+        document.getElementById('btn-party-search').addEventListener('click', search);
+        search();
+      }
+
+      body.querySelectorAll('.btn-party-tab').forEach(b => b.addEventListener('click', e => {
+        this.partyTab = e.currentTarget.dataset.tab;
+        this.renderPartyModal();
+      }));
       return;
     }
 
