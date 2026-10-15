@@ -309,8 +309,6 @@ export class GameEngine {
             }
           });
         }
-      } else {
-        this.onLog(`👥 ผู้เล่น [${killerName || 'Adventurer'}] ปราบ [${m.name}]!`, 'system', 'monster');
       }
     }
   }
@@ -361,9 +359,9 @@ export class GameEngine {
     if (msg.exp > 0) this.spawnLootOrb(ox, oy, 'exp', { amount: msg.exp });
     if (msg.shared) {
       this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 45, `+${msg.exp} EXP [Party]`, '#4ade80', 16);
-      this.onLog(`🤝 [ปาร์ตี้ x${msg.shareCount}] ปราบ [${msg.monsterName}] โดย ${msg.fromName} • ได้ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
+      this.onLog(`🤝 ได้ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
     } else {
-      this.onLog(`⚔️ ปราบ [${msg.monsterName}] สำเร็จ! ได้รับ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
+      this.onLog(`⚔️ ได้ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
     }
   }
 
