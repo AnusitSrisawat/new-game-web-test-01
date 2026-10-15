@@ -416,7 +416,9 @@ export class UIController {
         ${slider('set-vol-sfx', '💥 เสียงเอฟเฟกต์', soundEngine.sfxVolume)}
         <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="set-mute" ${soundEngine.muted ? 'checked' : ''}> ปิดเสียงทั้งหมด</label>`;
     } else if (tab === 'graphics') {
-      content = slider('set-zoom', '🔍 ระดับซูม', ((this.gameEngine.zoom || 1) - 0.5) / 2);
+      content = `
+        ${slider('set-zoom', '🔍 ระดับซูม', ((this.gameEngine.zoom || 1) - 0.5) / 2)}
+        <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="set-shake" ${this.gameEngine.screenShakeEnabled ? 'checked' : ''}> 📳 จอสั่น (ตอนตีคริ / ใช้สกิล)</label>`;
     } else {
       content = `<div>ชื่อตัวละคร: <b>${this.player.name}</b></div><div style="margin-top:6px;">เลเวล: <b>${this.player.level ?? '-'}</b></div>`;
     }
@@ -440,6 +442,7 @@ export class UIController {
     bind('set-vol-music', v => soundEngine.setMusicVolume(v));
     bind('set-vol-sfx', v => { soundEngine.setSfxVolume(v); soundEngine.playSlash(); });
     bind('set-zoom', v => this.gameEngine.setZoom(0.5 + v * 2));
+    document.getElementById('set-shake')?.addEventListener('change', e => this.gameEngine.setScreenShakeEnabled(e.target.checked));
     document.getElementById('set-mute')?.addEventListener('change', () => soundEngine.toggleMute());
   }
 
