@@ -806,6 +806,11 @@ export class UIController {
       int: 'ดาเมจคฑา (เวท)',
       luk: 'โอกาสคริติคอล'
     };
+    // Points are staged locally; nothing is committed until the single Confirm button is pressed
+    const pend = this.pendingStats || (this.pendingStats = {});
+    const pendTotal = STAT_KEYS.reduce((n, k) => n + (pend[k] || 0), 0);
+    if (pendTotal > pl.statPoints) { STAT_KEYS.forEach(k => { pend[k] = 0; }); }
+    const pendLeft = pl.statPoints - STAT_KEYS.reduce((n, k) => n + (pend[k] || 0), 0);
     const row = (l, v) => `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span>${l}</span> <b>${v}</b></div>`;
 
     body.innerHTML = `
@@ -825,17 +830,21 @@ export class UIController {
         <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
           <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
             <span style="font-weight:700;">📊 จัดสรรค่าสเตตัส</span>
-            <span style="color:#f59e0b; font-size:0.85rem;">แต้มคงเหลือ: <b>${pl.statPoints}</b>
+            <span style="color:#f59e0b; font-size:0.85rem;">แต้มคงเหลือ: <b>${pendLeft}</b>
               <button id="btn-stat-reset" style="margin-left:8px; padding:2px 8px; background:#7f1d1d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">🔄 รีสเตตัส (ฟรี)</button></span>
           </div>
           ${STAT_KEYS.map(k => `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05);" title="${statHelp[k]}">
               <span style="font-weight:600; text-transform:uppercase; width:42px;">${k}</span>
               <span style="flex:1; font-size:0.68rem; color:#94a3b8;">${statHelp[k]}</span>
-              <b style="width:30px; text-align:right; margin-right:8px;">${pl.stats[k]}</b>
-              <button class="btn-stat-add" data-stat="${k}" ${pl.statPoints > 0 ? '' : 'disabled'} style="width:24px; height:24px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">+</button>
+              <b style="width:50px; text-align:right; margin-right:8px;">${pl.stats[k]}${pend[k] ? `<span style="color:#4ade80;"> +${pend[k]}</span>` : ''}</b>
+              <button class="btn-stat-add" data-stat="${k}" ${pendLeft > 0 ? '' : 'disabled'} style="width:24px; height:24px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">+</button>
             </div>
           `).join('')}
+          ${pendTotal > 0 ? `<div style="display:flex; gap:8px; margin-top:10px;">
+            <button id="btn-stat-confirm" style="flex:1; padding:6px; background:#16a34a; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:700;">✅ ยืนยัน (${pendTotal} แต้ม)</button>
+            <button id="btn-stat-cancel" style="padding:6px 10px; background:#475569; color:#fff; border:none; border-radius:4px; cursor:pointer;">ยกเลิก</button>
+          </div>` : ''}
         </div>
         <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); font-size:0.85rem;">
           <h4 style="margin-bottom:8px;">⚔️ ข้อมูลพลังรบรวม</h4>
@@ -852,9 +861,21 @@ export class UIController {
       </div>
     `;
 
+    const confirmBtn = body.querySelector('#btn-stat-confirm');
+    if (confirmBtn) confirmBtn.addEventListener('click', () => {
+      STAT_KEYS.forEach(k => { for (let i = 0; i < (pend[k] || 0); i++) this.player.allocateStat(k); pend[k] = 0; });
+      this.renderStatusModal();
+      this.updateHUD();
+    });
+    const cancelBtn = body.querySelector('#btn-stat-cancel');
+    if (cancelBtn) cancelBtn.addEventListener('click', () => {
+      STAT_KEYS.forEach(k => { pend[k] = 0; });
+      this.renderStatusModal();
+    });
     const resetBtn = body.querySelector('#btn-stat-reset');
     if (resetBtn) resetBtn.addEventListener('click', () => {
       if (!confirm('ยืนยันรีเซ็ตสเตตัสทั้งหมด? แต้มที่อัพไว้จะคืนให้นำไปจัดสรรใหม่ (ฟรี)')) return;
+      STAT_KEYS.forEach(k => { pend[k] = 0; });
       this.player.resetStats();
       this.renderStatusModal();
       this.updateHUD();
@@ -863,11 +884,8 @@ export class UIController {
     body.querySelectorAll('.btn-stat-add').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const k = e.currentTarget.dataset.stat;
-        if (!confirm(`ยืนยันอัพ ${k.toUpperCase()} +1 ใช่หรือไม่?`)) return;
-        if (this.player.allocateStat(k)) {
-          this.renderStatusModal();
-          this.updateHUD();
-        }
+        pend[k] = (pend[k] || 0) + 1;
+        this.renderStatusModal();
       });
     });
   }
