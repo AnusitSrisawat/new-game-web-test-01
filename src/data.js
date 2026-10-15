@@ -198,21 +198,6 @@ export const MONSTERS = {
       { itemId: 'relic_golem_core', chance: 0.015, isRelic: true }
     ]
   },
-  ancient_golem: {
-    id: 'ancient_golem',
-    name: 'Ancient Titan Golem (Boss)',
-    emoji: '🌋',
-    level: 75,
-    hp: 9500,
-    atk: 360,
-    def: 180,
-    exp: 6000,
-    drops: [
-      { itemId: 'titan_heart', chance: 0.8 },
-      { itemId: 'ancient_alloy', chance: 0.6 },
-      { itemId: 'relic_primordial_spark', chance: 0.03, isRelic: true }
-    ]
-  },
 };
 
 export const ITEMS = {
@@ -339,15 +324,6 @@ export const RELICS = {
     icon: '🗿',
     statBonus: { def: 45, hp: 800 },
     bonusText: '+45 DEF, +800 HP ถาวร'
-  },
-  relic_primordial_spark: {
-    id: 'relic_primordial_spark',
-    monsterId: 'ancient_golem',
-    name: '⚡ Primordial Titan Spark',
-    desc: 'ประกายแสงกำเนิดโลก มอบพลังของเทพไททันโบราณ',
-    icon: '✨',
-    statBonus: { atk: 80, def: 50, hp: 1200 },
-    bonusText: '+80 ATK, +50 DEF, +1200 HP ถาวร'
   },
 };
 
@@ -683,7 +659,6 @@ export const MONSTER_AI = {
   treant:         { speed: 50,  aggro: 200, attackRange: 80 },
   goblin_scout:   { speed: 105, aggro: 260 },
   stone_golem:    { speed: 55,  aggro: 220, attackRange: 85 },
-  ancient_golem:  { speed: 50,  aggro: 300, attackRange: 100, attackCooldown: 2.0 }
 };
 
 installCatalog({ MONSTERS, ITEMS, MONSTER_AI });
