@@ -239,11 +239,34 @@
       h('h2', {}, 'มอนสเตอร์'),
       h('p', { class: 'hint' }, 'ค่าพลัง พฤติกรรม และไอเทมที่ดรอป (พร้อม % ) ของมอนสเตอร์แต่ละชนิด — มีผลกับทุกตัวของชนิดนั้นในทุกแมพ'),
       searchBar('ค้นหามอนสเตอร์...'),
+      monsterFilterBar(),
       (listHost = h('div'))
     ];
   }
+  // monster list view options: sort (level / map) + map filter
+  let monSort = 'default';
+  let monMap = 'all';
+  const firstMapIdx = (id) => {
+    const idx = spawns.filter(sp => sp.templateId === id && sp.count > 0).map(sp => state.mapIds.indexOf(sp.map));
+    return idx.length ? Math.min(...idx) : 999;
+  };
+  function monsterFilterBar() {
+    const sortSel = h('select', { onchange: (e) => { monSort = e.target.value; renderList(); } },
+      ...[['default', 'เรียง: ค่าเริ่มต้น'], ['lvAsc', 'เลเวล: น้อย → มาก'], ['lvDesc', 'เลเวล: มาก → น้อย'], ['map', 'เรียงตามแมพ']]
+        .map(([v, t]) => h('option', { value: v, selected: v === monSort }, t)));
+    const mapSel = h('select', { onchange: (e) => { monMap = e.target.value; renderList(); } },
+      h('option', { value: 'all', selected: monMap === 'all' }, 'ทุกแมพ'),
+      ...state.mapIds.map(m => h('option', { value: m, selected: m === monMap }, state.zoneNames[m] || m)));
+    return h('div', { class: 'toolbar' }, sortSel, mapSel);
+  }
   function buildMonsters(q) {
-    return Object.keys(state.monsters).filter(id => matches(q, id, valueOf('monsters', id, 'name'))).map(id => h('div', { class: 'card' },
+    const lv = (id) => Number(valueOf('monsters', id, 'level')) || 0;
+    let ids = Object.keys(state.monsters).filter(id => matches(q, id, valueOf('monsters', id, 'name')));
+    if (monMap !== 'all') ids = ids.filter(id => spawns.some(sp => sp.templateId === id && sp.map === monMap && sp.count > 0));
+    if (monSort === 'lvAsc') ids.sort((a, b) => lv(a) - lv(b));
+    else if (monSort === 'lvDesc') ids.sort((a, b) => lv(b) - lv(a));
+    else if (monSort === 'map') ids.sort((a, b) => firstMapIdx(a) - firstMapIdx(b) || lv(a) - lv(b));
+    return ids.map(id => h('div', { class: 'card' },
       h('h3', {}, monsterPic(id, 56), valueOf('monsters', id, 'name'), h('small', {}, id),
         h('small', {}, state.monsters[id].sprite ? '🖼️ มีรูป' : 'ไม่มีรูป (ใช้ emoji)')),
       h('div', { class: 'group-title' }, 'แมพที่เกิด'),
