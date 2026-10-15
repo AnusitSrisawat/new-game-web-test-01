@@ -1,8 +1,16 @@
 // UI Controller for PC MMORPG Fullscreen Edition
-import { ZONES, ITEMS, RELICS, CRAFTING_RECIPES, GACHA_COSTUMES, QUESTS, WEAPON_TYPES, STAT_KEYS, MONSTERS } from './data.js';
+import { ZONES, ITEMS, RELICS, CRAFTING_RECIPES, GACHA_COSTUMES, QUESTS, WEAPON_TYPES, STAT_KEYS, MONSTERS, SKILLS } from './data.js';
+import { SP_POTION_IDS, SKILL_SLOTS, GACHA_SINGLE, GACHA_PACK } from './player.js';
 import { TILE_SIZE, getMapDef } from './maps.js';
 import { soundEngine } from './audio.js';
 import { itemIconHtml } from './sprites.js';
+
+const SKILL_ICONS = {
+  power_strike: '💥', whirlwind: '🌀', double_shot: '🏹', arrow_rain: '🌧️', fire_bolt: '🔥', frost_nova: '❄️', meteor_fall: '☄️',
+  heal_light: '💚', iron_guard: '🛡️', berserk: '😡', dash: '💨', sword_mastery: '⚔️', tough_body: '💪', swift_feet: '👟', mana_well: '🔷', eagle_eye: '🦅'
+};
+const RARITY = { common: ['ธรรมดา', '#94a3b8'], uncommon: ['ไม่ธรรมดา', '#22c55e'], rare: ['หายาก', '#3b82f6'], epic: ['ตำนาน', '#f59e0b'] };
+const WEAPON_REQ = { any: 'อาวุธใดก็ได้', melee: 'ดาบ/ไม้/มือเปล่า', bow: 'ธนู', staff: 'คฑา' };
 
 export class UIController {
   constructor(player, gameEngine) {
@@ -19,7 +27,8 @@ export class UIController {
       'modal-relics': () => this.renderRelicsModal(),
       'modal-shop': () => this.renderShopModal(),
       'modal-zones': () => this.renderZonesModal(),
-      'modal-auto': () => this.renderAutoModal()
+      'modal-auto': () => this.renderAutoModal(),
+      'modal-skills': () => this.renderSkillsModal()
     };
 
     this.initEventListeners();
@@ -37,6 +46,7 @@ export class UIController {
       { id: 'btn-open-party', modalId: 'modal-party', render: () => this.renderPartyModal() },
       { id: 'btn-open-party-modal', modalId: 'modal-party', render: () => this.renderPartyModal() },
       { id: 'btn-open-inventory', modalId: 'modal-inventory', render: () => this.renderInventoryModal() },
+      { id: 'btn-open-skills', modalId: 'modal-skills', render: () => this.renderSkillsModal() },
       { id: 'btn-open-craft', modalId: 'modal-craft', render: () => this.renderCraftModal() },
       { id: 'btn-open-quests', modalId: 'modal-quests', render: () => this.renderQuestsModal() },
       { id: 'btn-open-relics', modalId: 'modal-relics', render: () => this.renderRelicsModal() },
@@ -119,6 +129,7 @@ export class UIController {
       if (!this.player.hpPotionSlot && this.player.ownedHpPotions().length) this.openPotionChooser();
       else this.gameEngine.usePotionSlot();
     });
+    document.getElementById('slot-sp-potion')?.addEventListener('click', () => this.gameEngine.useSpPotionSlot());
     hpSlot?.addEventListener('contextmenu', (e) => { e.preventDefault(); this.openPotionChooser(); });
 
     // Big Attack Button (Action wheel)
@@ -177,6 +188,8 @@ export class UIController {
       else if (key === 'k') this.toggleModal('modal-shop', () => this.renderShopModal());
       else if (key === 'm') this.toggleModal('modal-zones', () => this.renderZonesModal());
       else if (key === 'q') this.gameEngine.usePotionSlot();
+      else if (key === 'e') this.gameEngine.useSpPotionSlot();
+      else if (key === 'v') this.toggleModal('modal-skills', () => this.renderSkillsModal());
       else if (key === 'escape') {
         const front = this.frontWindowId();
         if (front) this.closeModal(front);
@@ -309,7 +322,7 @@ export class UIController {
   refreshOpenWindows() {
     if (this.openWindows.size === 0) return;
     const pl = this.player;
-    const sig = JSON.stringify([pl.gold, pl.gachaTokens, pl.baseLevel, pl.statPoints, pl.inventory, pl.equipment, pl.questProgress, pl.collectedRelics.length]);
+    const sig = JSON.stringify([pl.gold, pl.gachaTokens, pl.baseLevel, pl.statPoints, pl.inventory, pl.equipment, pl.questProgress, pl.collectedRelics.length, pl.learnedSkills, pl.skillBooks, pl.skillLoadout]);
     if (sig === this.lastWindowSig) return;
     this.lastWindowSig = sig;
     const a = document.activeElement;
@@ -420,6 +433,15 @@ export class UIController {
     iconEl.textContent = shown ? (ITEMS[shown].icon || '🧪') : '＋';
     countEl.textContent = shown ? (this.player.inventory[shown] || 0) : '';
     document.getElementById('slot-hp-potion')?.classList.toggle('empty', !shown || !(this.player.inventory[shown] > 0));
+    const spOwned = this.player.ownedSpPotions();
+    const spShown = (this.player.spPotionSlot && this.player.inventory[this.player.spPotionSlot] > 0) ? this.player.spPotionSlot : spOwned[0];
+    const spIcon = document.getElementById('qs-sp-icon');
+    const spCount = document.getElementById('qs-sp-count');
+    if (spIcon && spCount) {
+      spIcon.textContent = spShown ? (ITEMS[spShown].icon || '💧') : '＋';
+      spCount.textContent = spShown ? (this.player.inventory[spShown] || 0) : '';
+    }
+    document.getElementById('slot-sp-potion')?.classList.toggle('empty', !spShown);
   }
 
   openPotionChooser() {
@@ -500,7 +522,22 @@ export class UIController {
 
         <div class="auto-card">
           <h4>🔷 ใช้ยา SP อัตโนมัติ</h4>
-          <div class="auto-note">🔒 เปิดใช้งานพร้อมระบบสกิล (ยังไม่มี SP ในเกมตอนนี้)</div>
+          <div class="auto-row">
+            <label><input type="checkbox" id="auto-sp-on" ${a.spPotion.enabled ? 'checked' : ''}> เปิดใช้งาน</label>
+          </div>
+          <div class="auto-row">
+            <span>เมื่อ SP ต่ำกว่า</span>
+            <input type="range" id="auto-sp-pct" min="5" max="90" step="5" value="${a.spPotion.percent}">
+            <span class="auto-val" id="auto-sp-pct-val">${a.spPotion.percent}%</span>
+          </div>
+          <div class="auto-row">
+            <span>ชนิดยา</span>
+            <select id="auto-sp-item">
+              <option value="">อัตโนมัติ (ตัวที่อ่อนที่สุด)</option>
+              ${SP_POTION_IDS.filter(id => ITEMS[id]).map(id =>
+                `<option value="${id}" ${a.spPotion.itemId === id ? 'selected' : ''}>${ITEMS[id].name} (มี ${this.player.inventory[id] || 0})</option>`).join('')}
+            </select>
+          </div>
         </div>
 
         <div class="auto-card full">
@@ -528,6 +565,14 @@ export class UIController {
       document.getElementById('auto-hp-pct-val').textContent = `${a.hpPotion.percent}%`;
       save();
     });
+    document.getElementById('auto-sp-on').addEventListener('change', e => { a.spPotion.enabled = e.target.checked; save(); });
+    const spct = document.getElementById('auto-sp-pct');
+    spct.addEventListener('input', () => {
+      a.spPotion.percent = Number(spct.value);
+      document.getElementById('auto-sp-pct-val').textContent = `${a.spPotion.percent}%`;
+      save();
+    });
+    document.getElementById('auto-sp-item').addEventListener('change', e => { a.spPotion.itemId = e.target.value || null; save(); });
     document.getElementById('auto-hp-item').addEventListener('change', e => { a.hpPotion.itemId = e.target.value || null; save(); });
     body.querySelectorAll('.auto-mon-cb').forEach(cb => cb.addEventListener('change', e => {
       const id = e.target.dataset.id;
@@ -606,8 +651,8 @@ export class UIController {
       hpText.textContent = `${this.player.currentHp} / ${this.player.maxHp}`;
     }
     if (spFill && spText) {
-      spFill.style.width = '100%';
-      spText.textContent = '100 / 100';
+      spFill.style.width = `${Math.min(100, (this.player.currentSp / this.player.maxSp) * 100)}%`;
+      spText.textContent = `${Math.floor(this.player.currentSp)} / ${this.player.maxSp}`;
     }
 
     // 2. EXP bar (full-width strip at the bottom of the screen)
@@ -641,12 +686,12 @@ export class UIController {
     // 7. Hotbar 1-9: the player assigns these; empty by default
     const p = this.gameEngine.playerEntity;
     const slotMeta = {};
-    this.player.hotbar.forEach((entry, i) => {
-      const it = entry && ITEMS[entry];
-      if (it) slotMeta[i + 1] = { icon: it.icon || '📦', name: it.name, title: `[${i + 1}] ${it.name}` };
+    this.player.skillLoadout.forEach((id, i) => {
+      const sk = id && SKILLS[id];
+      if (sk) slotMeta[i + 1] = { icon: SKILL_ICONS[id] || (sk.kind === 'passive' ? '🔷' : '✨'), name: sk.name.replace(/\s*\(.*\)/, ''), title: `[${i + 1}] ${sk.name} — ${sk.kind === 'passive' ? 'ติดตัว' : `SP ${sk.spCost} • CD ${sk.cooldown}s`}`, id };
     });
 
-    if (p && p.skillCooldowns) {
+    if (p) {
       for (let slot = 1; slot <= 4; slot++) {
         const el = document.getElementById(`slot-${slot}`);
         if (!el) continue;
@@ -659,7 +704,7 @@ export class UIController {
         const nameEl = el.querySelector('.skill-label-name');
         if (nameEl && nameEl.textContent !== meta.name) nameEl.textContent = meta.name;
 
-        const cd = p.skillCooldowns[slot] || 0;
+        const cd = (slotMeta[slot] && this.player.skillCd[slotMeta[slot].id]) || 0;
         let mask = el.querySelector('.skill-cd-mask');
         if (!mask) {
           mask = document.createElement('div');
@@ -857,6 +902,7 @@ export class UIController {
             ${equippable ? `<div style="color:#94a3b8; font-size:0.68rem;">${item.atk ? `ATK +${item.atk}` : ''}${item.atk && item.def ? ' ' : ''}${item.def ? `DEF +${item.def}` : ''}</div>` : ''}
             ${item.reqLevel > 1 ? `<div style="color:${this.player.baseLevel >= item.reqLevel ? '#94a3b8' : '#ef4444'}; font-size:0.68rem;">ต้องการ Lv.${item.reqLevel}</div>` : ''}
             ${equippable ? (isOn ? `<div style="${btn} background:#16a34a;">สวมอยู่</div>` : `<button class="btn-inv-equip" data-id="${k}" style="${btn} background:#2563eb;">สวมใส่</button>`) : ''}
+            ${item.type === 'consumable' && item.sp ? `<button class="btn-inv-usesp" data-id="${k}" style="${btn} background:#0ea5e9;">ใช้ (+${item.sp} SP)</button>` : ''}
             ${item.type === 'consumable' && item.heal ? `<button class="btn-inv-use" data-id="${k}" style="${btn} background:#16a34a;">ใช้ (+${item.heal} HP)</button>` : ''}
           </div>
         `;
@@ -896,6 +942,15 @@ export class UIController {
       });
     });
 
+    body.querySelectorAll('.btn-inv-usesp').forEach(b => {
+      b.addEventListener('click', (e) => {
+        const res = this.player.useSpPotion(e.currentTarget.dataset.id);
+        if (res) this.gameEngine.onLog(`💧 ใช้ ${res.itemName} ฟื้นฟู ${res.restored} SP`, 'system');
+        this.renderInventoryModal();
+        this.updateHUD();
+      });
+    });
+
     body.querySelectorAll('.btn-inv-use').forEach(b => {
       b.addEventListener('click', (e) => {
         const res = this.player.usePotion(e.currentTarget.dataset.id);
@@ -904,6 +959,98 @@ export class UIController {
         this.updateHUD();
       });
     });
+  }
+
+  // Skills window: 4-slot loadout, learned skills, skill books (learn / sell), book gacha
+  renderSkillsModal() {
+    const body = document.getElementById('modal-skills-body');
+    if (!body) return;
+    const pl = this.player;
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const sname = id => esc(SKILLS[id].name);
+    const rar = id => { const r = RARITY[SKILLS[id].rarity] || RARITY.common; return `<span style="color:${r[1]}; font-size:0.68rem;">[${r[0]}]</span>`; };
+    const info = id => {
+      const s = SKILLS[id];
+      if (s.kind === 'passive') return `ติดตัว • ${WEAPON_REQ[s.weapon] || ''}`;
+      return `SP ${s.spCost} • CD ${s.cooldown}s • ${WEAPON_REQ[s.weapon] || ''}`;
+    };
+    const btn = (bg) => `padding:3px 8px; border:none; border-radius:4px; cursor:pointer; color:#fff; font-size:0.72rem; background:${bg};`;
+    const card = 'background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); margin-bottom:10px;';
+
+    const loadoutHtml = pl.skillLoadout.map((id, i) => `
+      <div style="flex:1; min-width:96px; text-align:center; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:6px; padding:6px; font-size:0.75rem;">
+        <div style="color:#fbbf24;">[${i + 1}]</div>
+        ${id ? `<div style="font-size:22px;">${SKILL_ICONS[id] || '✨'}</div><div style="font-weight:600;">${sname(id)}</div>
+          <button class="sk-unslot" data-slot="${i}" style="${btn('#64748b')} margin-top:3px;">ถอด</button>` : '<div style="color:#64748b; padding:14px 0;">ว่าง</div>'}
+      </div>`).join('');
+
+    const learned = Object.keys(pl.learnedSkills).filter(id => SKILLS[id]);
+    const learnedHtml = learned.length ? learned.map(id => {
+      const at = pl.skillLoadout.indexOf(id);
+      const slotBtns = Array.from({ length: SKILL_SLOTS }, (_, i) =>
+        `<button class="sk-slot" data-id="${id}" data-slot="${i}" style="${btn(at === i ? '#16a34a' : '#2563eb')}">${i + 1}</button>`).join(' ');
+      return `<div style="display:flex; gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.06);">
+        <div style="font-size:22px; width:30px; text-align:center;">${SKILL_ICONS[id] || '✨'}</div>
+        <div style="flex:1; font-size:0.78rem;"><b>${sname(id)}</b> ${rar(id)}<div style="color:#94a3b8;">${esc(SKILLS[id].desc)}</div><div style="color:#7dd3fc;">${info(id)}</div></div>
+        <div style="font-size:0.7rem; color:#94a3b8;">ใส่ช่อง<br>${slotBtns}</div></div>`;
+    }).join('') : '<p style="color:#94a3b8; font-size:0.8rem;">ยังไม่ได้เรียนสกิลใด — สุ่มสมุดสกิลจากตู้ด้านล่าง</p>';
+
+    const books = Object.keys(pl.skillBooks).filter(id => SKILLS[id] && pl.skillBooks[id] > 0);
+    const booksHtml = books.length ? books.map(id => {
+      const have = !!pl.learnedSkills[id];
+      return `<div style="display:flex; gap:8px; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.06); font-size:0.78rem;">
+        <span style="font-size:20px;">📕</span>
+        <div style="flex:1;"><b>${sname(id)}</b> ${rar(id)} <span style="color:#f59e0b;">x${pl.skillBooks[id]}</span></div>
+        <button class="sk-learn" data-id="${id}" style="${btn(have ? '#475569' : '#16a34a')}" ${have ? 'disabled title="เรียนสกิลนี้แล้ว"' : ''}>${have ? 'เรียนแล้ว' : 'เรียน'}</button>
+        <button class="sk-sell" data-id="${id}" style="${btn('#f59e0b')} color:#000;">ขาย ${SKILLS[id].bookSellPrice} G</button></div>`;
+    }).join('') : '<p style="color:#94a3b8; font-size:0.8rem;">ไม่มีสมุดสกิลในกระเป๋า</p>';
+
+    body.innerHTML = `
+      <div style="${card}"><h4>🎯 สกิลที่ใช้ได้ตอนนี้ (สูงสุด ${SKILL_SLOTS} ช่อง กด 1–${SKILL_SLOTS})</h4>
+        <div style="display:flex; gap:6px; margin-top:8px;">${loadoutHtml}</div>
+        <div style="font-size:0.7rem; color:#94a3b8; margin-top:6px;">สกิลติดตัว (Passive) ก็ใช้ 1 ช่องเหมือนกัน • 💧 SP ${Math.floor(pl.currentSp)}/${pl.maxSp} (ฟื้น ${pl.spRegen.toFixed(1)}/วิ)</div></div>
+      <div style="${card}"><h4>📖 สกิลที่เรียนแล้ว (${learned.length})</h4>${learnedHtml}</div>
+      <div style="${card}"><h4>📕 สมุดสกิลในกระเป๋า</h4>${booksHtml}
+        <div style="font-size:0.7rem; color:#94a3b8; margin-top:4px;">สมุดใช้เรียนได้เฉพาะสกิลที่ยังไม่เคยเรียน • สมุดซ้ำขายเป็นเงินได้</div></div>
+      <div style="${card}"><h4>🎰 ตู้สุ่มสมุดสกิล</h4>
+        <div style="display:flex; gap:8px; margin:8px 0;">
+          <button id="sk-pull-1" style="flex:1; ${btn('linear-gradient(135deg,#a855f7,#ec4899)')} padding:8px;" ${pl.gold >= GACHA_SINGLE ? '' : 'disabled'}>สุ่ม 1 ครั้ง (${GACHA_SINGLE} G)</button>
+          <button id="sk-pull-10" style="flex:1; ${btn('linear-gradient(135deg,#f59e0b,#ef4444)')} padding:8px;" ${pl.gold >= GACHA_PACK ? '' : 'disabled'}>แพ็ก 10 ครั้ง (${GACHA_PACK.toLocaleString()} G)</button>
+        </div>
+        <div style="font-size:0.7rem; color:#94a3b8;">ไม่มีการันตี • โอกาสออก: ธรรมดา/ไม่ธรรมดา/หายาก/ตำนาน ตามค่าถ่วงน้ำหนักของแต่ละสกิล • 🪙 ${pl.gold.toLocaleString()} G</div></div>`;
+
+    const refresh = () => { this.renderSkillsModal(); this.updateHUD(); };
+    const log = (t, k = 'system') => this.gameEngine.onLog(t, k);
+    body.querySelectorAll('.sk-slot').forEach(b => b.addEventListener('click', e => {
+      pl.setLoadout(Number(e.currentTarget.dataset.slot), e.currentTarget.dataset.id);
+      refresh();
+    }));
+    body.querySelectorAll('.sk-unslot').forEach(b => b.addEventListener('click', e => { pl.setLoadout(Number(e.currentTarget.dataset.slot), null); refresh(); }));
+    body.querySelectorAll('.sk-learn').forEach(b => b.addEventListener('click', e => {
+      const id = e.currentTarget.dataset.id;
+      const r = pl.learnSkill(id);
+      log(r.ok ? `📖 เรียนสกิล ${SKILLS[id].name} สำเร็จ!` : `🚫 ${r.reason}`, r.ok ? 'relic' : 'system');
+      refresh();
+    }));
+    body.querySelectorAll('.sk-sell').forEach(b => b.addEventListener('click', e => {
+      const id = e.currentTarget.dataset.id;
+      const g = pl.sellBook(id);
+      if (g) log(`💰 ขายสมุด ${SKILLS[id].name} ได้ +${g} Gold`);
+      refresh();
+    }));
+    const pull = (n, cost) => {
+      if (pl.gold < cost) return;
+      pl.gold -= cost;
+      const got = {};
+      for (let i = 0; i < n; i++) { const id = pl.rollSkillBook(); if (id) { pl.addBook(id); got[id] = (got[id] || 0) + 1; } }
+      pl.saveToStorage();
+      const best = Object.keys(got).sort((a, b) => (SKILLS[a].gachaWeight || 0) - (SKILLS[b].gachaWeight || 0));
+      log(`🎰 ได้สมุดสกิล: ${best.map(id => `${SKILLS[id].name}${got[id] > 1 ? ` x${got[id]}` : ''}`).join(', ')}`, 'relic');
+      soundEngine.playPotion();
+      refresh();
+    };
+    document.getElementById('sk-pull-1')?.addEventListener('click', () => pull(1, GACHA_SINGLE));
+    document.getElementById('sk-pull-10')?.addEventListener('click', () => pull(10, GACHA_PACK));
   }
 
   // Crafting window (Blacksmith): recipes only, materials are taken from the bag
@@ -1076,6 +1223,14 @@ export class UIController {
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
               <span>🧪 Red Potion (S)</span>
               <button class="btn-buy-pot-m" data-id="hp_potion_s" data-cost="20" style="padding:3px 8px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">ซื้อ (20 G)</button>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
+              <span>💧 Blue Potion (S) +40 SP</span>
+              <button class="btn-buy-pot-m" data-id="sp_potion_s" data-cost="30" style="padding:3px 8px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">ซื้อ (30 G)</button>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
+              <span>💧 Blue Potion (M) +120 SP</span>
+              <button class="btn-buy-pot-m" data-id="sp_potion_m" data-cost="90" style="padding:3px 8px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">ซื้อ (90 G)</button>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
               <span>🧪 Red Potion (M)</span>

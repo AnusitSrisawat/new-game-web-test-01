@@ -26,6 +26,11 @@
             <div class="hud-bar"><div class="hud-bar-fill hp" id="hud-hp-fill" style="width: 100%;"></div></div>
             <span class="bar-val-text" id="hud-hp-text">200 / 200</span>
           </div>
+          <div class="hud-bar-row">
+            <span class="bar-tag sp">SP</span>
+            <div class="hud-bar"><div class="hud-bar-fill sp" id="hud-sp-fill" style="width: 100%;"></div></div>
+            <span class="bar-val-text" id="hud-sp-text">0 / 0</span>
+          </div>
           <div class="pc-currency">
             <span>🪙 <b id="hud-gold-text">500</b></span>
             <span>🎟️ <b id="hud-token-text">5</b></span>
@@ -71,6 +76,7 @@
         <div id="option-menu" class="option-menu" style="display:none;">
           <button class="btn-hud-icon" id="btn-open-status">📊 สเตตัส <kbd>C</kbd></button>
           <button class="btn-hud-icon" id="btn-open-party">🚩 ปาร์ตี้ <kbd>P</kbd></button>
+          <button class="btn-hud-icon" id="btn-open-skills">✨ สกิล <kbd>V</kbd></button>
           <button class="btn-hud-icon" id="btn-open-inventory">🎒 กระเป๋า <kbd>I</kbd></button>
           <button class="btn-hud-icon" id="btn-open-craft">🔨 คราฟต์ <kbd>B</kbd></button>
           <button class="btn-hud-icon" id="btn-open-quests">📜 เควสต์ <kbd>J</kbd></button>
@@ -128,8 +134,9 @@
                 </button>
                 <div id="potion-chooser" class="potion-chooser" style="display:none;"></div>
               </div>
-              <button class="quick-slot sp locked" id="slot-sp-potion" title="ยา SP — เปิดใช้งานพร้อมระบบสกิล" disabled>
-                <span class="qs-icon">🔒</span>
+              <button class="quick-slot sp" id="slot-sp-potion" title="ยา SP — คลิกเพื่อใช้ [E]">
+                <span class="qs-icon" id="qs-sp-icon">＋</span>
+                <span class="qs-count" id="qs-sp-count"></span>
                 <span class="qs-tag">SP</span>
               </button>
             </div>
@@ -186,6 +193,14 @@
         <button class="btn-modal-close" data-close="modal-inventory">✕</button>
       </div>
       <div class="modal-body" id="modal-inventory-body"></div>
+    </div>
+
+    <div class="game-modal" id="modal-skills">
+      <div class="modal-header">
+        <div class="modal-title">✨ สกิล (Skills)</div>
+        <button class="btn-modal-close" data-close="modal-skills">✕</button>
+      </div>
+      <div class="modal-body" id="modal-skills-body"></div>
     </div>
 
     <div class="game-modal" id="modal-craft">

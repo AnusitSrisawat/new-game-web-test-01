@@ -627,8 +627,15 @@ wss.on('connection', (ws) => {
           const m = monsters.find(item => item.id === data.monsterId);
           if (!m || m.isDead || m.map !== p.currentMap) break;
           if (Math.hypot(m.x - p.x, m.y - p.y) > MAX_HIT_RANGE) break;
-          const damage = clampInt(data.damage, 1, maxDamageForLevel(p.level), 1);
+          // A skill hit may exceed a normal hit by its power; slow/stun come from the server's own skill data
+          const sk = typeof data.skillId === 'string' ? gameData.SKILLS[data.skillId] : null;
+          const skillMul = sk && sk.effect === 'damage' ? 1 + (Number(sk.power) || 0) / 100 + (sk.scalesWith && sk.scalesWith !== 'none' ? 2 : 0) : 1;
+          const damage = clampInt(data.damage, 1, Math.floor(maxDamageForLevel(p.level) * skillMul), 1);
           const isCrit = data.isCrit === true;
+          if (sk) {
+            if (sk.slowPct > 0) { m.slowUntil = Date.now() + 3000; m.slowPct = Math.min(80, sk.slowPct); }
+            if (sk.stunSec > 0) m.stunUntil = Date.now() + Math.min(5, sk.stunSec) * 1000;
+          }
 
           m.currentHp = Math.max(0, m.currentHp - damage);
           m.targetId = p.id; // whoever hit it last gets chased
@@ -927,7 +934,12 @@ setInterval(() => {
     }
 
     const md = getMapDef(m.map);
+    const nowMs = Date.now();
+    const stunned = (m.stunUntil || 0) > nowMs;
+    const slowMul = (m.slowUntil || 0) > nowMs ? 1 - (m.slowPct || 0) / 100 : 1;
     const step = (tx, ty, speed) => {
+      if (stunned) return;
+      speed *= slowMul;
       const dx = tx - m.x;
       const dy = ty - m.y;
       const dist = Math.hypot(dx, dy);
@@ -943,7 +955,7 @@ setInterval(() => {
       if (d > ai.attackRange * 0.85) {
         step(target.x, target.y, ai.speed);
       }
-      if (d <= ai.attackRange && m.attackCd <= 0) {
+      if (!stunned && d <= ai.attackRange && m.attackCd <= 0) {
         m.attackCd = ai.attackCooldown * (0.9 + Math.random() * 0.2);
         const template = MONSTERS[m.templateId] || {};
         const raw = (template.atk || 10) - (target.def || 0);

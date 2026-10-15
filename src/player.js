@@ -1,7 +1,18 @@
 // Player State & Logic Handler (classless: power comes from stats, weapon and (later) skills)
-import { ITEMS, RELICS, WEAPON_TYPES, BASE_STATS, STAT_KEYS } from './data.js';
+import { ITEMS, RELICS, WEAPON_TYPES, BASE_STATS, STAT_KEYS, SKILLS } from './data.js';
 
 export const HP_POTION_IDS = ['hp_potion_s', 'apple', 'hp_potion_m', 'boar_meat', 'hp_potion_l']; // weakest first
+export const SP_POTION_IDS = ['sp_potion_s', 'sp_potion_m'];
+export const SKILL_SLOTS = 4;     // skills usable at once (passives take a slot too)
+export const GACHA_SINGLE = 500;   // gold per skill-book pull
+export const GACHA_PACK = 4500;    // gold for 10 pulls
+
+// Does the held weapon satisfy a skill's weapon requirement?
+export function weaponMatches(req, weaponType) {
+  if (!req || req === 'any') return true;
+  if (req === 'melee') return weaponType === 'fist' || weaponType === 'stick' || weaponType === 'sword';
+  return req === weaponType;
+}
 
 const SAVE_KEY = 'cozy_rpg_save_v2';
 const OLD_SAVE_KEY = 'cozy_rpg_save_v1';
@@ -79,12 +90,23 @@ export class Player {
     this.auto = {
       range: 12,               // search radius in tiles
       disabledMonsters: {},    // templateId -> true means "don't attack"
-      hpPotion: { enabled: true, percent: 45, itemId: null } // itemId null = cheapest usable potion
+      hpPotion: { enabled: true, percent: 45, itemId: null }, // itemId null = cheapest usable potion
+      spPotion: { enabled: true, percent: 25, itemId: null }
     };
     // Quick potion slot for HP (SP slot arrives together with skills)
     this.hpPotionSlot = null;
+    this.spPotionSlot = null;
+
+    // Skills: learned ids, skill books in the bag { skillId: count }, 4-slot loadout, SP, timed buffs
+    this.learnedSkills = {};
+    this.skillBooks = {};
+    this.skillLoadout = new Array(SKILL_SLOTS).fill(null);
+    this.skillCd = {};          // skillId -> seconds left (not saved)
+    this.activeBuffs = {};      // skillId -> seconds left (not saved)
+    this.currentSp = 0;
 
     // Load saved data if exists
+    this.currentSp = this.maxSp;
     this.loadFromStorage();
   }
 
@@ -110,6 +132,30 @@ export class Player {
     return Math.floor(60 * Math.pow(this.baseLevel, 1.5) + this.baseLevel * 25);
   }
 
+  // Sum of a bonus key (e.g. 'bonusAtkPct') from equipped passives (weapon must match) and running buffs
+  skillBonus(key) {
+    let sum = 0;
+    const wt = this.weaponInfo.type;
+    for (const id of this.skillLoadout) {
+      const s = id && this.learnedSkills[id] && SKILLS[id];
+      if (s && s.kind === 'passive' && s[key] && weaponMatches(s.weapon, wt)) sum += s[key];
+    }
+    for (const id of Object.keys(this.activeBuffs)) {
+      const s = SKILLS[id];
+      if (s && this.activeBuffs[id] > 0 && s[key]) sum += s[key];
+    }
+    return sum;
+  }
+
+  // SP: 30 + level×2 + INT×4 (+ Max SP% skills)
+  get maxSp() {
+    return Math.floor((30 + this.baseLevel * 2 + this.stats.int * 4) * (1 + this.skillBonus('bonusSpPct') / 100));
+  }
+
+  get spRegen() { return 1 + this.stats.int * 0.1; }       // SP per second
+
+  get moveMul() { return 1 + this.skillBonus('bonusMovePct') / 100; }
+
   // Calculate Total Combined Stats
   get maxHp() {
     let hp = BASE_STATS.hp + (this.baseLevel * 25) + (this.stats.vit * 18);
@@ -120,7 +166,7 @@ export class Player {
     if (this.equipment.armor && ITEMS[this.equipment.armor]) {
       hp += (ITEMS[this.equipment.armor].hp || 0);
     }
-    return Math.floor(hp);
+    return Math.floor(hp * (1 + this.skillBonus('bonusHpPct') / 100));
   }
 
   get attack() {
@@ -138,7 +184,7 @@ export class Player {
       if (relic && relic.statBonus.atk) atk += relic.statBonus.atk;
     });
     if (this.costumes.back === 'costume_angel_wings') atk = Math.floor(atk * 1.05);
-    return Math.floor(atk);
+    return Math.floor(atk * (1 + this.skillBonus('bonusAtkPct') / 100));
   }
 
   get defense() {
@@ -153,7 +199,7 @@ export class Player {
       const relic = RELICS[id];
       if (relic && relic.statBonus.def) def += relic.statBonus.def;
     });
-    return Math.floor(def);
+    return Math.floor(def * (1 + this.skillBonus('bonusDefPct') / 100));
   }
 
   get aspd() {
@@ -163,6 +209,7 @@ export class Player {
       if (relic && relic.statBonus.aspd) speed += relic.statBonus.aspd;
     });
     if (this.costumes.weapon_skin === 'costume_celestial_blade') speed += 0.08;
+    speed *= 1 + this.skillBonus('bonusAspdPct') / 100;
     return parseFloat(speed.toFixed(2));
   }
 
@@ -172,6 +219,7 @@ export class Player {
       const relic = RELICS[id];
       if (relic && relic.statBonus.critRate) rate += relic.statBonus.critRate;
     });
+    rate += this.skillBonus('bonusCritPct') / 100;
     return Math.min(0.75, rate);
   }
 
@@ -189,6 +237,7 @@ export class Player {
       this.baseLevel++;
       this.statPoints += 4;
       this.currentHp = this.maxHp;
+      this.currentSp = this.maxSp;
       leveledUp = true;
     }
 
@@ -271,6 +320,78 @@ export class Player {
     return { healed: healAmt, itemName: item.name, itemId: id };
   }
 
+  ownedSpPotions() {
+    return SP_POTION_IDS.filter(id => this.inventory[id] > 0 && ITEMS[id]);
+  }
+
+  useSpPotion(itemId = null) {
+    const id = (itemId && this.inventory[itemId] > 0 && ITEMS[itemId]?.sp) ? itemId : this.ownedSpPotions()[0];
+    if (!id) return null;
+    const item = ITEMS[id];
+    this.removeItem(id, 1);
+    this.currentSp = Math.min(this.maxSp, this.currentSp + item.sp);
+    return { restored: item.sp, itemName: item.name, itemId: id };
+  }
+
+  // ---- skills ----
+  tickSkills(dt) {
+    this.currentSp = Math.min(this.maxSp, this.currentSp + this.spRegen * dt);
+    for (const id of Object.keys(this.skillCd)) if (this.skillCd[id] > 0) this.skillCd[id] = Math.max(0, this.skillCd[id] - dt);
+    for (const id of Object.keys(this.activeBuffs)) {
+      this.activeBuffs[id] -= dt;
+      if (this.activeBuffs[id] <= 0) delete this.activeBuffs[id];
+    }
+    if (this.currentHp > this.maxHp) this.currentHp = this.maxHp;
+  }
+
+  addBook(skillId, n = 1) {
+    this.skillBooks[skillId] = (this.skillBooks[skillId] || 0) + n;
+    this.saveToStorage();
+  }
+
+  // Read a book: only when the skill is not learned yet (the book is consumed)
+  learnSkill(skillId) {
+    if (!SKILLS[skillId]) return { ok: false, reason: 'ไม่มีสกิลนี้' };
+    if (this.learnedSkills[skillId]) return { ok: false, reason: 'เรียนสกิลนี้แล้ว' };
+    if (!(this.skillBooks[skillId] > 0)) return { ok: false, reason: 'ไม่มีสมุดสกิลนี้' };
+    this.skillBooks[skillId]--;
+    if (this.skillBooks[skillId] <= 0) delete this.skillBooks[skillId];
+    this.learnedSkills[skillId] = true;
+    const free = this.skillLoadout.indexOf(null);
+    if (free >= 0) this.skillLoadout[free] = skillId;
+    this.saveToStorage();
+    return { ok: true };
+  }
+
+  sellBook(skillId) {
+    if (!(this.skillBooks[skillId] > 0) || !SKILLS[skillId]) return 0;
+    const price = SKILLS[skillId].bookSellPrice || 0;
+    this.skillBooks[skillId]--;
+    if (this.skillBooks[skillId] <= 0) delete this.skillBooks[skillId];
+    this.gold += price;
+    this.saveToStorage();
+    return price;
+  }
+
+  // Put a learned skill in loadout slot (0-3); null clears. A skill sits in one slot only.
+  setLoadout(slot, skillId) {
+    if (slot < 0 || slot >= SKILL_SLOTS) return false;
+    if (skillId && !this.learnedSkills[skillId]) return false;
+    if (skillId) this.skillLoadout = this.skillLoadout.map(s => (s === skillId ? null : s));
+    this.skillLoadout[slot] = skillId || null;
+    this.saveToStorage();
+    return true;
+  }
+
+  // Weighted random skill id from the gacha pool (gachaWeight)
+  rollSkillBook() {
+    const entries = Object.entries(SKILLS).filter(([, s]) => (s.gachaWeight || 0) > 0);
+    const total = entries.reduce((a, [, s]) => a + s.gachaWeight, 0);
+    let r = Math.random() * total;
+    for (const [id, s] of entries) { r -= s.gachaWeight; if (r < 0) return id; }
+    return entries[0]?.[0];
+  }
+
   // Save / Load
   saveToStorage() {
     const data = {
@@ -286,6 +407,11 @@ export class Player {
       hotbar: this.hotbar,
       auto: this.auto,
       hpPotionSlot: this.hpPotionSlot,
+      spPotionSlot: this.spPotionSlot,
+      learnedSkills: this.learnedSkills,
+      skillBooks: this.skillBooks,
+      skillLoadout: this.skillLoadout,
+      currentSp: Math.floor(this.currentSp),
       autoBattle: this.autoBattle,
       costumes: this.costumes,
       unlockedCostumes: this.unlockedCostumes,
@@ -306,7 +432,7 @@ export class Player {
       if (raw) {
         const d = JSON.parse(raw);
         const keep = ['name', 'baseLevel', 'baseExp', 'statPoints', 'gold', 'gachaTokens', 'inventory',
-          'costumes', 'unlockedCostumes', 'collectedRelics', 'questProgress', 'hpPotionSlot', 'autoBattle'];
+          'costumes', 'unlockedCostumes', 'collectedRelics', 'questProgress', 'hpPotionSlot', 'spPotionSlot', 'learnedSkills', 'skillBooks', 'autoBattle'];
         keep.forEach(k => { if (d[k] !== undefined) this[k] = d[k]; });
         if (d.stats) STAT_KEYS.forEach(k => { if (typeof d.stats[k] === 'number') this.stats[k] = d.stats[k]; });
         if (d.auto) {
@@ -314,6 +440,7 @@ export class Player {
           if (typeof a.range === 'number') this.auto.range = Math.min(400, Math.max(1, a.range));
           if (a.disabledMonsters && typeof a.disabledMonsters === 'object') this.auto.disabledMonsters = a.disabledMonsters;
           if (a.hpPotion) Object.assign(this.auto.hpPotion, a.hpPotion);
+          if (a.spPotion) Object.assign(this.auto.spPotion, a.spPotion);
         }
         if (d.equipment) this.equipment = { weapon: d.equipment.weapon ?? null, armor: d.equipment.armor ?? null };
         if (Array.isArray(d.hotbar)) this.hotbar = d.hotbar.slice(0, HOTBAR_SIZE).concat(new Array(Math.max(0, HOTBAR_SIZE - d.hotbar.length)).fill(null));
@@ -327,7 +454,13 @@ export class Player {
           }
         });
         if (!this.equipment.weapon && !this.inventory.wooden_stick) this.inventory.wooden_stick = 1;
+        if (Array.isArray(d.skillLoadout)) this.skillLoadout = Array.from({ length: SKILL_SLOTS }, (_, i) => d.skillLoadout[i] || null);
+        // skills that no longer exist (or were never learned) leave the loadout / bag
+        this.skillLoadout = this.skillLoadout.map(id => (id && SKILLS[id] && this.learnedSkills[id] ? id : null));
+        for (const id of Object.keys(this.learnedSkills)) if (!SKILLS[id]) delete this.learnedSkills[id];
+        for (const id of Object.keys(this.skillBooks)) if (!SKILLS[id]) delete this.skillBooks[id];
         this.currentHp = this.maxHp;
+        this.currentSp = typeof d.currentSp === 'number' ? Math.min(d.currentSp, this.maxSp) : this.maxSp;
       }
       // Old saves carried the placeholder name; give those a random one too
       if (!this.name || this.name === 'Novice Adventurer') this.name = randomName();
