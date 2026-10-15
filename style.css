@@ -1363,9 +1363,14 @@ body, html {
 .confirm-yes { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
 .confirm-no { background: #334155; color: #e2e8f0; }
 
-/* Skills 1-5 form an arc around the attack button */
-.attack-wheel { position: relative; width: 72px; height: 72px; }
-.attack-wheel .skill-slot-card { position: absolute; width: 46px; height: 46px; }
-.attack-wheel .skill-icon-emoji { font-size: 20px; }
-.attack-wheel .auto-wrap { position: absolute; }
-.quick-slots { margin-right: 92px; }
+/* Skills 1-5 form a quarter arc around the attack button; potions + AUTO sit in a row above it */
+.action-stack { align-items: flex-end; gap: 12px; }
+.top-row { display: flex; align-items: center; gap: 10px; }
+.quick-slots { margin-right: 0; align-items: center; }
+.quick-slot { width: 54px; height: 54px; border-radius: 50%; }
+.qs-tag { left: 50%; top: 3px; transform: translateX(-50%); }
+.qs-count { right: 8px; bottom: 5px; }
+.attack-wheel { position: relative; width: 72px; height: 72px; margin-top: 64px; }
+.attack-wheel .skill-slot-card { position: absolute; width: 40px; height: 40px; border-radius: 50%; }
+.attack-wheel .skill-icon-emoji { font-size: 17px; }
+.attack-wheel .skill-hotkey-badge { top: -4px; left: auto; right: -2px; }

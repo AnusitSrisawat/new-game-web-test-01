@@ -110,50 +110,52 @@
 
       <!-- BOTTOM-RIGHT: potion slots, Auto, attack -->
       <div class="hud-bottom-right hud-interactive">
-        <div class="quick-slots">
-          <div class="quick-slot-wrap">
-            <button class="quick-slot hp" id="slot-hp-potion" title="ยา HP — คลิกเพื่อใช้ / คลิกขวาเพื่อเปลี่ยนชนิด [Q]">
-              <span class="qs-icon" id="qs-hp-icon">＋</span>
-              <span class="qs-count" id="qs-hp-count"></span>
-              <span class="qs-tag">HP</span>
-            </button>
-            <div id="potion-chooser" class="potion-chooser" style="display:none;"></div>
-          </div>
-          <button class="quick-slot sp locked" id="slot-sp-potion" title="ยา SP — เปิดใช้งานพร้อมระบบสกิล" disabled>
-            <span class="qs-icon">🔒</span>
-            <span class="qs-tag">SP</span>
-          </button>
-        </div>
         <div class="action-stack">
+          <div class="top-row">
+            <div class="quick-slots">
+              <div class="quick-slot-wrap">
+                <button class="quick-slot hp" id="slot-hp-potion" title="ยา HP — คลิกเพื่อใช้ / คลิกขวาเพื่อเปลี่ยนชนิด [Q]">
+                  <span class="qs-icon" id="qs-hp-icon">＋</span>
+                  <span class="qs-count" id="qs-hp-count"></span>
+                  <span class="qs-tag">HP</span>
+                </button>
+                <div id="potion-chooser" class="potion-chooser" style="display:none;"></div>
+              </div>
+              <button class="quick-slot sp locked" id="slot-sp-potion" title="ยา SP — เปิดใช้งานพร้อมระบบสกิล" disabled>
+                <span class="qs-icon">🔒</span>
+                <span class="qs-tag">SP</span>
+              </button>
+            </div>
+            <div class="auto-wrap">
+              <button class="btn-auto" id="btn-auto-hunt" title="เปิด/ปิด ฟาร์มอัตโนมัติ">AUTO</button>
+              <button class="btn-auto-settings" id="btn-auto-settings" title="ตั้งค่า Auto">⚙️</button>
+            </div>
+          </div>
           <div class="attack-wheel">
-            <div class="skill-slot-card empty" id="slot-1" title="[1] ช่องว่าง" style="left:-85px;top:13px">
+            <div class="skill-slot-card empty" id="slot-1" title="[1] ช่องว่าง" style="left:-90px;top:16px">
               <div class="skill-icon-emoji"></div>
               <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">1</span>
             </div>
-            <div class="skill-slot-card empty" id="slot-2" title="[2] ช่องว่าง" style="left:-72px;top:-36px">
+            <div class="skill-slot-card empty" id="slot-2" title="[2] ช่องว่าง" style="left:-82px;top:-25px">
               <div class="skill-icon-emoji"></div>
               <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">2</span>
             </div>
-            <div class="skill-slot-card empty" id="slot-3" title="[3] ช่องว่าง" style="left:-36px;top:-72px">
+            <div class="skill-slot-card empty" id="slot-3" title="[3] ช่องว่าง" style="left:-59px;top:-59px">
               <div class="skill-icon-emoji"></div>
               <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">3</span>
             </div>
-            <div class="skill-slot-card empty" id="slot-4" title="[4] ช่องว่าง" style="left:13px;top:-85px">
+            <div class="skill-slot-card empty" id="slot-4" title="[4] ช่องว่าง" style="left:-25px;top:-82px">
               <div class="skill-icon-emoji"></div>
               <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">4</span>
             </div>
-            <div class="skill-slot-card empty" id="slot-5" title="[5] ช่องว่าง" style="left:62px;top:-72px">
+            <div class="skill-slot-card empty" id="slot-5" title="[5] ช่องว่าง" style="left:16px;top:-90px">
               <div class="skill-icon-emoji"></div>
               <div class="skill-label-name"></div>
               <span class="skill-hotkey-badge">5</span>
-            </div>
-            <div class="auto-wrap" style="left:100px;top:-28px">
-              <button class="btn-auto" id="btn-auto-hunt" title="เปิด/ปิด ฟาร์มอัตโนมัติ">AUTO</button>
-              <button class="btn-auto-settings" id="btn-auto-settings" title="ตั้งค่า Auto">⚙️</button>
             </div>
             <button class="btn-big-attack" id="btn-big-attack" title="โจมตีปกติ [คลิกซ้าย]">⚔️</button>
           </div>
