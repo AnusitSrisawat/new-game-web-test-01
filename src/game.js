@@ -1,6 +1,6 @@
 // 2D Canvas Game Engine with Large Tile World, Camera Follow, Real Sprites, Multiplayer Sync & High-Impact VFX
 import { WorldMap } from './map.js';
-import { ZONES, MONSTERS, ITEMS, RELICS, CLASSES } from './data.js';
+import { ZONES, MONSTERS, ITEMS, RELICS, CLASSES, QUESTS } from './data.js';
 import { soundEngine } from './audio.js';
 
 export class GameEngine {
