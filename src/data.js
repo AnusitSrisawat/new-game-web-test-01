@@ -40,16 +40,16 @@ export const ZONES = [
     id: 'misty_forest',
     name: '🌲 Misty Forest (ป่าหมอกลึกลับ)',
     desc: 'ป่าทึบที่มีหมอกลงหนาทึบและสัตว์ป่าดุร้าย',
-    reqLevel: 15,
+    reqLevel: 12,
     bgColor: '#94a3b8',
     floorColor: '#475569',
-    monsterIds: ['forest_wolf', 'wild_boar', 'jungle_viper', 'claw_bear']
+    monsterIds: ['wild_boar', 'forest_wolf', 'jungle_viper', 'claw_bear']
   },
   {
     id: 'bandit_hideout',
     name: '🏴‍☠️ Bandit Hideout (ซ่องโจรป่าเขา)',
     desc: 'ค่ายซ่องโจรกลางหุบเขา เหล่าโจร นักธนู และหัวหน้าโจรคอยซุ่มดักผู้มาเยือน',
-    reqLevel: 34,
+    reqLevel: 21,
     bgColor: '#fde68a',
     floorColor: '#92400e',
     monsterIds: ['bandit_rogue', 'bandit_archer', 'bandit_brute', 'bandit_leader']
@@ -67,7 +67,7 @@ export const ZONES = [
     id: 'volcano',
     name: '🌋 Lava Volcano (ภูเขาไฟลาวาเดือด)',
     desc: 'ดินแดนภูเขาไฟ หินบะซอลต์ และธารลาวาร้อนระอุ โกเลมหินยักษ์',
-    reqLevel: 50,
+    reqLevel: 40,
     bgColor: '#fecaca',
     floorColor: '#dc2626',
     monsterIds: ['floating_eye', 'spectral_armor', 'mushroom_sporeling', 'baby_fire_wyrm']
@@ -76,7 +76,7 @@ export const ZONES = [
     id: 'bone_crypt',
     name: '💀 Bone Crypt (สุสานโครงกระดูก)',
     desc: 'สุสานเก่าแก่ที่เหล่าโครงกระดูกและชุดเกราะวิญญาณเดินตรวจตราอยู่ตลอดเวลา',
-    reqLevel: 55,
+    reqLevel: 53,
     bgColor: '#d6d3d1',
     floorColor: '#57534e',
     monsterIds: ['skeleton_warrior', 'skeleton_archer', 'skeleton_mage', 'skeleton_knight']
@@ -85,7 +85,7 @@ export const ZONES = [
     id: 'haunted_ruins',
     name: '🏛️ Haunted Ruins (ซากปรักหักพังต้องสาป)',
     desc: 'ซากวิหารโบราณที่เกราะวิญญาณและโกเลมไททันเฝ้าสมบัติมานับพันปี',
-    reqLevel: 62,
+    reqLevel: 66,
     bgColor: '#c7d2fe',
     floorColor: '#4338ca',
     monsterIds: []
