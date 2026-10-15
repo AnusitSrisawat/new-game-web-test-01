@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 5. KEYBOARD CONTROLS: WASD to Move, 1 to 9 for Skills & Items
   window.addEventListener('keydown', (e) => {
-    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    if (ui.isTyping()) return; // sliders/checkboxes/buttons with focus must not block movement
 
     const key = e.key.toLowerCase();
 
@@ -117,7 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.addEventListener('keyup', (e) => {
-    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
 
     const key = e.key.toLowerCase();
     if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
@@ -128,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 6. Periodic UI Sync
   setInterval(() => {
     ui.updateHUD();
+    ui.refreshOpenWindows();
   }, 100);
 
   addLog('🌿 ยินดีต้อนรับสู่ TRIPLE CROWN ONLINE!', 'system');

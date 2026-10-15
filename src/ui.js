@@ -7,12 +7,26 @@ export class UIController {
   constructor(player, gameEngine) {
     this.player = player;
     this.gameEngine = gameEngine;
-    this.activeModal = null;
+    this.openWindows = new Set(); // several windows can stay open at once
+    this.zCounter = 100;
     this.chatFilter = 'all';
+    this.windowRenderers = {
+      'modal-status': () => this.renderStatusModal(),
+      'modal-party': () => this.renderPartyModal(),
+      'modal-inventory': () => this.renderInventoryModal(),
+      'modal-quests': () => this.renderQuestsModal(),
+      'modal-relics': () => this.renderRelicsModal(),
+      'modal-shop': () => this.renderShopModal(),
+      'modal-zones': () => this.renderZonesModal(),
+      'modal-auto': () => this.renderAutoModal()
+    };
 
     this.initEventListeners();
     this.initKeyboardHotkeys();
+    this.initWindows();
+    this.initSidePanelCollapse();
     this.renderAll();
+    this.restoreWindows();
   }
 
   initEventListeners() {
@@ -159,13 +173,13 @@ export class UIController {
     // Monster kill event
     window.addEventListener('monsterKilled', (e) => {
       this.updateQuestProgress(e.detail.monsterId);
-      if (this.activeModal === 'modal-quests') this.renderQuestsModal();
+      if (this.isOpen('modal-quests')) this.renderQuestsModal();
     });
   }
 
   initKeyboardHotkeys() {
     window.addEventListener('keydown', (e) => {
-      if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+      if (this.isTyping()) return;
 
       const key = e.key.toLowerCase();
       if (key === 'c') this.toggleModal('modal-status', () => this.renderStatusModal());
@@ -177,29 +191,169 @@ export class UIController {
       else if (key === 'm') this.toggleModal('modal-zones', () => this.renderZonesModal());
       else if (key === 'q') this.gameEngine.usePotionSlot();
       else if (key === 'escape') {
-        if (this.activeModal) this.closeModal(this.activeModal);
+        const front = this.frontWindowId();
+        if (front) this.closeModal(front);
+        else this.closeOptionMenu();
       }
     });
   }
 
+  // True only while typing text (not when a slider/checkbox/button merely has focus)
+  isTyping() {
+    const a = document.activeElement;
+    if (!a) return false;
+    if (a.tagName === 'TEXTAREA') return true;
+    return a.tagName === 'INPUT' && !/^(range|checkbox|radio|button)$/.test(a.type);
+  }
+
+  isOpen(modalId) {
+    return this.openWindows.has(modalId);
+  }
+
+  // Windows stay open until you close them (X / same hotkey / Esc closes the front-most).
   toggleModal(modalId, renderFn) {
     const modal = document.getElementById(modalId);
     if (!modal) return;
-
-    if (this.activeModal === modalId) {
+    if (this.isOpen(modalId)) {
       this.closeModal(modalId);
-    } else {
-      if (this.activeModal) this.closeModal(this.activeModal);
-      this.activeModal = modalId;
-      modal.classList.add('active');
-      if (renderFn) renderFn();
+      return;
     }
+    this.openWindow(modalId, renderFn);
+  }
+
+  openWindow(modalId, renderFn) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    this.openWindows.add(modalId);
+    this.placeWindow(modal);
+    modal.classList.add('active');
+    this.bringToFront(modal);
+    if (renderFn) renderFn();
+    this.saveWindowState();
   }
 
   closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.classList.remove('active');
-    if (this.activeModal === modalId) this.activeModal = null;
+    this.openWindows.delete(modalId);
+    this.saveWindowState();
+  }
+
+  bringToFront(modal) {
+    modal.style.zIndex = ++this.zCounter;
+  }
+
+  frontWindowId() {
+    let best = null;
+    let bestZ = -1;
+    this.openWindows.forEach(id => {
+      const z = Number(document.getElementById(id)?.style.zIndex) || 0;
+      if (z >= bestZ) { bestZ = z; best = id; }
+    });
+    return best;
+  }
+
+  // Position: remembered spot, otherwise a cascade near the centre
+  placeWindow(modal) {
+    if (modal.dataset.placed) return;
+    modal.dataset.placed = '1';
+    let pos = null;
+    try { pos = (JSON.parse(localStorage.getItem('win_pos') || '{}'))[modal.id]; } catch (e) { /* ignore */ }
+    const w = Math.min(680, window.innerWidth * 0.94);
+    if (!pos) {
+      const n = this.openWindows.size - 1;
+      pos = { x: Math.max(8, (window.innerWidth - w) / 2 + n * 28), y: 70 + n * 28 };
+    }
+    modal.style.left = `${this.clampX(pos.x, w)}px`;
+    modal.style.top = `${this.clampY(pos.y)}px`;
+  }
+
+  clampX(x, w) { return Math.min(Math.max(0, x), Math.max(0, window.innerWidth - Math.min(w, 120))); }
+  clampY(y) { return Math.min(Math.max(0, y), Math.max(0, window.innerHeight - 60)); }
+
+  saveWindowState() {
+    try {
+      localStorage.setItem('win_open', JSON.stringify([...this.openWindows]));
+    } catch (e) { /* ignore */ }
+  }
+
+  // Drag by header, click brings to front, positions are remembered
+  initWindows() {
+    document.querySelectorAll('.game-modal').forEach(modal => {
+      modal.addEventListener('mousedown', () => this.bringToFront(modal));
+      const header = modal.querySelector('.modal-header');
+      if (!header) return;
+      header.style.cursor = 'move';
+      header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button')) return;
+        const startX = e.clientX - modal.offsetLeft;
+        const startY = e.clientY - modal.offsetTop;
+        const move = (ev) => {
+          modal.style.left = `${this.clampX(ev.clientX - startX, modal.offsetWidth)}px`;
+          modal.style.top = `${this.clampY(ev.clientY - startY)}px`;
+        };
+        const up = () => {
+          window.removeEventListener('mousemove', move);
+          window.removeEventListener('mouseup', up);
+          try {
+            const all = JSON.parse(localStorage.getItem('win_pos') || '{}');
+            all[modal.id] = { x: modal.offsetLeft, y: modal.offsetTop };
+            localStorage.setItem('win_pos', JSON.stringify(all));
+          } catch (err) { /* ignore */ }
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+        e.preventDefault();
+      });
+    });
+  }
+
+  // Re-open the windows that were open last time
+  restoreWindows() {
+    let ids = [];
+    try { ids = JSON.parse(localStorage.getItem('win_open') || '[]'); } catch (e) { /* ignore */ }
+    ids.forEach(id => {
+      const r = this.windowRenderers[id];
+      if (r) this.openWindow(id, r);
+    });
+  }
+
+  // Keep open windows fresh when game data changes (loot, EXP, gold, quest progress)
+  refreshOpenWindows() {
+    if (this.openWindows.size === 0) return;
+    const pl = this.player;
+    const sig = JSON.stringify([pl.gold, pl.gachaTokens, pl.baseLevel, pl.statPoints, pl.inventory, pl.equipment, pl.questProgress, pl.collectedRelics.length]);
+    if (sig === this.lastWindowSig) return;
+    this.lastWindowSig = sig;
+    const a = document.activeElement;
+    this.openWindows.forEach(id => {
+      if (id === 'modal-party' || id === 'modal-auto' || id === 'modal-zones') return; // have their own refresh / inputs
+      const modal = document.getElementById(id);
+      if (a && modal && modal.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
+      const r = this.windowRenderers[id];
+      if (r) r();
+    });
+  }
+
+  // Party/Quest side panel can be folded to just its tab bar (remembered)
+  initSidePanelCollapse() {
+    const panel = document.getElementById('hud-party-widget');
+    const btn = document.getElementById('side-collapse');
+    if (!panel || !btn) return;
+    const apply = (collapsed) => {
+      panel.classList.toggle('collapsed', collapsed);
+      btn.textContent = collapsed ? '▾' : '▴';
+      btn.title = collapsed ? 'แสดงแผง' : 'ซ่อนแผง';
+      try { localStorage.setItem('side_collapsed', collapsed ? '1' : '0'); } catch (e) { /* ignore */ }
+    };
+    btn.addEventListener('click', () => apply(!panel.classList.contains('collapsed')));
+    // Clicking a tab while folded opens the panel again
+    document.querySelectorAll('.side-tab').forEach(t => t.addEventListener('click', () => {
+      if (panel.classList.contains('collapsed')) apply(false);
+    }));
+    let saved = false;
+    try { saved = localStorage.getItem('side_collapsed') === '1'; } catch (e) { /* ignore */ }
+    apply(saved);
   }
 
   closeOptionMenu() {
@@ -1151,7 +1305,7 @@ export class UIController {
 
     if (!party || !party.members || party.members.length === 0) {
       listEl.innerHTML = '<div style="font-size:0.7rem; color:#94a3b8; padding:4px 6px;">ยังไม่มีปาร์ตี้ (กด [P] เพื่อสร้าง/ค้นหา)</div>';
-      if (this.activeModal === 'modal-party') this.renderPartyModal();
+      if (this.isOpen('modal-party')) this.renderPartyModal();
       return;
     }
 
@@ -1179,7 +1333,7 @@ export class UIController {
 
     listEl.innerHTML = html;
 
-    if (this.activeModal === 'modal-party') {
+    if (this.isOpen('modal-party')) {
       this.renderPartyModal();
     }
   }

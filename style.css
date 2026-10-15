@@ -1299,3 +1299,23 @@ body, html {
 .pc-lv { white-space: nowrap; }
 .pc-name { max-width: 96px; }
 .hud-top-left { width: 250px; }
+
+/* Free-floating, draggable windows: several can stay open while you play */
+.game-modal {
+  top: 70px; left: calc(50% - 340px);
+  transform: none;
+  width: min(680px, 94vw);
+  max-width: none;
+  transition: opacity 0.15s ease;
+}
+.game-modal.active { transform: none; }
+.game-modal .modal-header { user-select: none; }
+
+/* Collapsible side panel */
+.side-tabs { grid-template-columns: 1fr 1fr 34px; }
+.side-collapse {
+  background: transparent; border: none; border-left: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8; cursor: pointer; font-size: 0.85rem;
+}
+.side-collapse:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.side-panel.collapsed .side-body { display: none !important; }
