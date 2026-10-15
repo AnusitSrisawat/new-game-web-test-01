@@ -6,12 +6,17 @@ import { NetworkManager } from './network.js';
 import { ZONES, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS } from './data.js';
 import { MAP_DEFS } from './maps.js';
 import { applyOverrides } from './overrides.js';
+import { applyUiTheme } from './uitheme.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Studio edits (names, stats, map colours/sizes...) are layered over the built-in data before anything uses it
   try {
     const res = await fetch('/api/overrides', { cache: 'no-store' });
-    if (res.ok) applyOverrides({ ZONES, MAP_DEFS, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS }, await res.json());
+    if (res.ok) {
+      const ov = await res.json();
+      applyOverrides({ ZONES, MAP_DEFS, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS }, ov);
+      applyUiTheme(ov.ui && ov.ui.main);
+    }
   } catch (e) {
     console.warn('Could not load Studio overrides:', e);
   }

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
 import crypto from 'crypto';
 import { MONSTERS, RELICS, ZONES, WEAPON_TYPES, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS } from './src/data.js';
-import { getMapDef, MAP_DEFS } from './src/maps.js';
+import { getMapDef, MAP_DEFS, OBJECT_TYPES, MAX_OBJECTS_PER_MAP } from './src/maps.js';
 import { monsterSprite, itemSprite } from './src/sprites.js';
 import { SCHEMA, sanitizeOverrides, snapshotEditable, applyOverrides, validateSpawns } from './src/overrides.js';
 
@@ -80,7 +80,8 @@ const KNOWN = {
   monsters: new Set(Object.keys(MONSTERS)),
   ai: new Set(Object.keys(MONSTERS)),
   items: new Set(Object.keys(ITEMS)),
-  quests: new Set(QUESTS.map(q => q.id))
+  quests: new Set(QUESTS.map(q => q.id)),
+  ui: new Set(['main'])
 };
 
 function readJson(file, fallback) {
@@ -236,6 +237,8 @@ function studioPayload() {
       name: it.name, icon: it.icon, type: it.type, sprite: itemSprite(id)
     }])),
     zoneNames: Object.fromEntries(ZONES.map(z => [z.id, DEFAULTS.zones[z.id].name])),
+    objectTypes: OBJECT_TYPES,
+    maxObjects: MAX_OBJECTS_PER_MAP,
     spawnLimits: { count: [0, 60], respawn: [1, 3600] }
   };
 }

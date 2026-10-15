@@ -9,13 +9,28 @@
 //   items:    { [itemId]:    { name, price, atk, def, hp, heal, reqLevel, desc } },
 //   quests:   { [questId]:   { title, desc, requiredCount, rewardGold, rewardExp, rewardTokens } },
 //   skills:   { [skillId]:   { name, desc } }   // free-form list, not wired into the game yet
+//   objects:  { [zoneId]: [ { type, x, y, scale, solid } ] }  // replaces that map's object list
+//   ui:       { main: { hudBg, hudOpacity, ... show* } }          // HUD theme + show/hide panels
 //   drops:    { [monsterId]: [ { itemId, chance } ] }  // replaces that monster's drop list (chance 0.001..1)
 // }
+
+import { TEXTURES, OBJECT_TYPES, MAX_OBJECTS_PER_MAP } from './maps.js';
 
 const text = (label, max) => ({ type: 'text', label, max });
 const num = (label, min, max, step = 1) => ({ type: 'number', label, min, max, step });
 const color = (label) => ({ type: 'color', label });
 const select = (label, options) => ({ type: 'select', label, options });
+
+const SHOW_OPTIONS = [{ value: 'show', label: 'แสดง' }, { value: 'hide', label: 'ซ่อน' }];
+
+// Default HUD theme (matches :root in style.css) and the CSS variable each field drives
+export const UI_DEFAULTS = {
+  hudBg: '#0f172a', hudOpacity: 92, hudBorder: '#d4af37',
+  goldAccent: '#f59e0b', goldBorder: '#d97706',
+  hpRed: '#ef4444', spBlue: '#3b82f6', expYellow: '#eab308',
+  textMain: '#f8fafc', textDim: '#94a3b8',
+  showMinimap: 'show', showChat: 'show', showSidePanel: 'show', showZoom: 'show'
+};
 
 // Which fields can be edited per collection. Studio builds its forms from this.
 export const SCHEMA = {
@@ -30,7 +45,8 @@ export const SCHEMA = {
     label: 'ขนาด/สีแมพ',
     fields: {
       size: num('ขนาด (px, จัตุรัส)', 1600, 9600, 32),
-      floor: color('สีพื้น'),
+      texture: select('พื้นผิวพื้น (texture)', Object.entries(TEXTURES).map(([value, label]) => ({ value, label }))),
+      floor: color('สีพื้น (สีหลักของ texture)'),
       wall: color('สีกำแพง')
     }
   },
@@ -84,6 +100,25 @@ export const SCHEMA = {
       rewardGold: num('รางวัล Gold', 0, 100000000),
       rewardExp: num('รางวัล EXP', 0, 100000000),
       rewardTokens: num('รางวัล Token', 0, 100000)
+    }
+  },
+  ui: {
+    label: 'หน้าจอ UI',
+    fields: {
+      hudBg: color('สีพื้นหลังแผง HUD'),
+      hudOpacity: num('ความทึบแผง HUD (%)', 30, 100),
+      hudBorder: color('สีขอบแผง'),
+      goldAccent: color('สีเน้น (ปุ่ม/หัวข้อ)'),
+      goldBorder: color('สีกรอบหน้าต่าง'),
+      hpRed: color('สีแถบ HP'),
+      spBlue: color('สีแถบ SP'),
+      expYellow: color('สีแถบ EXP'),
+      textMain: color('สีตัวอักษรหลัก'),
+      textDim: color('สีตัวอักษรรอง'),
+      showMinimap: select('มินิแมพ', SHOW_OPTIONS),
+      showChat: select('แชท', SHOW_OPTIONS),
+      showSidePanel: select('แผงปาร์ตี้/เควสต์ (ซ้ายบน)', SHOW_OPTIONS),
+      showZoom: select('ปุ่มซูม', SHOW_OPTIONS)
     }
   },
   skills: {
@@ -142,6 +177,28 @@ export function sanitizeOverrides(raw, known) {
     }
     if (Object.keys(dst).length) out[col] = dst;
   }
+  // Map objects: whole list per map
+  if (raw.objects && typeof raw.objects === 'object' && known.maps) {
+    const objects = {};
+    for (const [mapId, list] of Object.entries(raw.objects)) {
+      if (!known.maps.has(mapId) || !Array.isArray(list)) continue;
+      const clean = [];
+      for (const o of list.slice(0, MAX_OBJECTS_PER_MAP)) {
+        if (!o || !OBJECT_TYPES[o.type]) continue;
+        const x = Number(o.x), y = Number(o.y), scale = Number(o.scale ?? 1);
+        if (![x, y, scale].every(Number.isFinite)) continue;
+        clean.push({
+          type: o.type,
+          x: Math.round(Math.min(9600, Math.max(0, x))),
+          y: Math.round(Math.min(9600, Math.max(0, y))),
+          scale: Math.round(Math.min(3, Math.max(0.3, scale)) * 100) / 100,
+          solid: !!o.solid
+        });
+      }
+      objects[mapId] = clean;
+    }
+    if (Object.keys(objects).length) out.objects = objects;
+  }
   // Drop tables: whole list per monster (an empty list means "drops nothing")
   if (raw.drops && typeof raw.drops === 'object' && known.monsters && known.items) {
     const drops = {};
@@ -165,7 +222,7 @@ export function sanitizeOverrides(raw, known) {
 
 // Copy the editable fields of the current data so they can be restored / shown as "default".
 export function snapshotEditable(data) {
-  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {}, drops: {} };
+  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {}, drops: {}, ui: { main: { ...UI_DEFAULTS } }, objects: {} };
   const pick = (obj, fields) => {
     const o = {};
     for (const k of Object.keys(fields)) if (obj && obj[k] !== undefined) o[k] = obj[k];
@@ -173,7 +230,8 @@ export function snapshotEditable(data) {
   };
   data.ZONES.forEach(z => { snap.zones[z.id] = pick(z, SCHEMA.zones.fields); });
   for (const [id, def] of Object.entries(data.MAP_DEFS)) {
-    snap.maps[id] = { size: def.width, floor: def.floor, wall: def.wall };
+    snap.maps[id] = { size: def.width, texture: def.texture || 'plain', floor: def.floor, wall: def.wall };
+    snap.objects[id] = (def.objects || []).map(o => ({ ...o }));
   }
   for (const [id, m] of Object.entries(data.MONSTERS)) {
     snap.monsters[id] = { size: 92, facing: 'left', ...pick(m, SCHEMA.monsters.fields) };
@@ -199,8 +257,12 @@ export function applyOverrides(data, o) {
       def.width = def.height = p.size;
       def.spawn = { x: p.size / 2, y: p.size / 2 };
     }
+    if (p.texture) def.texture = p.texture;
     if (p.floor) def.floor = p.floor;
     if (p.wall) def.wall = p.wall;
+  }
+  for (const [id, list] of Object.entries(o.objects || {})) {
+    if (data.MAP_DEFS[id]) data.MAP_DEFS[id].objects = list.map(ob => ({ ...ob }));
   }
   for (const [id, p] of Object.entries(o.monsters || {})) {
     if (data.MONSTERS[id]) Object.assign(data.MONSTERS[id], p);
@@ -218,6 +280,7 @@ export function applyOverrides(data, o) {
   for (const [id, list] of Object.entries(o.drops || {})) {
     if (data.MONSTERS[id]) data.MONSTERS[id].drops = list.map(d => ({ itemId: d.itemId, chance: d.chance }));
   }
+  if (o.ui && o.ui.main) data.UI = { ...UI_DEFAULTS, ...o.ui.main };
   data.SKILLS = { ...(data.SKILLS || {}), ...(o.skills || {}) };
 }
 

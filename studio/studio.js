@@ -133,7 +133,9 @@
 
   // ---- tabs ----
   const TABS = [
-    { id: 'maps', icon: '🗺️', label: 'แมพ', sub: 'ชื่อ ขนาด สี' },
+    { id: 'maps', icon: '🗺️', label: 'แมพ', sub: 'ชื่อ ขนาด สี texture' },
+    { id: 'objects', icon: '🌳', label: 'วางออบเจกต์', sub: 'ต้นไม้ บ้าน หิน ในแมพ' },
+    { id: 'ui', icon: '🖥️', label: 'หน้าจอ UI', sub: 'สีธีม + ซ่อน/แสดงแผง' },
     { id: 'monsters', icon: '👾', label: 'มอนสเตอร์', sub: 'ค่าพลัง + พฤติกรรม' },
     { id: 'spawns', icon: '🌱', label: 'การเกิดของมอนสเตอร์', sub: 'จำนวน + เวลาเกิดใหม่' },
     { id: 'items', icon: '🎒', label: 'ไอเทม', sub: 'อาวุธ เกราะ ยา' },
@@ -169,14 +171,14 @@
   function panelMaps() {
     return [
       h('h2', {}, 'แมพ'),
-      h('p', { class: 'hint' }, 'แก้ชื่อ คำอธิบาย ขนาด (จัตุรัส) และสีของแต่ละแมพ — ผู้เล่นเกิดกลางแมพเสมอ ถ้าเปลี่ยนขนาด ตำแหน่งมอนสเตอร์จะจัดใหม่ตามขนาด'),
+      h('p', { class: 'hint' }, 'แก้ชื่อ คำอธิบาย ขนาด (จัตุรัส) พื้นผิวพื้น (texture) และสีของแต่ละแมพ — ผู้เล่นเกิดกลางแมพเสมอ ถ้าเปลี่ยนขนาด ตำแหน่งมอนสเตอร์จะจัดใหม่ตามขนาด'),
       (listHost = h('div'))
     ];
   }
   function buildMaps() {
     return state.mapIds.map(id => h('div', { class: 'card' },
       h('h3', {}, state.zoneNames[id] || id, h('small', {}, id)),
-      h('div', { class: 'fields' }, ...fieldsFor('zones', id, ['name', 'desc']), ...fieldsFor('maps', id, ['size', 'floor', 'wall']))
+      h('div', { class: 'fields' }, ...fieldsFor('zones', id, ['name', 'desc']), ...fieldsFor('maps', id, ['size', 'texture', 'floor', 'wall']))
     ));
   }
 
@@ -317,6 +319,186 @@
   }
   const clampNum = (v, [lo, hi]) => Math.min(hi, Math.max(lo, Math.round(Number(v)) || lo));
 
+
+  // ---- map objects editor (canvas): click to place, drag to move ----
+  let objMap = null;
+  let objSel = -1;
+  let objTool = { type: 'tree', scale: 1, solid: true, snap: true };
+  let texMod = null;
+  const defObjects = (mapId) => state.defaults.objects?.[mapId] ?? [];
+  const currentObjects = (mapId) => ov.objects?.[mapId] ?? defObjects(mapId);
+  function setObjects(mapId, list) {
+    if (JSON.stringify(list) === JSON.stringify(defObjects(mapId))) {
+      if (ov.objects) { delete ov.objects[mapId]; if (!Object.keys(ov.objects).length) delete ov.objects; }
+    } else {
+      ov.objects ||= {};
+      ov.objects[mapId] = list;
+    }
+    setDirty(true);
+  }
+
+  function panelObjects() {
+    objMap = objMap && state.mapIds.includes(objMap) ? objMap : state.mapIds[0];
+    objSel = -1;
+    import('/src/textures.js').then(m => { texMod = m; drawObjCanvas && drawObjCanvas(); }).catch(() => {});
+    return [
+      h('h2', {}, 'วางออบเจกต์ในแมพ'),
+      h('p', { class: 'hint' }, 'เลือกชนิด แล้วคลิกบนแมพเพื่อวาง • คลิกที่ออบเจกต์เพื่อเลือก แล้วลากย้ายได้ • ติ๊ก "ชนได้" เพื่อให้ผู้เล่นเดินผ่านไม่ได้ (มอนสเตอร์ยังเดินผ่านได้) • จุดสีฟ้า = จุดเกิดผู้เล่น'),
+      (listHost = h('div'))
+    ];
+  }
+
+  let drawObjCanvas = null;
+  function buildObjects() {
+    const mapId = objMap;
+    const size = valueOf('maps', mapId, 'size');
+    const CSZ = 720;
+    const k = CSZ / size;
+    const canvas = h('canvas', { width: CSZ, height: CSZ, class: 'objcanvas' });
+    const g = canvas.getContext('2d');
+    const info = h('div', { class: 'objinfo' });
+    const list = () => currentObjects(mapId).map(o => ({ ...o }));
+
+    drawObjCanvas = () => {
+      const floor = valueOf('maps', mapId, 'floor');
+      const tex = valueOf('maps', mapId, 'texture');
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, CSZ, CSZ);
+      g.scale(k, k);
+      g.fillStyle = floor; g.fillRect(0, 0, size, size);
+      if (texMod) {
+        const pat = texMod.getFloorPattern(g, tex, floor);
+        if (pat) { g.fillStyle = pat; g.fillRect(0, 0, size, size); }
+      }
+      g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 1 / k;
+      for (let v = 0; v <= size; v += 32 * 5) { g.beginPath(); g.moveTo(v, 0); g.lineTo(v, size); g.moveTo(0, v); g.lineTo(size, v); g.stroke(); }
+      g.fillStyle = valueOf('maps', mapId, 'wall');
+      g.fillRect(0, 0, size, 32); g.fillRect(0, size - 32, size, 32); g.fillRect(0, 0, 32, size); g.fillRect(size - 32, 0, 32, size);
+      g.fillStyle = '#38bdf8'; g.beginPath(); g.arc(size / 2, size / 2, 14 / k, 0, 7); g.fill();
+      const objs = list();
+      objs.map((o, i) => ({ o, i })).sort((a, b) => a.o.y - b.o.y).forEach(({ o, i }) => {
+        const t = state.objectTypes[o.type];
+        if (texMod) {
+          g.save(); g.translate(o.x, o.y); texMod.drawObjectShape(g, o.type, t.size * o.scale); g.restore();
+        } else { g.fillStyle = '#ef4444'; g.fillRect(o.x - 10, o.y - 20, 20, 20); }
+        if (o.solid && t.r > 0) { g.strokeStyle = 'rgba(239,68,68,0.7)'; g.lineWidth = 2 / k; g.beginPath(); g.arc(o.x, o.y, t.r * o.scale, 0, 7); g.stroke(); }
+        if (i === objSel) {
+          g.strokeStyle = '#fbbf24'; g.lineWidth = 3 / k;
+          const w = t.size * o.scale;
+          g.strokeRect(o.x - w / 2, o.y - w, w, w);
+        }
+      });
+      info.textContent = `${objs.length} / ${state.maxObjects} ชิ้นในแมพนี้`;
+    };
+
+    const hit = (x, y) => {
+      const objs = list();
+      for (let i = objs.length - 1; i >= 0; i--) {
+        const o = objs[i], t = state.objectTypes[o.type], w = t.size * o.scale;
+        if (x >= o.x - w / 2 && x <= o.x + w / 2 && y >= o.y - w && y <= o.y + 10) return i;
+      }
+      return -1;
+    };
+    const toWorld = (e) => {
+      const r = canvas.getBoundingClientRect();
+      let x = (e.clientX - r.left) / r.width * size, y = (e.clientY - r.top) / r.height * size;
+      if (objTool.snap) { x = Math.round(x / 16) * 16; y = Math.round(y / 16) * 16; }
+      return { x: Math.min(size - 32, Math.max(32, Math.round(x))), y: Math.min(size - 32, Math.max(32, Math.round(y))) };
+    };
+    let dragging = false;
+    canvas.addEventListener('pointerdown', (e) => {
+      const raw = toWorld({ clientX: e.clientX, clientY: e.clientY });
+      const r = canvas.getBoundingClientRect();
+      const wx = (e.clientX - r.left) / r.width * size, wy = (e.clientY - r.top) / r.height * size;
+      const idx = hit(wx, wy);
+      if (idx >= 0) {
+        objSel = idx; dragging = true; canvas.setPointerCapture(e.pointerId);
+      } else {
+        const objs = list();
+        if (objs.length >= state.maxObjects) { toast('ออบเจกต์เต็มแล้ว', true); return; }
+        objs.push({ type: objTool.type, x: raw.x, y: raw.y, scale: objTool.scale, solid: objTool.solid });
+        setObjects(mapId, objs);
+        objSel = objs.length - 1;
+      }
+      drawObjCanvas(); drawSel();
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!dragging || objSel < 0) return;
+      const objs = list();
+      const p = toWorld(e);
+      objs[objSel].x = p.x; objs[objSel].y = p.y;
+      setObjects(mapId, objs);
+      drawObjCanvas();
+    });
+    canvas.addEventListener('pointerup', () => { dragging = false; });
+
+    const selBox = h('div', { class: 'objsel' });
+    function drawSel() {
+      const objs = list();
+      const o = objs[objSel];
+      if (!o) { selBox.replaceChildren(h('div', { class: 'empty small' }, 'ยังไม่ได้เลือกออบเจกต์')); return; }
+      const apply = (patch) => { objs[objSel] = { ...o, ...patch }; setObjects(mapId, objs); drawObjCanvas(); };
+      selBox.replaceChildren(
+        h('div', { class: 'group-title' }, 'ออบเจกต์ที่เลือก'),
+        h('div', { class: 'fields' },
+          h('div', { class: 'field' }, h('label', {}, h('span', {}, 'ชนิด')),
+            h('select', { onchange: (e) => { apply({ type: e.target.value }); } },
+              ...Object.entries(state.objectTypes).map(([id, t]) => h('option', { value: id, selected: id === o.type }, t.label)))),
+          h('div', { class: 'field' }, h('label', {}, h('span', {}, 'X')), h('input', { type: 'number', value: o.x, onchange: (e) => apply({ x: Number(e.target.value) || 0 }) })),
+          h('div', { class: 'field' }, h('label', {}, h('span', {}, 'Y')), h('input', { type: 'number', value: o.y, onchange: (e) => apply({ y: Number(e.target.value) || 0 }) })),
+          h('div', { class: 'field' }, h('label', {}, h('span', {}, 'ขนาด (x)')), h('input', { type: 'number', min: 0.3, max: 3, step: 0.1, value: o.scale, onchange: (e) => apply({ scale: Math.min(3, Math.max(0.3, Number(e.target.value) || 1)) }) })),
+          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: o.solid, onchange: (e) => apply({ solid: e.target.checked }) }), ' ชนได้')),
+        h('button', { class: 'btn small danger', onclick: () => { objs.splice(objSel, 1); setObjects(mapId, objs); objSel = -1; drawObjCanvas(); drawSel(); } }, '🗑️ ลบออบเจกต์นี้'));
+    }
+
+    const mapSel = h('select', { onchange: (e) => { objMap = e.target.value; objSel = -1; renderList(); } },
+      ...state.mapIds.map(m => h('option', { value: m, selected: m === mapId }, state.zoneNames[m] || m)));
+    const typeSel = h('select', { onchange: (e) => { objTool.type = e.target.value; } },
+      ...Object.entries(state.objectTypes).map(([id, t]) => h('option', { value: id, selected: id === objTool.type }, t.label)));
+    const tools = h('div', { class: 'toolbar' },
+      mapSel, h('span', {}, 'วาง:'), typeSel,
+      h('span', {}, 'ขนาด'), h('input', { type: 'number', min: 0.3, max: 3, step: 0.1, value: objTool.scale, style: 'width:70px', onchange: (e) => { objTool.scale = Math.min(3, Math.max(0.3, Number(e.target.value) || 1)); } }),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: objTool.solid, onchange: (e) => { objTool.solid = e.target.checked; } }), ' ชนได้'),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: objTool.snap, onchange: (e) => { objTool.snap = e.target.checked; } }), ' สแนปกริด'),
+      h('button', { class: 'btn small', onclick: () => { if (confirm('ลบออบเจกต์ทั้งหมดในแมพนี้?')) { setObjects(mapId, []); objSel = -1; drawObjCanvas(); drawSel(); } } }, 'ล้างทั้งแมพ'),
+      h('button', { class: 'btn small', disabled: ov.objects?.[mapId] === undefined, onclick: () => { setObjects(mapId, defObjects(mapId).map(o => ({ ...o }))); objSel = -1; renderList(); } }, '↺ คืนค่าเดิม'));
+    drawObjCanvas();
+    drawSel();
+    return [h('div', { class: 'card' }, tools, h('div', { class: 'objwrap' }, canvas, selBox), info)];
+  }
+
+  // ---- UI theme tab ----
+  function panelUi() {
+    return [
+      h('h2', {}, 'หน้าจอ UI'),
+      h('p', { class: 'hint' }, 'ปรับสีธีมของ HUD/หน้าต่างในเกม และซ่อน/แสดงแผงต่างๆ — ตัวอย่างด้านล่างอัปเดตสดก่อนบันทึก • การย้ายตำแหน่งแผงยังไม่รองรับ'),
+      (listHost = h('div'))
+    ];
+  }
+  function buildUi() {
+    const keys = Object.keys(state.schema.ui.fields);
+    const preview = h('div', { class: 'uiprev' });
+    const refresh = () => {
+      const u = { ...state.defaults.ui.main, ...(ov.ui?.main || {}) };
+      const n = parseInt(u.hudBg.slice(1), 16);
+      const bg = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${u.hudOpacity / 100})`;
+      const bar = (c, w) => h('div', { class: 'pbar' }, h('i', { style: `width:${w}%;background:${c}` }));
+      preview.replaceChildren(h('div', { class: 'pbox', style: `background:${bg};border:2px solid ${u.goldBorder};color:${u.textMain}` },
+        h('b', { style: `color:${u.goldAccent}` }, 'ตัวอย่างหน้าต่าง'),
+        h('div', { style: `color:${u.textDim};font-size:12px` }, 'ข้อความรอง • Lv.12'),
+        bar(u.hpRed, 70), bar(u.spBlue, 50), bar(u.expYellow, 30),
+        h('span', { class: 'pbtn', style: `background:${u.goldAccent};color:#111` }, 'ปุ่ม')));
+    };
+    const fields = h('div', { class: 'fields' }, ...keys.map(k => {
+      const f = field('ui', 'main', k);
+      f?.addEventListener('change', refresh);
+      f?.addEventListener('click', () => setTimeout(refresh, 0));
+      return f;
+    }));
+    refresh();
+    return [h('div', { class: 'card' }, h('h3', {}, 'ธีมและแผง HUD'), preview, fields)];
+  }
+
   function panelItems() {
     return [
       h('h2', {}, 'ไอเทม'),
@@ -372,6 +554,8 @@
 
   const PANELS = {
     maps: [panelMaps, buildMaps],
+    objects: [panelObjects, buildObjects],
+    ui: [panelUi, buildUi],
     monsters: [panelMonsters, buildMonsters],
     spawns: [panelSpawns, buildSpawns],
     items: [panelItems, buildItems],
