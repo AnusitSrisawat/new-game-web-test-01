@@ -236,13 +236,11 @@ function studioPayload() {
     spawns,
     mapIds: Array.from(KNOWN.maps),
     monsters: Object.fromEntries(Object.entries(MONSTERS).map(([id, m]) => [id, {
-      name: m.name, emoji: m.emoji, sprite: monsterSprite(id),
-      drops: (m.drops || []).map(d => ({
-        itemId: d.itemId, chance: d.chance, isRelic: !!d.isRelic,
-        name: (ITEMS[d.itemId] || RELICS[d.itemId] || {}).name || d.itemId,
-        icon: (ITEMS[d.itemId] || RELICS[d.itemId] || {}).icon,
-        sprite: itemSprite(d.itemId)
-      }))
+      name: m.name, emoji: m.emoji, sprite: monsterSprite(id)
+    }])),
+    // every item a drop table can use
+    itemsInfo: Object.fromEntries(Object.entries(ITEMS).map(([id, it]) => [id, {
+      name: it.name, icon: it.icon, type: it.type, sprite: itemSprite(id)
     }])),
     zoneNames: Object.fromEntries(ZONES.map(z => [z.id, DEFAULTS.zones[z.id].name])),
     spawnLimits: { count: [0, 60], respawn: [1, 3600] }

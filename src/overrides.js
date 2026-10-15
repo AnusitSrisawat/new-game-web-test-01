@@ -9,6 +9,7 @@
 //   items:    { [itemId]:    { name, price, atk, def, hp, heal, reqLevel, desc } },
 //   quests:   { [questId]:   { title, desc, requiredCount, rewardGold, rewardExp, rewardTokens } },
 //   skills:   { [skillId]:   { name, desc } }   // free-form list, not wired into the game yet
+//   drops:    { [monsterId]: [ { itemId, chance } ] }  // replaces that monster's drop list (chance 0.001..1)
 // }
 
 const text = (label, max) => ({ type: 'text', label, max });
@@ -88,6 +89,7 @@ export const SCHEMA = {
   }
 };
 
+export const MAX_DROPS = 12;
 export const SPAWN_LIMITS = { count: [0, 60], respawn: [1, 3600] };
 
 function cleanValue(def, v) {
@@ -130,12 +132,30 @@ export function sanitizeOverrides(raw, known) {
     }
     if (Object.keys(dst).length) out[col] = dst;
   }
+  // Drop tables: whole list per monster (an empty list means "drops nothing")
+  if (raw.drops && typeof raw.drops === 'object' && known.monsters && known.items) {
+    const drops = {};
+    for (const [mid, list] of Object.entries(raw.drops)) {
+      if (!known.monsters.has(mid) || !Array.isArray(list)) continue;
+      const seen = new Set();
+      const clean = [];
+      for (const d of list.slice(0, MAX_DROPS)) {
+        if (!d || !known.items.has(d.itemId) || seen.has(d.itemId)) continue;
+        const chance = Number(d.chance);
+        if (!Number.isFinite(chance)) continue;
+        seen.add(d.itemId);
+        clean.push({ itemId: d.itemId, chance: Math.round(Math.min(1, Math.max(0.001, chance)) * 1000) / 1000 });
+      }
+      drops[mid] = clean;
+    }
+    if (Object.keys(drops).length) out.drops = drops;
+  }
   return out;
 }
 
 // Copy the editable fields of the current data so they can be restored / shown as "default".
 export function snapshotEditable(data) {
-  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {} };
+  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {}, drops: {} };
   const pick = (obj, fields) => {
     const o = {};
     for (const k of Object.keys(fields)) if (obj && obj[k] !== undefined) o[k] = obj[k];
@@ -148,6 +168,7 @@ export function snapshotEditable(data) {
   for (const [id, m] of Object.entries(data.MONSTERS)) {
     snap.monsters[id] = pick(m, SCHEMA.monsters.fields);
     snap.ai[id] = { ...data.MONSTER_AI_DEFAULT, ...(data.MONSTER_AI[id] || {}) };
+    snap.drops[id] = (m.drops || []).map(d => ({ itemId: d.itemId, chance: d.chance }));
   }
   for (const [id, it] of Object.entries(data.ITEMS)) snap.items[id] = pick(it, SCHEMA.items.fields);
   data.QUESTS.forEach(q => { snap.quests[q.id] = pick(q, SCHEMA.quests.fields); });
@@ -183,6 +204,9 @@ export function applyOverrides(data, o) {
   for (const [id, p] of Object.entries(o.quests || {})) {
     const q = data.QUESTS.find(qq => qq.id === id);
     if (q) Object.assign(q, p);
+  }
+  for (const [id, list] of Object.entries(o.drops || {})) {
+    if (data.MONSTERS[id]) data.MONSTERS[id].drops = list.map(d => ({ itemId: d.itemId, chance: d.chance }));
   }
   data.SKILLS = { ...(data.SKILLS || {}), ...(o.skills || {}) };
 }

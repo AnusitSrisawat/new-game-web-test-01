@@ -705,7 +705,8 @@ export class GameEngine {
         ctx.shadowBlur = 10;
         const sheet = o.sprite ? this.getSheet(o.sprite.src) : null;
         if (sheet) {
-          ctx.drawImage(sheet, o.sprite.sx, o.sprite.sy, o.sprite.sw, o.sprite.sh, x - 14, y - 14, 28, 28);
+          const ow = 30, oh = ow * o.sprite.sh / o.sprite.sw;
+          ctx.drawImage(sheet, o.sprite.sx, o.sprite.sy, o.sprite.sw, o.sprite.sh, x - ow / 2, y - oh / 2, ow, oh);
         } else {
           ctx.font = '20px sans-serif';
           ctx.textAlign = 'center';
@@ -1876,27 +1877,20 @@ export class GameEngine {
     const sp = monsterSprite(m.templateId);
     const sheet = sp ? this.getSheet(sp.src) : null;
     if (sheet) {
-      const size = 64;
+      // transparent cut-out standing on the ground (feet near the shadow)
+      const size = 92;
       const dh = size * sp.sh / sp.sw;
       ctx.save();
-      ctx.beginPath();
-      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.fillStyle = '#e5e7eb';
-      ctx.fillRect(-size / 2, -size / 2, size, size);
-      ctx.drawImage(sheet, sp.sx, sp.sy, sp.sw, sp.sh, -size / 2, -dh / 2, size, dh);
-
-      if (isFlashing) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-        ctx.fill();
-      }
+      if (isFlashing && 'filter' in ctx) ctx.filter = 'brightness(2.2)';
+      ctx.drawImage(sheet, sp.sx, sp.sy, sp.sw, sp.sh, -size / 2, 28 - dh, size, dh);
       ctx.restore();
-
-      ctx.strokeStyle = m.stunTimer > 0 ? '#fde047' : isFlashing ? '#ef4444' : 'rgba(245, 158, 11, 0.6)';
-      ctx.lineWidth = m.stunTimer > 0 || isFlashing ? 3.5 : 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
-      ctx.stroke();
+      if (m.stunTimer > 0) {
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(0, 22, 26, 10, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     } else {
       ctx.font = '36px sans-serif';
       ctx.textAlign = 'center';
@@ -1927,13 +1921,14 @@ export class GameEngine {
     ctx.fillStyle = '#ffffff';
     ctx.shadowColor = 'rgba(0,0,0,0.9)';
     ctx.shadowBlur = 4;
-    ctx.fillText(`${m.name} Lv.${m.level}`, x, y - 32);
+    const labelUp = sp ? 62 : 28; // cut-out pictures are taller than the old emoji
+    ctx.fillText(`${m.name} Lv.${m.level}`, x, y - labelUp - 4);
 
     const hpPct = Math.max(0, m.currentHp / m.maxHp);
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(x - 22, y - 28, 44, 4);
+    ctx.fillRect(x - 22, y - labelUp, 44, 4);
     ctx.fillStyle = hpPct > 0.4 ? '#ef4444' : '#b91c1c';
-    ctx.fillRect(x - 22, y - 28, 44 * hpPct, 4);
+    ctx.fillRect(x - 22, y - labelUp, 44 * hpPct, 4);
     ctx.restore();
   }
 
