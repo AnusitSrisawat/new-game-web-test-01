@@ -144,7 +144,7 @@ export class UIController {
     }
 
     // Skills & Items Slots 1 to 9 clicks at Bottom-Center
-    for (let slot = 1; slot <= 9; slot++) {
+    for (let slot = 1; slot <= 5; slot++) {
       const el = document.getElementById(`slot-${slot}`);
       if (el) {
         el.addEventListener('click', () => this.gameEngine.useSkillSlot(slot));
@@ -661,7 +661,7 @@ export class UIController {
     });
 
     if (p && p.skillCooldowns) {
-      for (let slot = 1; slot <= 9; slot++) {
+      for (let slot = 1; slot <= 5; slot++) {
         const el = document.getElementById(`slot-${slot}`);
         if (!el) continue;
 

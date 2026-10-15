@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Number keys 1-9 for Skills
     const num = parseInt(e.key);
-    if (!isNaN(num) && num >= 1 && num <= 9) {
+    if (!isNaN(num) && num >= 1 && num <= 5) {
       game.useSkillSlot(num);
     }
   });
