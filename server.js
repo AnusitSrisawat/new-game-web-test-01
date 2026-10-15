@@ -8,7 +8,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // MIME types for static file serving
 const MIME_TYPES = {
@@ -29,7 +29,19 @@ const server = http.createServer((req, res) => {
   let reqPath = req.url.split('?')[0];
   if (reqPath === '/') reqPath = '/index.html';
 
-  const filePath = path.join(__dirname, reqPath);
+  let decoded;
+  try { decoded = decodeURIComponent(reqPath); } catch { decoded = null; }
+  const filePath = decoded === null ? null : path.join(__dirname, path.normalize(decoded));
+  const rel = filePath === null ? null : path.relative(__dirname, filePath).split(path.sep);
+  const allowed = rel !== null && !decoded.includes('\0') && (
+    (rel.length === 1 && ['index.html', 'style.css'].includes(rel[0])) ||
+    (rel.length > 1 && ['src', 'assets'].includes(rel[0]) && !rel.includes('..'))
+  );
+  if (!allowed) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('404 Not Found');
+    return;
+  }
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
@@ -82,7 +94,7 @@ const FIXED_MONSTERS_DATA = [
   { id: 'm_titan_1', map: 'volcano', templateId: 'ancient_golem', name: 'Ancient Titan Golem (Boss)', level: 75, maxHp: 9500, x: 2400, y: 1100 },
 
   // --- DRAGON'S LAIR (WORLD BOSS RAID INSTANCE) ---
-  { id: 'm_dragon_mvp', map: 'boss_lair', templateId: 'ancient_dragon', name: 'Ancient Red Dragon MVP (มังกรบรรพกาล)', level: 99, maxHp: 50000, x: 1600, y: 1100 }
+  { id: 'm_dragon_mvp', map: 'boss_lair', templateId: 'ancient_dragon', name: 'Ancient Red Dragon MVP (มังกรบรรพกาล)', level: 99, maxHp: 50000, x: 1600, y: 1100, isMvp: true }
 ];
 
 // Active State on Server
