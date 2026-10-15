@@ -1400,7 +1400,10 @@ export class UIController {
     ZONES.forEach((z, idx) => {
       const isCur = this.gameEngine.currentZoneIndex === idx;
       const locked = false; // every map is open to every level
-      const def = getMapDef(z.id);
+      // Recommended level = level range of the monsters living in this map
+      const lvs = (z.monsterIds || []).map(id => MONSTERS[id]?.level).filter(Number.isFinite);
+      const lo = lvs.length ? Math.min(...lvs) : 0, hi = lvs.length ? Math.max(...lvs) : 0;
+      const recLv = !lvs.length ? 'ปลอดภัย' : `แนะนำ Lv.${lo === hi ? lo : `${lo}-${hi}`}`;
 
       html += `
         <div class="zone-card" data-idx="${idx}" style="display:flex; align-items:center; gap:14px; background:rgba(0,0,0,0.3); border:2px solid ${isCur ? '#fbbf24' : 'rgba(255,255,255,0.1)'}; padding:10px 14px; border-radius:8px; cursor:${locked ? 'not-allowed' : 'pointer'}; opacity:${locked ? '0.45' : '1'};">
@@ -1409,8 +1412,7 @@ export class UIController {
             <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">${z.desc}</div>
           </div>
           <div style="text-align:right; white-space:nowrap; font-size:0.72rem;">
-            <div style="color:#38bdf8;">✅ เดินทางได้</div>
-            <div style="color:#94a3b8; margin-top:2px;">${def.width / TILE_SIZE}×${def.height / TILE_SIZE} ช่อง</div>
+            <div style="color:#38bdf8;">${recLv}</div>
           </div>
         </div>
       `;
