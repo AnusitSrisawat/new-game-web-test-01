@@ -183,21 +183,6 @@ export const MONSTERS = {
       { itemId: 'relic_goblin_badge', chance: 0.025, isRelic: true }
     ]
   },
-  stone_golem: {
-    id: 'stone_golem',
-    name: 'Rune Stone Golem',
-    emoji: '🗿',
-    level: 65,
-    hp: 4200,
-    atk: 220,
-    def: 120,
-    exp: 2600,
-    drops: [
-      { itemId: 'stone_plate', chance: 0.75 },
-      { itemId: 'rune_dust', chance: 0.4 },
-      { itemId: 'relic_golem_core', chance: 0.015, isRelic: true }
-    ]
-  },
 };
 
 export const ITEMS = {
@@ -318,7 +303,7 @@ export const RELICS = {
   },
   relic_golem_core: {
     id: 'relic_golem_core',
-    monsterId: 'stone_golem',
+    monsterId: 'mossy_golem',
     name: '🪨 Unbreakable Rune Core',
     desc: 'แกนกลางหินรูน ไร้ความเสียหายจากอาวุธทั่วไป',
     icon: '🗿',
@@ -658,7 +643,6 @@ export const MONSTER_AI = {
   forest_wolf:    { speed: 130, aggro: 300, attackCooldown: 1.3 },
   treant:         { speed: 50,  aggro: 200, attackRange: 80 },
   goblin_scout:   { speed: 105, aggro: 260 },
-  stone_golem:    { speed: 55,  aggro: 220, attackRange: 85 },
 };
 
 installCatalog({ MONSTERS, ITEMS, MONSTER_AI });
