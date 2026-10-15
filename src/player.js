@@ -5,7 +5,7 @@ export const HP_POTION_IDS = ['hp_potion_s', 'apple', 'hp_potion_m', 'boar_meat'
 
 const SAVE_KEY = 'cozy_rpg_save_v2';
 const OLD_SAVE_KEY = 'cozy_rpg_save_v1';
-const HOTBAR_SIZE = 5;
+const HOTBAR_SIZE = 4;
 
 // No login yet: every new character gets a random name (kept in the save)
 const NAME_ADJ = ['Brave', 'Swift', 'Lucky', 'Calm', 'Wild', 'Merry', 'Bold', 'Tiny', 'Sunny', 'Misty'];

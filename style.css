@@ -1370,7 +1370,7 @@ body, html {
 .quick-slot { width: 54px; height: 54px; border-radius: 50%; }
 .qs-tag { left: 50%; top: 3px; transform: translateX(-50%); }
 .qs-count { right: 8px; bottom: 5px; }
-.attack-wheel { position: relative; width: 72px; height: 72px; margin-top: 64px; }
-.attack-wheel .skill-slot-card { position: absolute; width: 40px; height: 40px; border-radius: 50%; }
-.attack-wheel .skill-icon-emoji { font-size: 17px; }
+.attack-wheel { position: relative; width: 72px; height: 72px; margin-top: 112px; }
+.attack-wheel .skill-slot-card { position: absolute; width: 54px; height: 54px; border-radius: 50%; }
+.attack-wheel .skill-icon-emoji { font-size: 22px; }
 .attack-wheel .skill-hotkey-badge { top: -4px; left: auto; right: -2px; }
