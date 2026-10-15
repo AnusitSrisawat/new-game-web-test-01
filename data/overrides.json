@@ -20,6 +20,9 @@
     },
     "haunted_ruins": {
       "size": 3000
+    },
+    "bandit_hideout": {
+      "size": 3000
     }
   }
 }
