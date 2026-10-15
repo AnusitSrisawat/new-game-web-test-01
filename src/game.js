@@ -5,6 +5,46 @@ import { ZONES, MONSTERS, ITEMS, RELICS, QUESTS } from './data.js';
 import { soundEngine } from './audio.js';
 import { monsterSprite, itemSprite, weaponSprite } from './sprites.js';
 
+// ---- Sword swing animation (prog 0..1: wind-up, snap strike, follow-through) ----
+// Angles are the blade direction: 0 = straight up, positive = clockwise (towards the facing side).
+const ATTACK_ANIM = 0.34;
+const SWORD_REST = { blade: 0.5, arm: 2.6 };
+const SWINGS = [
+  { a0: -1.9, a1: 1.9, pull: 0.35, lunge: 6 },    // overhead diagonal chop
+  { a0: 2.3, a1: -1.0, pull: 0.3, lunge: 6 },     // rising backhand slash
+  { a0: -2.6, a1: 2.4, pull: 0.5, lunge: 10 }     // wide finisher
+];
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOut = t => 1 - (1 - t) * (1 - t);
+const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+const easeInOut = t => t * t * (3 - 2 * t);
+
+function swordPose(prog, combo) {
+  const s = SWINGS[combo % 3];
+  const dir = Math.sign(s.a1 - s.a0);
+  const pre = s.a0 - dir * s.pull;
+  let sw, bodyX;
+  if (prog < 0.2) {
+    const t = easeOut(prog / 0.2);
+    sw = lerp(s.a0, pre, t);
+    bodyX = -2 * t;
+  } else if (prog < 0.45) {
+    const t = (prog - 0.2) / 0.25;
+    sw = lerp(pre, s.a1, easeOutCubic(t));
+    bodyX = lerp(-2, s.lunge, easeOut(t));
+  } else {
+    const t = (prog - 0.45) / 0.55;
+    sw = lerp(s.a1, s.a1 + dir * 0.15, easeOut(t));
+    bodyX = s.lunge * (1 - easeInOut(t));
+  }
+  const env = prog < 0.2 ? prog / 0.2 : prog > 0.7 ? (1 - prog) / 0.3 : 1;
+  return {
+    blade: lerp(SWORD_REST.blade, sw, env),
+    arm: lerp(SWORD_REST.arm, sw * 0.85 + 0.35, env),
+    bodyX, lean: bodyX * 0.02
+  };
+}
+
 export class GameEngine {
   constructor(canvas, minimapCanvas, player, onLog) {
     this.canvas = canvas;
@@ -606,6 +646,43 @@ export class GameEngine {
     return e.ready ? e.img : null;
   }
 
+  // Armor part pictures (assets/sprites/armor, cut by tools/armor_cutout.py); null until all are loaded
+  getArmor() {
+    const parts = {};
+    for (const n of ['helmet', 'chest', 'arm_l', 'arm_r', 'leg_l', 'leg_r']) {
+      const img = this.getSheet(`assets/sprites/armor/${n}.png`);
+      if (!img) return null;
+      parts[n] = img;
+    }
+    return parts;
+  }
+
+  // Armored body (legs, chest, helmet) drawn from the armor sheet parts, placed relative to the player's centre
+  drawArmorBody(ctx, A, legOffset, lean) {
+    const fit = (img, h) => [img, h * img.width / img.height, h];
+    for (const [name, x, off] of [['leg_l', -4.5, legOffset], ['leg_r', 4.5, -legOffset]]) {
+      const [img, w, h] = fit(A[name], 15);
+      ctx.drawImage(img, x - w / 2, 9 - Math.max(0, off) * 0.4, w, h);
+    }
+    ctx.save();
+    ctx.rotate(lean);
+    const [c, cw, ch] = fit(A.chest, 26);
+    ctx.drawImage(c, -cw / 2, -12, cw, ch);
+    const [hm, hw, hh] = fit(A.helmet, 26);
+    ctx.drawImage(hm, -hw / 2 + 0.5, -34, hw, hh);
+    ctx.restore();
+  }
+
+  // One arm: hangs from the shoulder (sx, sy) and points along `angle` (0 = up, clockwise positive)
+  drawArmorArm(ctx, img, sx, sy, angle) {
+    const h = 24, w = h * img.width / img.height;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(angle - Math.PI);
+    ctx.drawImage(img, -w * 0.5, -h * 0.2, w, h);
+    ctx.restore();
+  }
+
   // ---- Loot orbs: pop out of the monster, linger briefly, then home in on the player ----
   spawnLootOrb(x, y, kind, data = {}) {
     const ang = Math.random() * Math.PI * 2;
@@ -858,7 +935,7 @@ export class GameEngine {
     const p = this.playerEntity;
     p.facing = monster.x >= p.x ? 1 : -1;
     p.isAttacking = true;
-    p.attackAnimTimer = 0.22;
+    p.attackAnimTimer = ATTACK_ANIM;
     p.attackCombo = (p.attackCombo + 1) % 3;
 
     let isCrit = Math.random() <= this.player.critRate;
@@ -1565,6 +1642,24 @@ export class GameEngine {
       ctx.fillText('🪽', -18, 0);
     }
 
+    // Sword pose (also drives the armor arms); other weapons just rest the arms
+    const swordAttacking = wType !== 'fist' && wType !== 'bow' && wType !== 'stick' && wType !== 'staff' &&
+      (isLocal ? (this.playerEntity && this.playerEntity.attackAnimTimer > 0) : (remoteProfile && remoteProfile.isAttacking));
+    let swingProg = 0, swingCombo = 0;
+    if (swordAttacking) {
+      swingProg = isLocal ? 1 - this.playerEntity.attackAnimTimer / ATTACK_ANIM : (Date.now() % 340) / 340;
+      swingCombo = isLocal ? this.playerEntity.attackCombo : Math.floor(Date.now() / 340) % 3;
+    }
+    const pose = swordAttacking ? swordPose(swingProg, swingCombo) : { ...SWORD_REST, bodyX: 0, lean: 0 };
+    const armor = this.getArmor();
+    const SHOULDER_NEAR = [7, -6], SHOULDER_FAR = [-7, -6], FOREARM = 16;
+    const handPos = (arm) => [SHOULDER_NEAR[0] + FOREARM * Math.sin(arm), SHOULDER_NEAR[1] - FOREARM * Math.cos(arm)];
+
+    if (armor) {
+      ctx.translate(pose.bodyX, 0);
+      this.drawArmorArm(ctx, armor.arm_l, SHOULDER_FAR[0], SHOULDER_FAR[1], 2.85);
+      this.drawArmorBody(ctx, armor, legOffset, pose.lean);
+    } else {
     // Legs & Boots (Animated stride cycle)
     ctx.fillStyle = '#5c3a21';
     ctx.fillRect(-9, 12, 6, 12 + legOffset);
@@ -1650,6 +1745,8 @@ export class GameEngine {
     ctx.beginPath();
     ctx.arc(0, -21, 14, Math.PI * 0.9, Math.PI * 2.1);
     ctx.fill();
+
+    }
 
     // WEAPON RENDERING (by weapon type)
     if (wType === 'fist') {
@@ -1737,18 +1834,34 @@ export class GameEngine {
     } else {
       // --- ARTICULATED STEEL/RUNE SWORD ---
       ctx.save();
-      let swingAngle = 0.35;
-      const isAttacking = isLocal ? (this.playerEntity && this.playerEntity.attackAnimTimer > 0) : (remoteProfile && remoteProfile.isAttacking);
+      const swingAngle = pose.blade;
+      const [hx, hy] = armor ? handPos(pose.arm) : [8, 2];
 
-      if (isAttacking) {
-        const prog = isLocal ? (1 - (this.playerEntity.attackAnimTimer / 0.22)) : 0.5;
-        const combo = isLocal ? this.playerEntity.attackCombo : 0;
-        if (combo === 0) swingAngle = -1.2 + prog * 2.6;
-        else if (combo === 1) swingAngle = 1.2 - prog * 2.3;
-        else swingAngle = -0.8 + prog * 2.3;
+      // Blade trail: a fading crescent following the tip through the strike
+      if (armor && swordAttacking && swingProg > 0.2 && swingProg < 0.62) {
+        const fade = swingProg < 0.5 ? 1 : (0.62 - swingProg) / 0.12;
+        const berserk = isLocal && this.playerEntity.buffs && this.playerEntity.buffs.berserk > 0;
+        const rgb = berserk ? '248, 113, 113' : swingCombo === 2 ? '253, 224, 71' : '186, 230, 253';
+        const STEPS = 12, SPAN = 0.1, LEN = 46;
+        const at = (k) => {
+          const q = swordPose(Math.max(0.2, swingProg - k * SPAN / STEPS), swingCombo);
+          const [qx, qy] = handPos(q.arm);
+          const dx = Math.sin(q.blade), dy = -Math.cos(q.blade);
+          return [[qx + dx * LEN * 0.4, qy + dy * LEN * 0.4], [qx + dx * LEN, qy + dy * LEN]];
+        };
+        ctx.save();
+        for (let k = 0; k < STEPS; k++) {
+          const [i0, o0] = at(k), [i1, o1] = at(k + 1);
+          ctx.fillStyle = `rgba(${rgb}, ${(1 - k / STEPS) * 0.6 * fade})`;
+          ctx.beginPath();
+          ctx.moveTo(i0[0], i0[1]); ctx.lineTo(o0[0], o0[1]); ctx.lineTo(o1[0], o1[1]); ctx.lineTo(i1[0], i1[1]);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
       }
 
-      ctx.translate(8, 2);
+      ctx.translate(hx, hy);
       ctx.rotate(swingAngle);
 
       // Held sword picture (local player only: other players only send their weapon type)
@@ -1809,6 +1922,9 @@ export class GameEngine {
       }
       ctx.restore();
     }
+
+    // Sword arm in front: the hand covers the grip
+    if (armor) this.drawArmorArm(ctx, armor.arm_r, SHOULDER_NEAR[0], SHOULDER_NEAR[1], wType === 'fist' ? 2.75 : pose.arm);
 
     ctx.restore();
   }

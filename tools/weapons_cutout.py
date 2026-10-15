@@ -44,7 +44,7 @@ def upright(img):
     return img.crop(img.getbbox())
 
 def main():
-    sheets = {k: Image.open(os.path.join(ROOT, f'assets/weapons/weapons_{k}.jpg')).convert('RGB') for k in ('tier1', 'tier2')}
+    sheets = {k: Image.open(os.path.join(ROOT, f'assets/weapons/sword/weapons_{k}.jpg')).convert('RGB') for k in ('tier1', 'tier2')}
     out_dir = os.path.join(ROOT, 'assets/sprites/weapons')
     os.makedirs(out_dir, exist_ok=True)
     meta = {}
