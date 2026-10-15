@@ -48,8 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const CAT_LABEL = { world: 'โลก', map: 'แมพ', party: 'ปาร์ตี้', guild: 'กิลด์' };
   const MAX_MSGS = 200;
   let chatTab = 'all';
-  // tabs that show several categories ('world' tab = all player chat from everywhere)
-  const tabShows = (tab, cat) => tab === 'all' || (tab === 'world' ? PLAYER_CATS.includes(cat) : tab === cat);
+  const tabShows = (tab, cat) => tab === 'all' || tab === cat;
   const applyChatFilter = () => {
     chatContainer.dataset.tab = chatTab;
     chatContainer.querySelectorAll('.chat-msg').forEach(el => {
