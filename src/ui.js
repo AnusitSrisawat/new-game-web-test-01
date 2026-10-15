@@ -1063,13 +1063,13 @@ export class UIController {
     body.querySelectorAll('.inv-slot').forEach(el => {
       const k = el.dataset.id;
       if (!k || !ITEMS[k]) return;
-      el.addEventListener('mouseenter', () => { tip.innerHTML = tipHtml(k); tip.style.display = 'flex'; });
+      el.addEventListener('mouseenter', () => { el.dataset.bc = el.style.borderColor; el.style.borderColor = '#fbbf24'; el.style.boxShadow = '0 0 0 1px #fbbf24'; tip.innerHTML = tipHtml(k); tip.style.display = 'flex'; });
       el.addEventListener('mousemove', e => {
         const w = tip.offsetWidth, h = tip.offsetHeight;
         tip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 6) + 'px';
         tip.style.top = Math.min(e.clientY + 14, window.innerHeight - h - 6) + 'px';
       });
-      el.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+      el.addEventListener('mouseleave', () => { tip.style.display = 'none'; el.style.borderColor = el.dataset.bc || ''; el.style.boxShadow = ''; });
       el.addEventListener('dblclick', () => {
         tip.style.display = 'none';
         const item = ITEMS[k];
