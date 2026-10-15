@@ -1,5 +1,5 @@
 // Authoritative Multiplayer Game Server (HTTP + WebSocket)
-// Supports Multi-Zone Routing, Boss MVP Telegraphed AoE, Full Party System & High-Fidelity Sync
+// Supports Multi-Zone Routing, Full Party System & High-Fidelity Sync
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -113,8 +113,7 @@ function layoutMonsters(list) {
     const cx = def.spawn.x;
     const cy = def.spawn.y;
     const margin = 160;
-    const bosses = group.filter(m => m.isMvp);
-    const regular = group.filter(m => !m.isMvp).sort((a, b) => a.level - b.level);
+    const regular = group.slice().sort((a, b) => a.level - b.level);
 
     const rand = mulberry32([...mapId].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7));
     const spots = [];
@@ -133,12 +132,6 @@ function layoutMonsters(list) {
     }
     spots.sort((a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy));
     regular.forEach((m, i) => { m.x = spots[i].x; m.y = spots[i].y; });
-
-    bosses.forEach((m, i) => {
-      // far enough from the spawn that arriving players are outside the boss's aggro range
-      m.x = Math.round(cx + (i - (bosses.length - 1) / 2) * 400);
-      m.y = Math.round(cy - 900);
-    });
   }
 }
 
@@ -152,10 +145,10 @@ function buildMonsters() {
     if (!t) continue;
     for (let i = 0; i < sp.count; i++) {
       const n = counters[sp.templateId] = (counters[sp.templateId] || 0) + 1;
-      const id = sp.templateId === 'ancient_dragon' ? (n === 1 ? 'm_dragon_mvp' : `m_dragon_mvp_${n}`) : `m_${sp.templateId}_${n}`;
+      const id = `m_${sp.templateId}_${n}`;
       monsters.push({
         id, map: sp.map, templateId: sp.templateId, name: t.name, level: t.level, maxHp: t.hp,
-        isMvp: !!t.isMvp, respawn: sp.respawn, x: 0, y: 0
+        respawn: sp.respawn, x: 0, y: 0
       });
     }
   }
@@ -330,8 +323,8 @@ function takeToken(bucket, now, perSecond, burst) {
   bucket.tokens -= 1;
   return true;
 }
-function monsterGold(template, isMvp) {
-  return isMvp ? 5000 : 5 + (template.level || 1) * 2;
+function monsterGold(template) {
+  return 5 + (template.level || 1) * 2;
 }
 
 // Connected Players: ws -> playerState
@@ -482,7 +475,7 @@ function applySettings(party, raw = {}) {
 function rewardKill(killer, m) {
   const template = MONSTERS[m.templateId] || {};
   const exp = template.exp || 35;
-  const gold = monsterGold(template, !!m.isMvp);
+  const gold = monsterGold(template);
 
   const party = killer.partyId ? parties.get(killer.partyId) : null;
   let recipients = [killer];
@@ -644,17 +637,9 @@ wss.on('connection', (ws) => {
               type: 'monster_killed',
               monsterId: m.id,
               killerId: playerId,
-              killerName: p.name,
-              isMvp: !!m.isMvp
+              killerName: p.name
             });
             rewardKill(p, m);
-            if (m.isMvp) {
-              broadcast({
-                type: 'chat',
-                text: `🏆 [MVP BLAZE] ผู้กล้า [${p.name}] ได้พิชิต Ancient Red Dragon MVP สำเร็จแล้ว!`,
-                channel: 'system'
-              });
-            }
           } else {
             broadcast({ type: 'monster_damaged', monsterId: m.id, damage, currentHp: m.currentHp, isCrit });
           }
@@ -889,9 +874,7 @@ wss.on('connection', (ws) => {
 
 // 4. Server Game Loop (20 FPS / 50ms)
 let lastTick = performance.now();
-let bossAoeTimer = 0;
 let monsterSyncTimer = 0;
-const pendingAoes = []; // server-resolved boss danger zones
 
 setInterval(() => {
   const now = performance.now();
@@ -909,13 +892,6 @@ setInterval(() => {
         m.targetId = null;
         m.wander = null;
         broadcast({ type: 'monster_respawned', monster: m });
-        if (m.isMvp) {
-          broadcast({
-            type: 'chat',
-            text: `🔥 [MVP ALERT] Ancient Red Dragon MVP ได้คืนชีพขึ้นมาใน Dragon's Lair แล้ว!`,
-            channel: 'system'
-          });
-        }
       }
     }
   });
@@ -1008,47 +984,6 @@ setInterval(() => {
     for (const [mapId, list] of byMap) sendToMap(mapId, { type: 'monsters_sync', list });
   }
 
-  // Boss telegraphed AoE: server picks the target, the timer AND the hit result.
-  const dragon = monsters.find(m => m.id === 'm_dragon_mvp');
-  if (dragon && !dragon.isDead) {
-    bossAoeTimer += dt;
-    if (bossAoeTimer >= 8.0) {
-      bossAoeTimer = 0;
-      const inLair = Array.from(players.values()).filter(p => p.currentMap === 'boss_lair');
-      if (inLair.length > 0) {
-        const target = inLair[Math.floor(Math.random() * inLair.length)];
-        const aoe = {
-          bossId: 'm_dragon_mvp',
-          skillName: '🔥 DRAGON BREATH & METEOR',
-          x: Math.round(target.x + (Math.random() - 0.5) * 50),
-          y: Math.round(target.y + (Math.random() - 0.5) * 50),
-          radius: 170,
-          duration: 2.2,
-          damage: 180
-        };
-        pendingAoes.push({ ...aoe, timeLeft: aoe.duration });
-        sendToMap('boss_lair', { type: 'boss_aoe_telegraph', ...aoe });
-      }
-    }
-  }
-
-  for (let i = pendingAoes.length - 1; i >= 0; i--) {
-    const aoe = pendingAoes[i];
-    aoe.timeLeft -= dt;
-    if (aoe.timeLeft > 0) continue;
-    pendingAoes.splice(i, 1);
-    for (const [ws, p] of players.entries()) {
-      if (p.currentMap !== 'boss_lair') continue;
-      const hit = Math.hypot(p.x - aoe.x, p.y - aoe.y) <= aoe.radius;
-      safeSend(ws, {
-        type: 'boss_aoe_result',
-        x: aoe.x, y: aoe.y, radius: aoe.radius,
-        hit,
-        damage: hit ? aoe.damage : 0
-      });
-    }
-  }
-
   if (players.size > 0) {
     broadcast({ type: 'world_sync', players: Array.from(players.values()) });
   }
@@ -1058,7 +993,7 @@ server.listen(PORT, () => {
   console.log(`===============================================`);
   console.log(`⚔️ TRIPLE CROWN MMORPG Server Running!`);
   console.log(`🌐 HTTP & WebSocket: http://localhost:${PORT}`);
-  console.log(`🐉 Boss Raid Instance & Party System Active`);
+  console.log(`👥 Party System Active`);
   console.log(`👥 Persistent Monster State & Multi-Zone Ready`);
   if (STUDIO_ENABLED) console.log(`🛠️  Studio: http://localhost:${PORT}/studio   token: ${STUDIO_TOKEN}${STUDIO_TOKEN_FROM_ENV ? ' (from STUDIO_TOKEN)' : ' (random, set STUDIO_TOKEN to keep it)'}`);
   console.log(`===============================================`);

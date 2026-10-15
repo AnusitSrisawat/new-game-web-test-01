@@ -81,7 +81,6 @@ export class GameEngine {
     this.attackEffects = [];
     this.afterimages = [];
     this.projectiles = []; // Arrows & spells
-    this.telegraphedAoEs = []; // Red warning danger circles on floor
     this.groundTraps = []; // Ankle snares
 
     // 4. Sprite sheets (monsters + item icons), loaded on first use and cached per file
@@ -198,10 +197,6 @@ export class GameEngine {
       const spawn = getMapDef(z.id).spawn;
       this.playerEntity.x = spawn.x;
       this.playerEntity.y = spawn.y;
-      if (z.id === 'boss_lair') {
-        this.addSkillBanner('🐉 DRAGON\'S LAIR (WORLD BOSS)', '#ef4444');
-        soundEngine.playDragonRoar();
-      }
       this.playerEntity.targetX = this.playerEntity.x;
       this.playerEntity.targetY = this.playerEntity.y;
       this.selectedTarget = null;
@@ -236,7 +231,6 @@ export class GameEngine {
         faceRight: false,
         facing: template.facing || 'left',
         drops: template.drops,
-        isMvp: !!template.isMvp,
         x: sm.x,
         y: sm.y,
         tx: sm.x,
@@ -269,7 +263,7 @@ export class GameEngine {
     }
   }
 
-  onMonsterKilledFromServer(monsterId, killerId, killerName, isMvp = false) {
+  onMonsterKilledFromServer(monsterId, killerId, killerName) {
     const m = this.monsters.find(item => item.id === monsterId);
     if (m) {
       m.isDead = true;
@@ -370,60 +364,6 @@ export class GameEngine {
       this.onLog(`🤝 [ปาร์ตี้ x${msg.shareCount}] ปราบ [${msg.monsterName}] โดย ${msg.fromName} • ได้ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
     } else {
       this.onLog(`⚔️ ปราบ [${msg.monsterName}] สำเร็จ! ได้รับ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
-    }
-  }
-
-  // Handle Telegraphed Boss AoE Danger Zones
-  handleBossAoeTelegraph(msg) {
-    this.telegraphedAoEs.push({
-      bossId: msg.bossId,
-      skillName: msg.skillName,
-      x: msg.x,
-      y: msg.y,
-      radius: msg.radius,
-      duration: msg.duration,
-      maxDuration: msg.duration,
-      damage: msg.damage
-    });
-    this.addSkillBanner('⚠️ DANGER! หลบออกจากวงแดง (WASD)!', '#ef4444');
-    soundEngine.playDragonRoar();
-  }
-
-  // Detonate Boss AoE after warning timer expires
-  onBossAoeResult(msg) {
-    const idx = this.telegraphedAoEs.findIndex(a => Math.hypot(a.x - msg.x, a.y - msg.y) < 1);
-    const aoe = idx >= 0 ? this.telegraphedAoEs.splice(idx, 1)[0] : { x: msg.x, y: msg.y, radius: msg.radius };
-    aoe.damage = msg.damage;
-    this.detonateBossAoe(aoe, msg.hit);
-  }
-
-  detonateBossAoe(aoe, hit) {
-    // Massive explosion at (aoe.x, aoe.y)
-    this.triggerScreenShake(12);
-    this.addShockwave(aoe.x, aoe.y, '#ef4444', aoe.radius * 1.3);
-    this.addParticle(aoe.x, aoe.y, '#f97316', 50);
-    soundEngine.playDragonRoar();
-
-    // Hit/dodge is decided by the server
-    if (hit) {
-      // HIT! Heavy damage!
-      let def = this.player.defense;
-      if (this.playerEntity.buffs.def > 0) def += 60;
-      const actualDmg = Math.max(50, aoe.damage - def);
-
-      this.player.currentHp = Math.max(0, this.player.currentHp - actualDmg);
-      this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 45, `💥 -${actualDmg} HP [HIT BY BOSS AOE!]`, '#ef4444', 20, true);
-
-      // Heavy knockback away from center
-      const angle = Math.atan2(this.playerEntity.y - aoe.y, this.playerEntity.x - aoe.x);
-      this.playerEntity.x += Math.cos(angle) * 80;
-      this.playerEntity.y += Math.sin(angle) * 80;
-
-      this.onLog(`💥 [เตือนภัย!] คุณโดนระเบิดเพลิงมังกร ${actualDmg} ดาเมจ! โปรดกด WASD หลบออกจากพื้นที่สีแดงให้ทัน!`, 'system');
-    } else {
-      // Safe! Player dodged!
-      this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 35, `💨 DODGED!`, '#38bdf8', 16);
-      this.onLog(`💨 คุณใช้ WASD หลบการโจมตีพื้นที่สีแดงของบอสได้สำเร็จ!`, 'system');
     }
   }
 
@@ -632,11 +572,11 @@ export class GameEngine {
     }
 
     box.style.opacity = '1';
-    nameEl.textContent = `${monster.isMvp ? '👑 [MVP] ' : ''}${monster.name} [Lv.${monster.level}]`;
+    nameEl.textContent = `${monster.name} [Lv.${monster.level}]`;
     textEl.textContent = `${monster.currentHp} / ${monster.maxHp}`;
     const pct = Math.max(0, (monster.currentHp / monster.maxHp) * 100);
     fillEl.style.width = `${pct}%`;
-    fillEl.style.backgroundColor = monster.isMvp ? '#ef4444' : '#f59e0b';
+    fillEl.style.backgroundColor = '#f59e0b';
   }
 
   // Returns the loaded image for a sheet file, or null while it is still loading
@@ -1143,17 +1083,6 @@ export class GameEngine {
       }
     }
 
-    // Update Telegraphed Danger Zones (Boss AoE)
-    for (let i = this.telegraphedAoEs.length - 1; i >= 0; i--) {
-      const aoe = this.telegraphedAoEs[i];
-      aoe.duration -= dt;
-      // The server decides hit/dodge at detonation (see onBossAoeResult); this only
-      // drops the warning ring if the result message never arrives.
-      if (aoe.duration <= -1) {
-        this.telegraphedAoEs.splice(i, 1);
-      }
-    }
-
     // Update Projectiles (Arrows & Spells)
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const pr = this.projectiles[i];
@@ -1308,9 +1237,6 @@ export class GameEngine {
     // 1. Terrain Ground
     this.worldMap.renderGround(ctx, cam);
 
-    // 2. Telegraphed Boss Danger Zones (Red Warning Circles on Floor)
-    this.renderTelegraphedDangerZones(ctx);
-
     // 3. Ground Traps (Ankle Snares)
     this.renderGroundTraps(ctx);
 
@@ -1386,48 +1312,6 @@ export class GameEngine {
 
     // 14. Minimap Rendering
     this.renderMinimap();
-  }
-
-  // Render Red Telegraphed Danger Zones with Radial Countdown
-  renderTelegraphedDangerZones(ctx) {
-    const time = Date.now() / 200;
-
-    for (const aoe of this.telegraphedAoEs) {
-      const prog = 1 - (Math.max(0, aoe.duration) / aoe.maxDuration); // 0 to 1
-      const pulse = 0.5 + Math.sin(time * 3) * 0.2;
-
-      // Outer Red Warning Border
-      ctx.strokeStyle = `rgba(239, 68, 68, ${0.8 + pulse * 0.2})`;
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(aoe.x, aoe.y, aoe.radius, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Translucent Red Danger Area
-      ctx.fillStyle = `rgba(239, 68, 68, ${0.2 + pulse * 0.15})`;
-      ctx.beginPath();
-      ctx.arc(aoe.x, aoe.y, aoe.radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Expanding Countdown Fill Circle
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
-      ctx.beginPath();
-      ctx.arc(aoe.x, aoe.y, aoe.radius * prog, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Warning Banner & Timer Text above zone
-      ctx.save();
-      ctx.font = 'bold 13px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#fef08a';
-      ctx.shadowColor = 'rgba(0,0,0,0.95)';
-      ctx.shadowBlur = 6;
-      ctx.fillText(`⚠️ DANGER ZONE! [${Math.max(0, aoe.duration).toFixed(1)}s]`, aoe.x, aoe.y - aoe.radius - 12);
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(`[กด WASD หลบด่วน!]`, aoe.x, aoe.y - aoe.radius + 4);
-      ctx.restore();
-    }
   }
 
   // Render Ground Traps
@@ -1979,17 +1863,11 @@ export class GameEngine {
     ctx.restore();
   }
 
-  // Draw Monster (Slime, Rabbits, Golems, and Giant Ancient Red Dragon MVP)
+  // Draw Monster (Slime, Rabbits, and Golems)
   drawMonster(ctx, m) {
     const bob = Math.sin(m.bobTimer) * 4;
     let x = m.x + (m.knockbackX || 0);
     let y = m.y + bob + (m.knockbackY || 0);
-
-    // SPECIAL: Ancient Red Dragon MVP (World Boss)
-    if (m.templateId === 'ancient_dragon' || m.isMvp) {
-      this.drawAncientDragonMVP(ctx, m, x, y);
-      return;
-    }
 
     // Normal Monsters
     ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
@@ -2070,125 +1948,6 @@ export class GameEngine {
     ctx.restore();
   }
 
-  // Draw Ancient Red Dragon MVP Boss
-  drawAncientDragonMVP(ctx, m, x, y) {
-    const time = Date.now() / 300;
-    const wingFlap = Math.sin(time * 3) * 0.25;
-
-    // Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-    ctx.beginPath();
-    ctx.ellipse(x, y + 65, 75, 25, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.save();
-    ctx.translate(x, y);
-
-    // Left Wing (Flapping)
-    ctx.save();
-    ctx.rotate(-wingFlap);
-    ctx.fillStyle = '#991b1b';
-    ctx.beginPath();
-    ctx.moveTo(-20, -10);
-    ctx.lineTo(-100, -70);
-    ctx.lineTo(-70, 10);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.restore();
-
-    // Right Wing (Flapping)
-    ctx.save();
-    ctx.rotate(wingFlap);
-    ctx.fillStyle = '#991b1b';
-    ctx.beginPath();
-    ctx.moveTo(20, -10);
-    ctx.lineTo(100, -70);
-    ctx.lineTo(70, 10);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.restore();
-
-    // Dragon Body (Crimson Red)
-    ctx.fillStyle = '#dc2626';
-    ctx.beginPath();
-    ctx.ellipse(0, 15, 45, 38, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Dragon Underbelly (Golden Scales)
-    ctx.fillStyle = '#f59e0b';
-    ctx.beginPath();
-    ctx.ellipse(0, 20, 24, 25, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Dragon Neck & Head
-    ctx.fillStyle = '#b91c1c';
-    ctx.beginPath();
-    ctx.arc(0, -35, 26, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Dragon Horns (Obsidian)
-    ctx.fillStyle = '#18181b';
-    ctx.beginPath();
-    ctx.moveTo(-15, -45);
-    ctx.lineTo(-35, -80);
-    ctx.lineTo(-5, -55);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(15, -45);
-    ctx.lineTo(35, -80);
-    ctx.lineTo(5, -55);
-    ctx.closePath();
-    ctx.fill();
-
-    // Glowing Fiery Eyes
-    ctx.fillStyle = '#fef08a';
-    ctx.shadowColor = '#f59e0b';
-    ctx.shadowBlur = 10;
-    ctx.beginPath();
-    ctx.arc(-8, -36, 4.5, 0, Math.PI * 2);
-    ctx.arc(8, -36, 4.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    // Fire breath particle embers
-    if (Math.random() < 0.4) {
-      this.addParticle(x + (Math.random() - 0.5) * 30, y - 20, '#ea580c', 2);
-    }
-
-    ctx.restore();
-
-    // Giant Overhead MVP Title & Boss Bar
-    ctx.save();
-    ctx.font = 'bold 16px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ef4444';
-    ctx.shadowColor = 'rgba(0,0,0,0.95)';
-    ctx.shadowBlur = 8;
-    ctx.fillText(`👑 [WORLD BOSS MVP] Ancient Red Dragon`, x, y - 95);
-
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillText(`Lv.99 • HP: ${m.currentHp} / ${m.maxHp}`, x, y - 76);
-
-    const hpPct = Math.max(0, m.currentHp / m.maxHp);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(x - 70, y - 68, 140, 8);
-    ctx.fillStyle = '#dc2626';
-    ctx.fillRect(x - 70, y - 68, 140 * hpPct, 8);
-    ctx.strokeStyle = '#fbbf24';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x - 70, y - 68, 140, 8);
-    ctx.restore();
-  }
-
   renderMinimap() {
     if (!this.miniCtx) return;
     const ctx = this.miniCtx;
@@ -2198,7 +1957,7 @@ export class GameEngine {
     const wh = this.worldMap.height;
 
     const zid = this.currentZone.id;
-    ctx.fillStyle = zid === 'town' ? '#64748b' : zid === 'volcano' ? '#18181b' : zid === 'boss_lair' ? '#450a0a' : '#3f6212';
+    ctx.fillStyle = zid === 'town' ? '#64748b' : zid === 'volcano' ? '#18181b' : '#3f6212';
     ctx.fillRect(0, 0, mw, mh);
 
     const sx = mw / ww;
@@ -2209,7 +1968,7 @@ export class GameEngine {
     const liveMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
     for (const m of liveMonsters) {
       ctx.beginPath();
-      ctx.arc(m.x * sx, m.y * sy, m.isMvp ? 5 : 2.5, 0, Math.PI * 2);
+      ctx.arc(m.x * sx, m.y * sy, 2.5, 0, Math.PI * 2);
       ctx.fill();
     }
 

@@ -17,7 +17,7 @@ export const SHEETS = {
 // monsterId -> [sheet, cell 0..3]
 export const MONSTER_SPRITES = {
   slime: ['starter', 0], forest_hornet: ['starter', 1], horned_rabbit: ['starter', 2],
-  mossy_golem: ['starter', 3], stone_golem: ['starter', 3], ancient_golem: ['starter', 3],
+  mossy_golem: ['starter', 3], stone_golem: ['starter', 3],
   forest_wolf: ['beasts', 0], wild_boar: ['beasts', 1], jungle_viper: ['beasts', 2], claw_bear: ['beasts', 3],
   bandit_rogue: ['bandits', 0], bandit_archer: ['bandits', 1], bandit_brute: ['bandits', 2], bandit_leader: ['bandits', 3],
   goblin_scout: ['fantasy', 0], fire_imp: ['fantasy', 1], treant: ['fantasy', 2], chest_mimic: ['fantasy', 3],

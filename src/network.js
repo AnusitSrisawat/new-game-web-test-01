@@ -1,4 +1,4 @@
-// WebSocket Multiplayer Client Manager with Multi-Zone, Party, Boss & Rich Animation Sync
+// WebSocket Multiplayer Client Manager with Multi-Zone, Party & Rich Animation Sync
 export class NetworkManager {
   constructor(gameEngine, player) {
     this.game = gameEngine;
@@ -115,17 +115,12 @@ export class NetworkManager {
         this.game.handleRemotePlayerAttack(msg);
         break;
 
-      case 'boss_aoe_telegraph':
-        // Telegraphed Boss AoE Danger Warning Circle on floor!
-        this.game.handleBossAoeTelegraph(msg);
-        break;
-
       case 'monster_damaged':
         this.game.onMonsterDamagedFromServer(msg.monsterId, msg.damage, msg.currentHp, msg.isCrit);
         break;
 
       case 'monster_killed':
-        this.game.onMonsterKilledFromServer(msg.monsterId, msg.killerId, msg.killerName, msg.isMvp);
+        this.game.onMonsterKilledFromServer(msg.monsterId, msg.killerId, msg.killerName);
         break;
 
       case 'monster_respawned':
@@ -162,10 +157,6 @@ export class NetworkManager {
 
       case 'reward':
         this.game.onRewardFromServer(msg);
-        break;
-
-      case 'boss_aoe_result':
-        this.game.onBossAoeResult(msg);
         break;
 
       case 'party_list':
