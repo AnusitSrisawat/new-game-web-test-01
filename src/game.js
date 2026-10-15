@@ -66,6 +66,8 @@ export class GameEngine {
     // 2. Camera Viewport
     this.zoom = 1;
     try { this.zoom = parseFloat(localStorage.getItem('zoom')) || 1; } catch (e) { /* ignore */ }
+    this.screenShakeEnabled = true;
+    try { this.screenShakeEnabled = localStorage.getItem('screen_shake') !== '0'; } catch (e) { /* ignore */ }
     this.camera = {
       x: 0,
       y: 0,
@@ -416,7 +418,14 @@ export class GameEngine {
   }
 
   triggerScreenShake(intensity = 6) {
+    if (!this.screenShakeEnabled) return;
     this.screenShake = Math.max(this.screenShake, intensity);
+  }
+
+  setScreenShakeEnabled(on) {
+    this.screenShakeEnabled = !!on;
+    if (!on) this.screenShake = 0;
+    try { localStorage.setItem('screen_shake', on ? '1' : '0'); } catch (e) { /* ignore */ }
   }
 
   addShockwave(x, y, color = '#f59e0b', maxRadius = 60) {
