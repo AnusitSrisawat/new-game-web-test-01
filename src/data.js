@@ -89,16 +89,6 @@ export const ZONES = [
     bgColor: '#c7d2fe',
     floorColor: '#4338ca',
     monsterIds: ['spectral_armor', 'ancient_golem']
-  },
-  {
-    id: 'boss_lair',
-    name: '🐉 Dragon\'s Lair (รังมังกรโบราณ - World Boss MVP)',
-    desc: 'ลานประลองมังกรบรรพกาล [Ancient Dragon MVP] อันตรายระดับสูงสุด ระวังพื้นที่สีแดง!',
-    reqLevel: 25,
-    isBossRaid: true,
-    bgColor: '#450a0a',
-    floorColor: '#7f1d1d',
-    monsterIds: ['ancient_dragon']
   }
 ];
 
@@ -116,21 +106,6 @@ export const MONSTERS = {
       { itemId: 'sticky_mucus', chance: 0.8 },
       { itemId: 'apple', chance: 0.4 },
       { itemId: 'relic_slime_core', chance: 0.05, isRelic: true } // 5% chance in demo
-    ]
-  },
-  sprout: {
-    id: 'sprout',
-    name: 'Sprout Mandragora',
-    emoji: '🌱',
-    level: 5,
-    hp: 80,
-    atk: 12,
-    def: 4,
-    exp: 28,
-    drops: [
-      { itemId: 'green_leaf', chance: 0.75 },
-      { itemId: 'plant_stem', chance: 0.35 },
-      { itemId: 'relic_mandragora_root', chance: 0.05, isRelic: true }
     ]
   },
   horned_rabbit: {
@@ -208,51 +183,6 @@ export const MONSTERS = {
       { itemId: 'relic_goblin_badge', chance: 0.025, isRelic: true }
     ]
   },
-  goblin_shaman: {
-    id: 'goblin_shaman',
-    name: 'Goblin Shaman',
-    emoji: '🧙',
-    level: 44,
-    hp: 1300,
-    atk: 105,
-    def: 42,
-    exp: 750,
-    drops: [
-      { itemId: 'totem_feather', chance: 0.6 },
-      { itemId: 'magic_powder', chance: 0.45 },
-      { itemId: 'relic_shaman_mask', chance: 0.025, isRelic: true }
-    ]
-  },
-  ogre: {
-    id: 'ogre',
-    name: 'Ironhide Ogre',
-    emoji: '👹',
-    level: 50,
-    hp: 2200,
-    atk: 145,
-    def: 60,
-    exp: 1200,
-    drops: [
-      { itemId: 'iron_club_fragment', chance: 0.6 },
-      { itemId: 'ogre_blood', chance: 0.4 },
-      { itemId: 'relic_titan_belt', chance: 0.02, isRelic: true }
-    ]
-  },
-  crystal_bat: {
-    id: 'crystal_bat',
-    name: 'Crystal Bat',
-    emoji: '🦇',
-    level: 56,
-    hp: 2500,
-    atk: 170,
-    def: 70,
-    exp: 1600,
-    drops: [
-      { itemId: 'crystal_shard', chance: 0.7 },
-      { itemId: 'bat_wing', chance: 0.5 },
-      { itemId: 'relic_bat_gem', chance: 0.02, isRelic: true }
-    ]
-  },
   stone_golem: {
     id: 'stone_golem',
     name: 'Rune Stone Golem',
@@ -283,23 +213,6 @@ export const MONSTERS = {
       { itemId: 'relic_primordial_spark', chance: 0.03, isRelic: true }
     ]
   },
-  ancient_dragon: {
-    id: 'ancient_dragon',
-    name: 'Ancient Red Dragon MVP (มังกรบรรพกาล)',
-    emoji: '🐉',
-    level: 99,
-    hp: 50000,
-    atk: 580,
-    def: 220,
-    exp: 50000,
-    isMvp: true,
-    drops: [
-      { itemId: 'dragon_scale_blade', chance: 0.35 },
-      { itemId: 'dragon_bone_bow', chance: 0.35 },
-      { itemId: 'dragon_heart_core', chance: 0.8 },
-      { itemId: 'relic_dragon_heart', chance: 0.15, isRelic: true }
-    ]
-  }
 };
 
 export const ITEMS = {
@@ -373,15 +286,6 @@ export const RELICS = {
     statBonus: { hp: 80 },
     bonusText: '+80 Max HP ถาวร'
   },
-  relic_mandragora_root: {
-    id: 'relic_mandragora_root',
-    monsterId: 'sprout',
-    name: '🌿 Ancient Mandragora Root',
-    desc: 'รากแมนดราโกร่าพันปี มีพลังชีวิตแห่งป่า',
-    icon: '🌱',
-    statBonus: { hp: 120, def: 3 },
-    bonusText: '+120 HP, +3 DEF ถาวร'
-  },
   relic_golden_carrot: {
     id: 'relic_golden_carrot',
     monsterId: 'horned_rabbit',
@@ -427,33 +331,6 @@ export const RELICS = {
     statBonus: { goldBonus: 0.1, atk: 15 },
     bonusText: '+15 ATK, +10% Gold Drop ถาวร'
   },
-  relic_shaman_mask: {
-    id: 'relic_shaman_mask',
-    monsterId: 'goblin_shaman',
-    name: '🎭 Shamanic Ritual Mask',
-    desc: 'หน้ากากประกอบพิธี บันดาลพลังเวทลึกลับปกป้องผู้ถือ',
-    icon: '👺',
-    statBonus: { atk: 25, def: 20 },
-    bonusText: '+25 ATK, +20 DEF ถาวร'
-  },
-  relic_titan_belt: {
-    id: 'relic_titan_belt',
-    monsterId: 'ogre',
-    name: '🥋 Giant Ogre Belt',
-    desc: 'เข็มขัดเหล็กของออร์ค เพิ่มพลังกายมหาศาล',
-    icon: '🎗️',
-    statBonus: { hp: 500, atk: 35 },
-    bonusText: '+500 HP, +35 ATK ถาวร'
-  },
-  relic_bat_gem: {
-    id: 'relic_bat_gem',
-    monsterId: 'crystal_bat',
-    name: '💎 Crystal Resonance Gem',
-    desc: 'อัญมณีสะท้อนเสียง เพิ่มความว่องไวและการหลบหลีก',
-    icon: '💠',
-    statBonus: { aspd: 0.1, atk: 30 },
-    bonusText: '+30 ATK, +10% ASPD ถาวร'
-  },
   relic_golem_core: {
     id: 'relic_golem_core',
     monsterId: 'stone_golem',
@@ -472,15 +349,6 @@ export const RELICS = {
     statBonus: { atk: 80, def: 50, hp: 1200 },
     bonusText: '+80 ATK, +50 DEF, +1200 HP ถาวร'
   },
-  relic_dragon_heart: {
-    id: 'relic_dragon_heart',
-    monsterId: 'ancient_dragon',
-    name: '🐉 Ancient Dragon Flame Heart',
-    desc: 'หัวใจมังกรบรรพกาล แผดเผาศัตรูด้วยเปลวเพลิงศักดิ์สิทธิ์',
-    icon: '🔥',
-    statBonus: { atk: 150, def: 80, hp: 2500, critRate: 0.1 },
-    bonusText: '+150 ATK, +80 DEF, +2500 HP, +10% Crit Rate ถาวร (MVP)'
-  }
 };
 
 // Crafting Recipes
@@ -783,15 +651,6 @@ export const PET_TAMING_SPEC = {
       tameChance: 0.15,
       passiveBonus: { atk: 35, critDmg: 0.12 },
       bonusDesc: '+35 ATK, +12% Critical Damage'
-    },
-    {
-      monsterId: 'ancient_dragon',
-      petName: 'Crimson Dragon Whelp (Rare MVP Pet)',
-      tamingItem: { id: 'dragon_nest_egg', name: 'Golden Dragon Egg (ไข่มังกรทอง)', icon: '🥚' },
-      foodItem: { id: 'fire_crystal', name: 'Flame Heart Core' },
-      tameChance: 0.05,
-      passiveBonus: { atk: 120, maxHp: 1500, critRate: 0.08 },
-      bonusDesc: '+120 ATK, +1500 Max HP, +8% Critical Rate'
     }
   ]
 };
@@ -809,18 +668,13 @@ export const MONSTER_AI_DEFAULT = {
 };
 export const MONSTER_AI = {
   slime:          { speed: 45,  aggro: 150 },
-  sprout:         { speed: 0,   aggro: 0, attackRange: 75 },
   horned_rabbit:  { speed: 95,  aggro: 220 },
   wild_boar:      { speed: 110, aggro: 260 },
   forest_wolf:    { speed: 130, aggro: 300, attackCooldown: 1.3 },
   treant:         { speed: 50,  aggro: 200, attackRange: 80 },
   goblin_scout:   { speed: 105, aggro: 260 },
-  goblin_shaman:  { speed: 70,  aggro: 320, attackRange: 220, attackCooldown: 2.2 },
-  ogre:           { speed: 70,  aggro: 240, attackRange: 80 },
-  crystal_bat:    { speed: 150, aggro: 340, attackCooldown: 1.2 },
   stone_golem:    { speed: 55,  aggro: 220, attackRange: 85 },
-  ancient_golem:  { speed: 50,  aggro: 300, attackRange: 100, attackCooldown: 2.0 },
-  ancient_dragon: { speed: 0,   aggro: 700, attackRange: 140, attackCooldown: 1.2 }
+  ancient_golem:  { speed: 50,  aggro: 300, attackRange: 100, attackCooldown: 2.0 }
 };
 
 installCatalog({ MONSTERS, ITEMS, MONSTER_AI });

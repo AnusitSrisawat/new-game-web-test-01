@@ -154,11 +154,5 @@
     "templateId": "ancient_golem",
     "count": 3,
     "respawn": 8
-  },
-  {
-    "map": "boss_lair",
-    "templateId": "ancient_dragon",
-    "count": 1,
-    "respawn": 60
   }
 ]

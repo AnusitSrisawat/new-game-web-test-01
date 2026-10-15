@@ -53,12 +53,6 @@ export const MAP_DEFS = {
     floor: '#6366a8', grid: 'rgba(0,0,0,0.12)', wall: '#1e1b4b',
     spawn: { x: 2400, y: 2400 },
     objects: []
-  },
-  boss_lair: {
-    width: 3200, height: 3200,
-    floor: '#7f1d1d', grid: 'rgba(0,0,0,0.15)', wall: '#220505',
-    spawn: { x: 1600, y: 1600 },
-    objects: []
   }
 };
 
