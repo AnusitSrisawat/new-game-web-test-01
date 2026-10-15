@@ -982,79 +982,107 @@ export class UIController {
 
     const tabsHtml = TABS.map(t => `<button class="btn-inv-tab" data-tab="${t.id}" style="padding:5px 10px; border:none; border-radius:5px 5px 0 0; cursor:pointer; font-size:0.78rem; font-weight:600; background:${t.id === tab.id ? '#2563eb' : 'rgba(255,255,255,0.08)'}; color:#fff;">${t.label} (${countOf(t)})</button>`).join('');
 
-    let invHtml = '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:8px; margin-top:10px;">';
+    const view = this.invView === 'equip' ? 'equip' : 'bag';
+    const viewBtn = (id, label) => `<button class="btn-inv-view" data-view="${id}" style="flex:1; padding:7px; border:none; border-bottom:3px solid ${view === id ? '#3b82f6' : 'transparent'}; background:${view === id ? 'rgba(59,130,246,0.15)' : 'transparent'}; color:${view === id ? '#fff' : '#94a3b8'}; font-weight:700; cursor:pointer;">${label}</button>`;
+    const viewsHtml = `<div style="display:flex; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1);">${viewBtn('bag', '🎒 Inventory')}${viewBtn('equip', '🛡️ อุปกรณ์สวมใส่')}</div>`;
+
+    const slotStyle = 'position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:6px; cursor:pointer; user-select:none;';
+    let invHtml = '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(56px, 1fr)); gap:6px; margin-top:10px;">';
     if (shown.length === 0) {
       invHtml += '<p style="color:#94a3b8; font-size:0.85rem; grid-column:1/-1;">ไม่มีไอเทมในหมวดนี้ ออกไปฟาร์มมอนสเตอร์กันเถอะ!</p>';
     } else {
       shown.forEach(k => {
-        const count = this.player.inventory[k];
         const item = ITEMS[k];
-        const equippable = item.type === 'weapon' || item.type === 'armor';
         const isOn = k === this.player.equipment.weapon || k === this.player.equipment.armor;
-        const btn = 'margin-top:3px; padding:2px 6px; color:#fff; border:none; border-radius:3px; cursor:pointer; font-size:0.68rem;';
         invHtml += `
-          <div title="${item.desc || ''}" style="background:rgba(255,255,255,0.04); border:1px solid ${isOn ? '#2563eb' : 'rgba(255,255,255,0.08)'}; border-radius:6px; padding:6px; text-align:center; font-size:0.75rem;">
-            <div style="height:40px; display:flex; align-items:center; justify-content:center; font-size:24px;">${itemIconHtml(k, item.icon, 38)}</div>
-            <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.name}</div>
-            <div style="color:#f59e0b;">x${count}</div>
-            ${equippable ? `<div style="color:#94a3b8; font-size:0.68rem;">${item.atk ? `ATK +${item.atk}` : ''}${item.atk && item.def ? ' ' : ''}${item.def ? `DEF +${item.def}` : ''}</div>` : ''}
-            ${item.reqLevel > 1 ? `<div style="color:${this.player.baseLevel >= item.reqLevel ? '#94a3b8' : '#ef4444'}; font-size:0.68rem;">ต้องการ Lv.${item.reqLevel}</div>` : ''}
-            ${equippable ? (isOn ? `<div style="${btn} background:#16a34a;">สวมอยู่</div>` : `<button class="btn-inv-equip" data-id="${k}" style="${btn} background:#2563eb;">สวมใส่</button>`) : ''}
-            ${item.type === 'consumable' && item.sp ? `<button class="btn-inv-usesp" data-id="${k}" style="${btn} background:#0ea5e9;">ใช้ (+${item.sp} SP)</button>` : ''}
-            ${item.type === 'consumable' && item.heal ? `<button class="btn-inv-use" data-id="${k}" style="${btn} background:#16a34a;">ใช้ (+${item.heal} HP)</button>` : ''}
-          </div>
-        `;
+          <div class="inv-slot" data-id="${k}" style="${slotStyle} border:1px solid ${isOn ? '#2563eb' : 'rgba(255,255,255,0.1)'};">
+            <span style="font-size:26px; display:flex;">${itemIconHtml(k, item.icon, 40)}</span>
+            <span style="position:absolute; right:3px; bottom:1px; font-size:0.68rem; color:#f59e0b; text-shadow:0 0 3px #000;">${this.player.inventory[k] > 1 ? this.player.inventory[k] : ''}</span>
+          </div>`;
       });
     }
     invHtml += '</div>';
 
-    body.innerHTML = `
-      <div style="background:rgba(0,0,0,0.4); padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); margin-bottom:12px; font-size:0.85rem;">
-        <b>🛡️ อุปกรณ์ที่สวมใส่:</b>
-        <span style="margin-left:10px;">อาวุธ: <b>${weapon ? `${itemIconHtml(weapon.id, weapon.icon, 20)} ${weapon.name} (+${weapon.atk} ATK)` : 'ไม่มี'}</b></span>
-        <span style="margin-left:14px;">เกราะ: <b>${armor ? `${armor.icon} ${armor.name} (+${armor.def} DEF)` : 'ไม่มี'}</b></span>
-      </div>
+    const gearRow = (label, it) => `
+      <div class="inv-slot" data-id="${it ? it.id : ''}" style="display:flex; gap:12px; align-items:center; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; margin-bottom:8px;">
+        <div style="font-size:30px; display:flex;">${it ? itemIconHtml(it.id, it.icon, 44) : '—'}</div>
+        <div style="font-size:0.85rem;">
+          <div style="color:#94a3b8; font-size:0.72rem;">${label}</div>
+          <div style="font-weight:700;">${it ? it.name : 'ไม่มี'}</div>
+          ${it ? `<div style="color:#fde68a;">${it.atk ? `ATK +${it.atk}` : ''}${it.atk && it.def ? ' · ' : ''}${it.def ? `DEF +${it.def}` : ''}</div>` : ''}
+          ${it && it.desc ? `<div style="color:#94a3b8; font-size:0.72rem;">${it.desc}</div>` : ''}
+        </div>
+      </div>`;
+
+    body.innerHTML = viewsHtml + (view === 'equip' ? `
+      ${gearRow('⚔️ อาวุธ', weapon)}
+      ${gearRow('🛡️ เกราะ', armor)}
+      <div style="margin-top:8px; font-size:0.78rem; color:#94a3b8;">ดับเบิลคลิกอุปกรณ์ในแท็บ Inventory เพื่อสวมใส่</div>
+    ` : `
       <div style="display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,0.15);">${tabsHtml}</div>
       ${invHtml}
-      <div style="margin-top:12px; font-size:0.78rem; color:#94a3b8;">🔨 อยากคราฟต์อุปกรณ์? เปิดหน้าต่าง <b>โต๊ะคราฟต์</b> <kbd>B</kbd></div>
-    `;
+      <div style="margin-top:12px; font-size:0.78rem; color:#94a3b8;">เลื่อนเมาส์ไปที่ไอเทมเพื่อดูรายละเอียด · ดับเบิลคลิกเพื่อสวมใส่/ใช้ · 🔨 คราฟต์ที่ <b>โต๊ะคราฟต์</b> <kbd>B</kbd></div>
+    `);
+
+    // Hover tooltip in a separate floating window
+    let tip = document.getElementById('inv-tooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'inv-tooltip';
+      tip.style.cssText = 'position:fixed; z-index:99999; display:none; pointer-events:none; max-width:240px; padding:8px 10px; background:rgba(15,23,42,0.97); border:1px solid #3b82f6; border-radius:8px; color:#fff; font-size:0.78rem; box-shadow:0 4px 14px rgba(0,0,0,0.6);';
+      document.body.appendChild(tip);
+    }
+    tip.style.display = 'none';
+    const tipHtml = (k) => {
+      const item = ITEMS[k];
+      const stats = [item.atk ? `ATK +${item.atk}` : '', item.def ? `DEF +${item.def}` : '', item.heal ? `HP +${item.heal}` : '', item.sp ? `SP +${item.sp}` : ''].filter(Boolean).join(' · ');
+      const isGear = item.type === 'weapon' || item.type === 'armor';
+      const on = k === this.player.equipment.weapon || k === this.player.equipment.armor;
+      return `<div style="font-weight:700; font-size:0.85rem;">${item.name} ${this.player.inventory[k] ? `<span style="color:#f59e0b;">x${this.player.inventory[k]}</span>` : ''}</div>
+        ${stats ? `<div style="color:#fde68a;">${stats}</div>` : ''}
+        ${item.reqLevel > 1 ? `<div style="color:${this.player.baseLevel >= item.reqLevel ? '#94a3b8' : '#ef4444'};">ต้องการ Lv.${item.reqLevel}</div>` : ''}
+        ${item.desc ? `<div style="color:#cbd5e1; margin-top:3px;">${item.desc}</div>` : ''}
+        ${isGear ? `<div style="color:${on ? '#4ade80' : '#60a5fa'}; margin-top:3px;">${on ? 'สวมอยู่' : 'ดับเบิลคลิกเพื่อสวมใส่'}</div>` : ''}
+        ${item.type === 'consumable' ? '<div style="color:#60a5fa; margin-top:3px;">ดับเบิลคลิกเพื่อใช้</div>' : ''}`;
+    };
+    body.querySelectorAll('.inv-slot').forEach(el => {
+      const k = el.dataset.id;
+      if (!k || !ITEMS[k]) return;
+      el.addEventListener('mouseenter', () => { tip.innerHTML = tipHtml(k); tip.style.display = 'block'; });
+      el.addEventListener('mousemove', e => {
+        const w = tip.offsetWidth, h = tip.offsetHeight;
+        tip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 6) + 'px';
+        tip.style.top = Math.min(e.clientY + 14, window.innerHeight - h - 6) + 'px';
+      });
+      el.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+      el.addEventListener('dblclick', () => {
+        tip.style.display = 'none';
+        const item = ITEMS[k];
+        if (item.type === 'weapon' || item.type === 'armor') {
+          const res = this.player.equipItem(k);
+          if (!res.ok) { this.gameEngine.onLog(`🚫 สวมใส่ ${item.name} ไม่ได้: ${res.reason}`, 'system'); return; }
+          this.gameEngine.onLog(`🛡️ สวมใส่ ${item.name}`, 'system');
+        } else if (item.type === 'consumable' && item.sp) {
+          const res = this.player.useSpPotion(k);
+          if (res) this.gameEngine.onLog(`💧 ใช้ ${res.itemName} ฟื้นฟู ${res.restored} SP`, 'system');
+        } else if (item.type === 'consumable' && item.heal) {
+          const res = this.player.usePotion(k);
+          if (res) this.gameEngine.onLog(`🧪 ใช้ ${res.itemName} ฟื้นฟู ${res.healed} HP`, 'system');
+        } else return;
+        this.renderInventoryModal();
+        this.updateHUD();
+      });
+    });
+
+    body.querySelectorAll('.btn-inv-view').forEach(b => b.addEventListener('click', e => {
+      this.invView = e.currentTarget.dataset.view;
+      this.renderInventoryModal();
+    }));
 
     body.querySelectorAll('.btn-inv-tab').forEach(b => {
       b.addEventListener('click', e => {
         this.invTab = e.currentTarget.dataset.tab;
         this.renderInventoryModal();
-      });
-    });
-
-    body.querySelectorAll('.btn-inv-equip').forEach(b => {
-      b.addEventListener('click', (e) => {
-        const id = e.currentTarget.dataset.id;
-        const res = this.player.equipItem(id);
-        if (!res.ok) {
-          this.gameEngine.onLog(`🚫 สวมใส่ ${ITEMS[id].name} ไม่ได้: ${res.reason}`, 'system');
-          return;
-        }
-        this.gameEngine.onLog(`🛡️ สวมใส่ ${ITEMS[id].name}`, 'system');
-        this.renderInventoryModal();
-        this.updateHUD();
-      });
-    });
-
-    body.querySelectorAll('.btn-inv-usesp').forEach(b => {
-      b.addEventListener('click', (e) => {
-        const res = this.player.useSpPotion(e.currentTarget.dataset.id);
-        if (res) this.gameEngine.onLog(`💧 ใช้ ${res.itemName} ฟื้นฟู ${res.restored} SP`, 'system');
-        this.renderInventoryModal();
-        this.updateHUD();
-      });
-    });
-
-    body.querySelectorAll('.btn-inv-use').forEach(b => {
-      b.addEventListener('click', (e) => {
-        const res = this.player.usePotion(e.currentTarget.dataset.id);
-        if (res) this.gameEngine.onLog(`🧪 ใช้ ${res.itemName} ฟื้นฟู ${res.healed} HP`, 'system');
-        this.renderInventoryModal();
-        this.updateHUD();
       });
     });
   }
