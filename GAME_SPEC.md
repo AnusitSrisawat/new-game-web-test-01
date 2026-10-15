@@ -68,7 +68,7 @@
 2. **🌱 Green Meadows (ทุ่งหญ้าเริ่มต้น)**: มอนสเตอร์ Slime, Sprout Mandragora, Horned Rabbit (Lv. 1-15)
 3. **🌲 Misty Forest (ป่าหมอกลึกลับ)**: มอนสเตอร์ Wild Boar, Shadow Wolf, Elder Treant (Lv. 15-35)
 4. **⛏️ Goblin Caverns (ถ้ำก๊อบลินโบราณ)**: มอนสเตอร์ Goblin Scout, Goblin Shaman, Ironhide Ogre (Lv. 35-50)
-5. **🌋 Lava Volcano (ภูเขาไฟลาวาเดือด)**: มอนสเตอร์ Crystal Bat, Rune Stone Golem, Ancient Titan Golem (Lv. 50-75)
+5. **🌋 Lava Volcano (ภูเขาไฟลาวาเดือด)**: มอนสเตอร์ Crystal Bat, Ancient Titan Golem (Lv. 50-75)
 6. **🐉 Dragon's Lair (รังมังกรโบราณ)**: แผนที่พิเศษเวิลด์บอส MVP Ancient Red Dragon (Lv. 75-99)
 
 ---
