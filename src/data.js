@@ -767,3 +767,29 @@ export const PET_TAMING_SPEC = {
   ]
 };
 
+
+// Monster behaviour, run by the server (px/second, px). Anything missing falls back to MONSTER_AI_DEFAULT.
+// speed 0 = never moves (still attacks anyone within attackRange).
+export const MONSTER_AI_DEFAULT = {
+  speed: 60,         // walking/chasing speed
+  aggro: 200,        // sees players within this range and attacks them
+  attackRange: 60,   // distance at which it can hit
+  attackCooldown: 1.6,
+  leash: 650,        // gives up and walks home if it is this far from its spawn
+  wanderRadius: 140  // random strolling around its spawn when idle
+};
+export const MONSTER_AI = {
+  slime:          { speed: 45,  aggro: 150 },
+  sprout:         { speed: 0,   aggro: 0, attackRange: 75 },
+  horned_rabbit:  { speed: 95,  aggro: 220 },
+  wild_boar:      { speed: 110, aggro: 260 },
+  forest_wolf:    { speed: 130, aggro: 300, attackCooldown: 1.3 },
+  treant:         { speed: 50,  aggro: 200, attackRange: 80 },
+  goblin_scout:   { speed: 105, aggro: 260 },
+  goblin_shaman:  { speed: 70,  aggro: 320, attackRange: 220, attackCooldown: 2.2 },
+  ogre:           { speed: 70,  aggro: 240, attackRange: 80 },
+  crystal_bat:    { speed: 150, aggro: 340, attackCooldown: 1.2 },
+  stone_golem:    { speed: 55,  aggro: 220, attackRange: 85 },
+  ancient_golem:  { speed: 50,  aggro: 300, attackRange: 100, attackCooldown: 2.0 },
+  ancient_dragon: { speed: 0,   aggro: 700, attackRange: 140, attackCooldown: 1.2 }
+};

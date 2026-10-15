@@ -1,5 +1,6 @@
 // 2D Canvas Game Engine with Large Tile World, Camera Follow, Real Sprites, Multiplayer Sync & High-Impact VFX
 import { WorldMap } from './map.js';
+import { getMapDef, TILE_SIZE } from './maps.js';
 import { ZONES, MONSTERS, ITEMS, RELICS, QUESTS } from './data.js';
 import { soundEngine } from './audio.js';
 
@@ -15,8 +16,8 @@ export class GameEngine {
     this.network = null;
     this.uiController = null;
 
-    // 1. Large World Map (3200 x 2400)
-    this.worldMap = new WorldMap(3200, 2400);
+    // 1. Plain world map (size/colors come from maps.js per zone)
+    this.worldMap = new WorldMap();
 
     // 2. Camera Viewport
     this.camera = {
@@ -139,18 +140,13 @@ export class GameEngine {
       const z = ZONES[idx];
       this.worldMap.setZoneTheme(z.id);
 
-      // Map spawn locations
-      if (z.id === 'town') {
-        this.playerEntity.x = 1600;
-        this.playerEntity.y = 1350;
-      } else if (z.id === 'boss_lair') {
-        this.playerEntity.x = 1600;
-        this.playerEntity.y = 1550;
+      // Spawn point comes from the map definition
+      const spawn = getMapDef(z.id).spawn;
+      this.playerEntity.x = spawn.x;
+      this.playerEntity.y = spawn.y;
+      if (z.id === 'boss_lair') {
         this.addSkillBanner('🐉 DRAGON\'S LAIR (WORLD BOSS)', '#ef4444');
         soundEngine.playDragonRoar();
-      } else {
-        this.playerEntity.x = 800;
-        this.playerEntity.y = 1200;
       }
       this.playerEntity.targetX = this.playerEntity.x;
       this.playerEntity.targetY = this.playerEntity.y;
@@ -186,6 +182,8 @@ export class GameEngine {
         isMvp: !!template.isMvp,
         x: sm.x,
         y: sm.y,
+        tx: sm.x,
+        ty: sm.y,
         homeX: sm.spawnX || sm.x,
         homeY: sm.spawnY || sm.y,
         attackCooldown: 1.5,
@@ -273,13 +271,37 @@ export class GameEngine {
     }
   }
 
+  // Server owns monster positions/AI: every client sees the same monsters.
+  onMonstersSync(list) {
+    for (const u of list) {
+      const m = this.monsters.find(item => item.id === u.id);
+      if (!m) continue;
+      m.tx = u.x;
+      m.ty = u.y;
+      if (Math.hypot(m.x - u.x, m.y - u.y) > 400) { m.x = u.x; m.y = u.y; }
+      if (u.state) m.state = u.state;
+    }
+  }
+
+  // A monster hit someone (damage was calculated by the server)
+  onMonsterAttackFromServer(msg) {
+    const m = this.monsters.find(item => item.id === msg.monsterId);
+    if (m) {
+      m.squashTimer = 0.2;
+      m.attackFlash = 0.2;
+    }
+    if (this.network && msg.targetId === this.network.myPlayerId) {
+      this.applyMonsterDamage(msg.damage);
+    }
+  }
+
   onMonsterRespawnedFromServer(monsterData) {
     const m = this.monsters.find(item => item.id === monsterData.id);
     if (m) {
       m.isDead = false;
       m.currentHp = m.maxHp;
-      m.x = monsterData.spawnX || monsterData.x;
-      m.y = monsterData.spawnY || monsterData.y;
+      m.x = m.tx = monsterData.spawnX || monsterData.x;
+      m.y = m.ty = monsterData.spawnY || monsterData.y;
       this.addShockwave(m.x, m.y, '#22c55e', 35);
       this.addParticle(m.x, m.y, '#22c55e', 10);
     }
@@ -619,8 +641,13 @@ export class GameEngine {
     if (item && item.type === 'consumable') this.usePotionSlot();
   }
 
+  // Quick HP potion slot (button / Q): drinks the chosen potion, or the weakest owned
   usePotionSlot() {
-    const res = this.player.usePotion();
+    if (this.player.currentHp >= this.player.maxHp) {
+      this.onLog('HP เต็มอยู่แล้ว', 'system');
+      return;
+    }
+    const res = this.player.usePotion(this.player.hpPotionSlot);
     if (res) {
       soundEngine.playPotion();
       this.addSkillBanner(`🥤 +${res.healed} HP`, '#22c55e');
@@ -628,9 +655,10 @@ export class GameEngine {
       this.addShockwave(this.playerEntity.x, this.playerEntity.y, '#22c55e', 45);
       this.addParticle(this.playerEntity.x, this.playerEntity.y, '#4ade80', 20);
       this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 35, `+${res.healed} HP`, '#22c55e', 18);
-      this.onLog(`🥤 [5] ดื่ม ${res.itemName} ฟื้นฟู +${res.healed} HP`, 'system');
+      this.onLog(`🥤 ดื่ม ${res.itemName} ฟื้นฟู +${res.healed} HP`, 'system');
+      this.uiController?.updateHUD();
     } else {
-      this.onLog('⚠️ ไม่มีโพชั่นเหลือในกระเป๋า', 'system');
+      this.onLog('⚠️ ไม่มียา HP เหลือในกระเป๋า', 'system');
     }
   }
 
@@ -718,9 +746,6 @@ export class GameEngine {
 
       monster.flashTimer = 0.15;
       monster.squashTimer = 0.18;
-      const angle = Math.atan2(monster.y - p.y, monster.x - p.x);
-      monster.knockbackX = Math.cos(angle) * (isCrit ? 22 : 12);
-      monster.knockbackY = Math.sin(angle) * (isCrit ? 22 : 12);
 
       this.addSlashEffect(monster.x, monster.y, p.facing, isCrit ? 'heavy' : 'normal');
       this.addParticle(monster.x, monster.y, isCrit ? '#f59e0b' : '#f87171', isCrit ? 16 : 8);
@@ -735,14 +760,7 @@ export class GameEngine {
     }
   }
 
-  performMonsterAttack(monster) {
-    let def = this.player.defense;
-    if (this.playerEntity.buffs.def > 0) def += 60;
-
-    let damage = Math.max(1, monster.atk - def);
-    const variance = 0.9 + Math.random() * 0.2;
-    damage = Math.floor(damage * variance);
-
+  applyMonsterDamage(damage) {
     this.player.currentHp = Math.max(0, this.player.currentHp - damage);
     this.addParticle(this.playerEntity.x, this.playerEntity.y, '#ef4444', 4);
     this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 25, `-${damage}`, '#f87171', 14);
@@ -801,13 +819,16 @@ export class GameEngine {
       const currentMapMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
 
       if (this.player.autoBattle && (!this.selectedTarget || this.selectedTarget.isDead || this.selectedTarget.map !== this.currentZone.id)) {
-        if (currentMapMonsters.length > 0) {
-          currentMapMonsters.sort((a, b) => {
-            const distA = Math.hypot(a.x - p.x, a.y - p.y);
-            const distB = Math.hypot(b.x - p.x, b.y - p.y);
-            return distA - distB;
-          });
-          this.selectedTarget = currentMapMonsters[0];
+        // Auto: nearest allowed monster within the configured range (in tiles)
+        const maxDist = this.player.auto.range * TILE_SIZE;
+        const disabled = this.player.auto.disabledMonsters;
+        const candidates = currentMapMonsters
+          .filter(m => !disabled[m.templateId])
+          .map(m => ({ m, d: Math.hypot(m.x - p.x, m.y - p.y) }))
+          .filter(c => c.d <= maxDist)
+          .sort((a, b) => a.d - b.d);
+        if (candidates.length > 0) {
+          this.selectedTarget = candidates[0].m;
           this.updateTargetHUD(this.selectedTarget);
         }
       }
@@ -852,14 +873,19 @@ export class GameEngine {
       }
     }
 
-    // Auto Potion
-    if (this.player.autoPotion && this.player.currentHp < this.player.maxHp * this.player.autoPotionThreshold) {
-      const result = this.player.usePotion();
+    // Auto HP potion (settings: enabled, % threshold, potion type)
+    this.potionCooldown = Math.max(0, (this.potionCooldown || 0) - dt);
+    const ap = this.player.auto.hpPotion;
+    if (ap.enabled && this.potionCooldown <= 0 && this.player.currentHp > 0 &&
+        this.player.currentHp < this.player.maxHp * (ap.percent / 100)) {
+      const result = this.player.usePotion(ap.itemId);
       if (result) {
+        this.potionCooldown = 1.0;
         soundEngine.playPotion();
         this.addHealSpiral(p.x, p.y);
         this.addFloatingText(p.x, p.y - 30, `+${result.healed} HP`, '#22c55e', 14);
-        this.onLog(`🥤 Auto Potion: ดื่ม ${result.itemName} ฟื้นฟู +${result.healed} HP`, 'system');
+        this.onLog(`🥤 Auto: ดื่ม ${result.itemName} ฟื้นฟู +${result.healed} HP`, 'system');
+        this.uiController?.updateHUD();
       }
     }
 
@@ -951,32 +977,16 @@ export class GameEngine {
       if (trap.life <= 0) this.groundTraps.splice(i, 1);
     }
 
-    // Monsters stun, flash & hit reaction (in current map)
+    // Monsters: positions come from the server (smoothed here); only animation timers run locally
     for (const m of this.monsters) {
       if (m.isDead || m.map !== this.currentZone.id) continue;
       if (m.flashTimer > 0) m.flashTimer -= dt;
       if (m.squashTimer > 0) m.squashTimer -= dt;
-      if (m.knockbackX) {
-        m.x += m.knockbackX * dt * 8;
-        m.knockbackX *= 0.85;
-      }
-      if (m.knockbackY) {
-        m.y += m.knockbackY * dt * 8;
-        m.knockbackY *= 0.85;
-      }
-      if (m.stunTimer > 0) {
-        m.stunTimer -= dt;
-        continue;
-      }
-
+      if (m.attackFlash > 0) m.attackFlash -= dt;
+      const k = Math.min(1, dt * 10);
+      m.x += (m.tx - m.x) * k;
+      m.y += (m.ty - m.y) * k;
       m.bobTimer += dt * 5;
-      m.attackCooldown -= dt;
-
-      const distToPlayer = Math.hypot(m.x - p.x, m.y - p.y);
-      if (distToPlayer <= (m.isMvp ? 110 : 65) && m.attackCooldown <= 0) {
-        m.attackCooldown = m.isMvp ? 1.2 : (1.6 + Math.random() * 0.4);
-        this.performMonsterAttack(m);
-      }
     }
 
     // Update VFX list

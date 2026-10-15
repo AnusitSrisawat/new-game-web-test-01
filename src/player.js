@@ -1,6 +1,8 @@
 // Player State & Logic Handler (classless: power comes from stats, weapon and (later) skills)
 import { ITEMS, RELICS, WEAPON_TYPES, BASE_STATS, STAT_KEYS } from './data.js';
 
+export const HP_POTION_IDS = ['hp_potion_s', 'apple', 'hp_potion_m', 'boar_meat', 'hp_potion_l']; // weakest first
+
 const SAVE_KEY = 'cozy_rpg_save_v2';
 const OLD_SAVE_KEY = 'cozy_rpg_save_v1';
 const HOTBAR_SIZE = 9;
@@ -60,9 +62,15 @@ export class Player {
     this.questProgress = {};
 
     // Settings
-    this.autoPotion = true;
-    this.autoPotionThreshold = 0.45; // 45% hp
     this.autoBattle = true;
+    // Auto-hunt settings (range is in tiles / "ช่อง")
+    this.auto = {
+      range: 12,               // search radius in tiles
+      disabledMonsters: {},    // templateId -> true means "don't attack"
+      hpPotion: { enabled: true, percent: 45, itemId: null } // itemId null = cheapest usable potion
+    };
+    // Quick potion slot for HP (SP slot arrives together with skills)
+    this.hpPotionSlot = null;
 
     // Load saved data if exists
     this.loadFromStorage();
@@ -235,18 +243,20 @@ export class Player {
     return { ok: true };
   }
 
-  usePotion() {
-    const potions = ['hp_potion_l', 'hp_potion_m', 'hp_potion_s', 'apple', 'boar_meat'];
-    for (const potId of potions) {
-      if (this.inventory[potId] && this.inventory[potId] > 0) {
-        const item = ITEMS[potId];
-        this.removeItem(potId, 1);
-        const healAmt = item.heal || 50;
-        this.currentHp = Math.min(this.maxHp, this.currentHp + healAmt);
-        return { healed: healAmt, itemName: item.name };
-      }
-    }
-    return null;
+  // HP potions currently in the bag (weakest first)
+  ownedHpPotions() {
+    return HP_POTION_IDS.filter(id => this.inventory[id] > 0 && ITEMS[id]);
+  }
+
+  // Drink a specific potion, or the weakest one owned when itemId is not given/owned
+  usePotion(itemId = null) {
+    const id = (itemId && this.inventory[itemId] > 0) ? itemId : this.ownedHpPotions()[0];
+    if (!id) return null;
+    const item = ITEMS[id];
+    this.removeItem(id, 1);
+    const healAmt = item.heal || 50;
+    this.currentHp = Math.min(this.maxHp, this.currentHp + healAmt);
+    return { healed: healAmt, itemName: item.name, itemId: id };
   }
 
   // Save / Load
@@ -262,6 +272,9 @@ export class Player {
       inventory: this.inventory,
       equipment: this.equipment,
       hotbar: this.hotbar,
+      auto: this.auto,
+      hpPotionSlot: this.hpPotionSlot,
+      autoBattle: this.autoBattle,
       costumes: this.costumes,
       unlockedCostumes: this.unlockedCostumes,
       collectedRelics: this.collectedRelics,
@@ -281,9 +294,15 @@ export class Player {
       if (raw) {
         const d = JSON.parse(raw);
         const keep = ['name', 'baseLevel', 'baseExp', 'statPoints', 'gold', 'gachaTokens', 'inventory',
-          'costumes', 'unlockedCostumes', 'collectedRelics', 'questProgress'];
+          'costumes', 'unlockedCostumes', 'collectedRelics', 'questProgress', 'hpPotionSlot', 'autoBattle'];
         keep.forEach(k => { if (d[k] !== undefined) this[k] = d[k]; });
         if (d.stats) STAT_KEYS.forEach(k => { if (typeof d.stats[k] === 'number') this.stats[k] = d.stats[k]; });
+        if (d.auto) {
+          const a = d.auto;
+          if (typeof a.range === 'number') this.auto.range = Math.min(60, Math.max(1, a.range));
+          if (a.disabledMonsters && typeof a.disabledMonsters === 'object') this.auto.disabledMonsters = a.disabledMonsters;
+          if (a.hpPotion) Object.assign(this.auto.hpPotion, a.hpPotion);
+        }
         if (d.equipment) this.equipment = { weapon: d.equipment.weapon ?? null, armor: d.equipment.armor ?? null };
         if (Array.isArray(d.hotbar)) this.hotbar = d.hotbar.slice(0, HOTBAR_SIZE).concat(new Array(Math.max(0, HOTBAR_SIZE - d.hotbar.length)).fill(null));
         // Gear that no longer exists, or is above the player's level, goes back to the bag

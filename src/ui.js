@@ -1,5 +1,6 @@
 // UI Controller for PC MMORPG Fullscreen Edition
-import { ZONES, ITEMS, RELICS, CRAFTING_RECIPES, GACHA_COSTUMES, QUESTS, WEAPON_TYPES, STAT_KEYS } from './data.js';
+import { ZONES, ITEMS, RELICS, CRAFTING_RECIPES, GACHA_COSTUMES, QUESTS, WEAPON_TYPES, STAT_KEYS, MONSTERS } from './data.js';
+import { TILE_SIZE } from './maps.js';
 import { soundEngine } from './audio.js';
 
 export class UIController {
@@ -25,7 +26,8 @@ export class UIController {
       { id: 'btn-open-relics', modalId: 'modal-relics', render: () => this.renderRelicsModal() },
       { id: 'btn-open-shop', modalId: 'modal-shop', render: () => this.renderShopModal() },
       { id: 'btn-open-zones', modalId: 'modal-zones', render: () => this.renderZonesModal() },
-      { id: 'btn-hud-zone', modalId: 'modal-zones', render: () => this.renderZonesModal() }
+      { id: 'btn-open-quests-side', modalId: 'modal-quests', render: () => this.renderQuestsModal() },
+      { id: 'btn-auto-settings', modalId: 'modal-auto', render: () => this.renderAutoModal() }
     ];
 
     modalButtons.forEach(btn => {
@@ -33,6 +35,7 @@ export class UIController {
       if (el) {
         el.addEventListener('click', () => {
           this.toggleModal(btn.modalId, btn.render);
+          this.closeOptionMenu();
         });
       }
     });
@@ -80,13 +83,35 @@ export class UIController {
       });
     }
 
-    // Potion Button (Action wheel)
-    const potBtn = document.getElementById('btn-hud-potion');
-    if (potBtn) {
-      potBtn.addEventListener('click', () => {
-        this.gameEngine.useSkillSlot(5);
-      });
-    }
+    // Option dropdown
+    const optBtn = document.getElementById('btn-option');
+    optBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const menu = document.getElementById('option-menu');
+      const open = menu.style.display === 'none';
+      menu.style.display = open ? 'flex' : 'none';
+      optBtn.classList.toggle('open', open);
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#option-menu') && !e.target.closest('#potion-chooser') && !e.target.closest('#slot-hp-potion')) {
+        this.closeOptionMenu();
+        this.closePotionChooser();
+      }
+    });
+
+    // Side panel tabs (Party | Quests)
+    document.querySelectorAll('.side-tab').forEach(tab => {
+      tab.addEventListener('click', (e) => this.setSideTab(e.currentTarget.dataset.side));
+    });
+    this.setSideTab(this.sideTab || 'party');
+
+    // HP potion quick slot: click = drink, right-click (or empty slot) = choose potion
+    const hpSlot = document.getElementById('slot-hp-potion');
+    hpSlot?.addEventListener('click', () => {
+      if (!this.player.hpPotionSlot && this.player.ownedHpPotions().length) this.openPotionChooser();
+      else this.gameEngine.usePotionSlot();
+    });
+    hpSlot?.addEventListener('contextmenu', (e) => { e.preventDefault(); this.openPotionChooser(); });
 
     // Big Attack Button (Action wheel)
     const atkBtn = document.getElementById('btn-big-attack');
@@ -150,6 +175,7 @@ export class UIController {
       else if (key === 't') this.toggleModal('modal-relics', () => this.renderRelicsModal());
       else if (key === 'k') this.toggleModal('modal-shop', () => this.renderShopModal());
       else if (key === 'm') this.toggleModal('modal-zones', () => this.renderZonesModal());
+      else if (key === 'q') this.gameEngine.usePotionSlot();
       else if (key === 'escape') {
         if (this.activeModal) this.closeModal(this.activeModal);
       }
@@ -174,6 +200,152 @@ export class UIController {
     const modal = document.getElementById(modalId);
     if (modal) modal.classList.remove('active');
     if (this.activeModal === modalId) this.activeModal = null;
+  }
+
+  closeOptionMenu() {
+    const menu = document.getElementById('option-menu');
+    if (menu) menu.style.display = 'none';
+    document.getElementById('btn-option')?.classList.remove('open');
+  }
+
+  setSideTab(tab) {
+    this.sideTab = tab === 'quests' ? 'quests' : 'party';
+    document.querySelectorAll('.side-tab').forEach(t => t.classList.toggle('active', t.dataset.side === this.sideTab));
+    const party = document.getElementById('side-party');
+    const quests = document.getElementById('side-quests');
+    if (party) party.style.display = this.sideTab === 'party' ? 'block' : 'none';
+    if (quests) quests.style.display = this.sideTab === 'quests' ? 'block' : 'none';
+  }
+
+  updatePotionSlot() {
+    const iconEl = document.getElementById('qs-hp-icon');
+    const countEl = document.getElementById('qs-hp-count');
+    if (!iconEl || !countEl) return;
+    const owned = this.player.ownedHpPotions();
+    let id = this.player.hpPotionSlot;
+    if (!id || !ITEMS[id]) id = null;
+    // Shows the chosen potion, or the weakest owned one when none is chosen
+    const shown = id || owned[0] || null;
+    iconEl.textContent = shown ? (ITEMS[shown].icon || '🧪') : '＋';
+    countEl.textContent = shown ? (this.player.inventory[shown] || 0) : '';
+    document.getElementById('slot-hp-potion')?.classList.toggle('empty', !shown || !(this.player.inventory[shown] > 0));
+  }
+
+  openPotionChooser() {
+    const box = document.getElementById('potion-chooser');
+    if (!box) return;
+    const owned = this.player.ownedHpPotions();
+    box.innerHTML = owned.length
+      ? owned.map(id => `<button data-id="${id}">${ITEMS[id].icon || '🧪'} ${ITEMS[id].name} <span style="margin-left:auto; color:#fde68a;">x${this.player.inventory[id]}</span></button>`).join('') +
+        `<button data-id="">↺ อัตโนมัติ (ตัวที่อ่อนที่สุด)</button>`
+      : '<div class="pc-empty">ไม่มียา HP ในกระเป๋า</div>';
+    box.style.display = 'block';
+    box.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
+      this.player.hpPotionSlot = e.currentTarget.dataset.id || null;
+      this.player.saveToStorage();
+      this.closePotionChooser();
+      this.updatePotionSlot();
+    }));
+  }
+
+  closePotionChooser() {
+    const box = document.getElementById('potion-chooser');
+    if (box) box.style.display = 'none';
+  }
+
+  // Auto-hunt settings window
+  renderAutoModal() {
+    const body = document.getElementById('modal-auto-body');
+    if (!body) return;
+    const a = this.player.auto;
+    const zone = this.gameEngine.currentZone;
+    const monsterIds = zone.monsterIds || [];
+    const owned = this.player.ownedHpPotions();
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    const monCards = monsterIds.length
+      ? monsterIds.map(id => {
+          const m = MONSTERS[id];
+          if (!m) return '';
+          const on = !a.disabledMonsters[id];
+          return `<label class="auto-mon ${on ? 'on' : ''}"><input type="checkbox" class="auto-mon-cb" data-id="${esc(id)}" ${on ? 'checked' : ''}> ${m.emoji || ''} ${esc(m.name)} <span style="margin-left:auto; color:#94a3b8;">Lv.${m.level}</span></label>`;
+        }).join('')
+      : '<div class="auto-note">แมพนี้ไม่มีมอนสเตอร์</div>';
+
+    body.innerHTML = `
+      <div class="auto-grid">
+        <div class="auto-card">
+          <h4>🎯 ระยะค้นหา</h4>
+          <div class="auto-row">
+            <input type="range" id="auto-range" min="3" max="40" step="1" value="${a.range}">
+            <span class="auto-val" id="auto-range-val">${a.range} ช่อง</span>
+          </div>
+          <div class="auto-note">1 ช่อง = ${TILE_SIZE} px • Auto จะไล่ตีเฉพาะมอนสเตอร์ที่อยู่ในระยะนี้จากตัวคุณ</div>
+        </div>
+
+        <div class="auto-card">
+          <h4>🧪 ใช้ยา HP อัตโนมัติ</h4>
+          <div class="auto-row">
+            <label><input type="checkbox" id="auto-hp-on" ${a.hpPotion.enabled ? 'checked' : ''}> เปิดใช้งาน</label>
+          </div>
+          <div class="auto-row">
+            <span>เมื่อ HP ต่ำกว่า</span>
+            <input type="range" id="auto-hp-pct" min="10" max="95" step="5" value="${a.hpPotion.percent}">
+            <span class="auto-val" id="auto-hp-pct-val">${a.hpPotion.percent}%</span>
+          </div>
+          <div class="auto-row">
+            <span>ชนิดยา</span>
+            <select id="auto-hp-item">
+              <option value="">อัตโนมัติ (ตัวที่อ่อนที่สุด)</option>
+              ${['hp_potion_s', 'apple', 'hp_potion_m', 'boar_meat', 'hp_potion_l'].filter(id => ITEMS[id]).map(id =>
+                `<option value="${id}" ${a.hpPotion.itemId === id ? 'selected' : ''}>${ITEMS[id].name} (มี ${this.player.inventory[id] || 0})</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="auto-card full">
+          <h4>👾 มอนสเตอร์ที่จะตี — ${esc(zone.name)}</h4>
+          <div class="auto-mon-actions">
+            <button id="auto-mon-all">เลือกทั้งหมด</button>
+            <button id="auto-mon-none">ไม่เลือกเลย</button>
+          </div>
+          <div class="auto-mons">${monCards}</div>
+        </div>
+
+        <div class="auto-card full">
+          <h4>🔷 ใช้ยา SP อัตโนมัติ</h4>
+          <div class="auto-note">🔒 เปิดใช้งานพร้อมระบบสกิล (ยังไม่มี SP ในเกมตอนนี้)</div>
+        </div>
+      </div>`;
+
+    const save = () => this.player.saveToStorage();
+    const range = document.getElementById('auto-range');
+    range.addEventListener('input', () => {
+      a.range = Number(range.value);
+      document.getElementById('auto-range-val').textContent = `${a.range} ช่อง`;
+      save();
+    });
+    document.getElementById('auto-hp-on').addEventListener('change', e => { a.hpPotion.enabled = e.target.checked; save(); });
+    const pct = document.getElementById('auto-hp-pct');
+    pct.addEventListener('input', () => {
+      a.hpPotion.percent = Number(pct.value);
+      document.getElementById('auto-hp-pct-val').textContent = `${a.hpPotion.percent}%`;
+      save();
+    });
+    document.getElementById('auto-hp-item').addEventListener('change', e => { a.hpPotion.itemId = e.target.value || null; save(); });
+    body.querySelectorAll('.auto-mon-cb').forEach(cb => cb.addEventListener('change', e => {
+      const id = e.target.dataset.id;
+      if (e.target.checked) delete a.disabledMonsters[id]; else a.disabledMonsters[id] = true;
+      e.target.closest('.auto-mon').classList.toggle('on', e.target.checked);
+      save();
+    }));
+    const setAll = (on) => {
+      monsterIds.forEach(id => { if (on) delete a.disabledMonsters[id]; else a.disabledMonsters[id] = true; });
+      save();
+      this.renderAutoModal();
+    };
+    document.getElementById('auto-mon-all').addEventListener('click', () => setAll(true));
+    document.getElementById('auto-mon-none').addEventListener('click', () => setAll(false));
   }
 
   updateAutoButton() {
@@ -242,30 +414,30 @@ export class UIController {
       spText.textContent = '100 / 100';
     }
 
-    // 2. Base EXP Bar
-    if (baseExpFill && baseExpText) {
+    // 2. EXP bar (full-width strip at the bottom of the screen)
+    const expFill = document.getElementById('hud-exp-fill');
+    const expText = document.getElementById('hud-exp-text');
+    if (expFill) {
       const maxB = this.player.maxBaseExp;
       const bPct = Math.min(100, (this.player.baseExp / maxB) * 100);
-      baseExpFill.style.width = `${bPct}%`;
-      baseExpText.textContent = `${this.player.baseExp} / ${maxB} (${bPct.toFixed(1)}%)`;
+      expFill.style.width = `${bPct}%`;
+      if (expText) expText.textContent = `Lv.${this.player.baseLevel}  ${this.player.baseExp.toLocaleString()} / ${maxB.toLocaleString()}  (${bPct.toFixed(1)}%)`;
     }
 
     if (goldEl) goldEl.textContent = this.player.gold.toLocaleString();
     if (tokenEl) tokenEl.textContent = this.player.gachaTokens.toLocaleString();
 
-    // 5. Stat Points Notification Alert
+    // 5. Stat points pill
     const statAlert = document.getElementById('hud-stat-point-alert');
     const statCount = document.getElementById('hud-stat-point-count');
-    const statBtn = document.getElementById('hud-stat-alert-btn');
-    if (statAlert && statCount && statBtn) {
-      if (this.player.statPoints > 0) {
-        statAlert.style.display = 'flex';
-        statCount.textContent = `+${this.player.statPoints}`;
-        statBtn.onclick = () => this.toggleModal('modal-status', () => this.renderStatusModal());
-      } else {
-        statAlert.style.display = 'none';
-      }
+    if (statAlert && statCount) {
+      statAlert.style.display = this.player.statPoints > 0 ? 'inline-block' : 'none';
+      statCount.textContent = this.player.statPoints;
+      statAlert.onclick = () => this.toggleModal('modal-status', () => this.renderStatusModal());
     }
+
+    // 5b. HP potion quick slot
+    this.updatePotionSlot();
 
     // 6. Update Pinned Active Quest Tracker Widget
     this.updateQuestTrackerWidget();

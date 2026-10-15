@@ -134,6 +134,14 @@ export class NetworkManager {
         }
         break;
 
+      case 'monsters_sync':
+        this.game.onMonstersSync(msg.list || []);
+        break;
+
+      case 'monster_attack':
+        this.game.onMonsterAttackFromServer(msg);
+        break;
+
       case 'reward':
         this.game.onRewardFromServer(msg);
         break;
@@ -213,6 +221,7 @@ export class NetworkManager {
       name: this.player.name,
       level: this.player.baseLevel,
       weaponType: this.player.weaponInfo.type,
+      def: this.player.defense,
       hp: this.player.currentHp,
       maxHp: this.player.maxHp,
       currentMap: this.game ? this.game.currentZone.id : 'meadows'

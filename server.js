@@ -5,7 +5,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
-import { MONSTERS, ZONES, WEAPON_TYPES } from './src/data.js';
+import { MONSTERS, ZONES, WEAPON_TYPES, MONSTER_AI, MONSTER_AI_DEFAULT } from './src/data.js';
+import { getMapDef } from './src/maps.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -105,14 +106,18 @@ const monsters = FIXED_MONSTERS_DATA.map(m => ({
   isDead: false,
   respawnTimer: 0,
   spawnX: m.x,
-  spawnY: m.y
+  spawnY: m.y,
+  ai: { ...MONSTER_AI_DEFAULT, ...(MONSTER_AI[m.templateId] || {}) },
+  targetId: null,      // player currently being chased (last attacker wins aggro)
+  attackCd: Math.random() * 1.5,
+  wander: null,        // {x, y} stroll destination
+  wanderTimer: Math.random() * 3,
+  moved: false
 }));
 
 // ---------------------------------------------------------------------------
 // Validation helpers & limits (the client is never trusted for combat numbers)
 // ---------------------------------------------------------------------------
-const WORLD_W = 3200;
-const WORLD_H = 2400;
 const ZONE_IDS = new Set(ZONES.map(z => z.id));
 const WEAPON_TYPE_IDS = new Set(Object.keys(WEAPON_TYPES));
 const MAX_PARTY_SIZE = 6;
@@ -346,6 +351,7 @@ wss.on('connection', (ws) => {
     walkFrame: 0,
     hp: 200,
     maxHp: 200,
+    def: 0,
     partyId: null,
     isAttacking: false
   };
@@ -383,6 +389,7 @@ wss.on('connection', (ws) => {
           if (data.name !== undefined) p.name = cleanText(data.name, 16, p.name);
           if (data.level !== undefined) p.level = clampInt(data.level, 1, 999, p.level);
           if (WEAPON_TYPE_IDS.has(data.weaponType)) p.weaponType = data.weaponType;
+          if (data.def !== undefined) p.def = clampInt(data.def, 0, 5000, p.def);
           if (data.maxHp !== undefined) p.maxHp = clampInt(data.maxHp, 1, 500000, p.maxHp);
           if (data.hp !== undefined) p.hp = clampInt(data.hp, 0, p.maxHp, p.hp);
           p.hp = Math.min(p.hp, p.maxHp);
@@ -393,8 +400,9 @@ wss.on('connection', (ws) => {
         }
 
         case 'move': {
-          p.x = Math.min(WORLD_W, Math.max(0, num(data.x, p.x)));
-          p.y = Math.min(WORLD_H, Math.max(0, num(data.y, p.y)));
+          const md = getMapDef(p.currentMap);
+          p.x = Math.min(md.width, Math.max(0, num(data.x, p.x)));
+          p.y = Math.min(md.height, Math.max(0, num(data.y, p.y)));
           p.facing = data.facing === -1 ? -1 : 1;
           p.isMoving = !!data.isMoving;
           p.walkFrame = clampInt(data.walkFrame, 0, 1000, 0);
@@ -408,10 +416,16 @@ wss.on('connection', (ws) => {
         case 'change_map': {
           if (!ZONE_IDS.has(data.mapId)) break;
           p.currentMap = data.mapId;
-          p.x = Math.min(WORLD_W, Math.max(0, num(data.x, 1600)));
-          p.y = Math.min(WORLD_H, Math.max(0, num(data.y, 1200)));
+          const md = getMapDef(p.currentMap);
+          p.x = Math.min(md.width, Math.max(0, num(data.x, md.spawn.x)));
+          p.y = Math.min(md.height, Math.max(0, num(data.y, md.spawn.y)));
           broadcast({ type: 'player_changed_map', playerId: p.id, mapId: p.currentMap, x: p.x, y: p.y });
           syncMember(p);
+          // fresh monster positions for the map the player just entered
+          safeSend(ws, {
+            type: 'monsters_sync',
+            list: monsters.filter(m => m.map === p.currentMap && !m.isDead).map(m => ({ id: m.id, x: Math.round(m.x), y: Math.round(m.y) }))
+          });
           break;
         }
 
@@ -442,8 +456,10 @@ wss.on('connection', (ws) => {
           const isCrit = data.isCrit === true;
 
           m.currentHp = Math.max(0, m.currentHp - damage);
+          m.targetId = p.id; // whoever hit it last gets chased
           if (m.currentHp <= 0) {
             m.isDead = true;
+            m.targetId = null;
             m.respawnTimer = m.isMvp ? 60 : 8;
             broadcast({
               type: 'monster_killed',
@@ -684,6 +700,7 @@ wss.on('connection', (ws) => {
 // 4. Server Game Loop (20 FPS / 50ms)
 let lastTick = performance.now();
 let bossAoeTimer = 0;
+let monsterSyncTimer = 0;
 const pendingAoes = []; // server-resolved boss danger zones
 
 setInterval(() => {
@@ -699,6 +716,8 @@ setInterval(() => {
         m.currentHp = m.maxHp;
         m.x = m.spawnX;
         m.y = m.spawnY;
+        m.targetId = null;
+        m.wander = null;
         broadcast({ type: 'monster_respawned', monster: m });
         if (m.isMvp) {
           broadcast({
@@ -710,6 +729,94 @@ setInterval(() => {
       }
     }
   });
+
+  // ---- Monster AI (server-authoritative: everyone sees the same monsters) ----
+  const alivePlayers = Array.from(players.values()).filter(pl => pl.hp > 0);
+  for (const m of monsters) {
+    if (m.isDead) continue;
+    const ai = m.ai;
+    m.attackCd -= dt;
+    m.moved = false;
+    const mapPlayers = alivePlayers.filter(pl => pl.currentMap === m.map);
+
+    // Pick / keep a target. A monster that was hit keeps chasing its attacker until leash/dead.
+    let target = m.targetId ? mapPlayers.find(pl => pl.id === m.targetId) : null;
+    if (target && Math.hypot(m.x - m.spawnX, m.y - m.spawnY) > ai.leash) target = null;
+    if (!target) {
+      m.targetId = null;
+      if (ai.aggro > 0) {
+        let best = Infinity;
+        for (const pl of mapPlayers) {
+          const d = Math.hypot(pl.x - m.x, pl.y - m.y);
+          if (d <= ai.aggro && d < best && Math.hypot(pl.x - m.spawnX, pl.y - m.spawnY) <= ai.leash * 1.5) {
+            best = d;
+            target = pl;
+          }
+        }
+        if (target) m.targetId = target.id;
+      }
+    }
+
+    const md = getMapDef(m.map);
+    const step = (tx, ty, speed) => {
+      const dx = tx - m.x;
+      const dy = ty - m.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 1 || speed <= 0) return;
+      const move = Math.min(dist, speed * dt);
+      m.x = Math.min(md.width - 40, Math.max(40, m.x + (dx / dist) * move));
+      m.y = Math.min(md.height - 40, Math.max(40, m.y + (dy / dist) * move));
+      m.moved = true;
+    };
+
+    if (target) {
+      const d = Math.hypot(target.x - m.x, target.y - m.y);
+      if (d > ai.attackRange * 0.85) {
+        step(target.x, target.y, ai.speed);
+      }
+      if (d <= ai.attackRange && m.attackCd <= 0) {
+        m.attackCd = ai.attackCooldown * (0.9 + Math.random() * 0.2);
+        const template = MONSTERS[m.templateId] || {};
+        const raw = (template.atk || 10) - (target.def || 0);
+        const damage = Math.max(1, Math.floor(raw * (0.9 + Math.random() * 0.2)));
+        target.hp = Math.max(0, target.hp - damage);
+        sendToMap(m.map, { type: 'monster_attack', monsterId: m.id, targetId: target.id, damage });
+      }
+    } else if (ai.speed > 0) {
+      // Idle: walk home if displaced, otherwise stroll around the spawn point
+      if (Math.hypot(m.x - m.spawnX, m.y - m.spawnY) > ai.wanderRadius * 1.6) {
+        step(m.spawnX, m.spawnY, ai.speed);
+        m.wander = null;
+      } else {
+        m.wanderTimer -= dt;
+        if (!m.wander && m.wanderTimer <= 0) {
+          const ang = Math.random() * Math.PI * 2;
+          const r = Math.random() * ai.wanderRadius;
+          m.wander = { x: m.spawnX + Math.cos(ang) * r, y: m.spawnY + Math.sin(ang) * r };
+        }
+        if (m.wander) {
+          step(m.wander.x, m.wander.y, ai.speed * 0.5);
+          if (Math.hypot(m.wander.x - m.x, m.wander.y - m.y) < 4) {
+            m.wander = null;
+            m.wanderTimer = 2 + Math.random() * 4;
+          }
+        }
+      }
+    }
+  }
+
+  // Send positions of monsters that moved, 10 times a second, only to players on that map
+  monsterSyncTimer += dt;
+  if (monsterSyncTimer >= 0.1) {
+    monsterSyncTimer = 0;
+    const byMap = new Map();
+    for (const m of monsters) {
+      if (!m.moved || m.isDead) continue;
+      if (!byMap.has(m.map)) byMap.set(m.map, []);
+      byMap.get(m.map).push({ id: m.id, x: Math.round(m.x), y: Math.round(m.y) });
+    }
+    for (const [mapId, list] of byMap) sendToMap(mapId, { type: 'monsters_sync', list });
+  }
 
   // Boss telegraphed AoE: server picks the target, the timer AND the hit result.
   const dragon = monsters.find(m => m.id === 'm_dragon_mvp');
