@@ -82,8 +82,9 @@ export class NetworkManager {
         if (this.otherPlayers.has(msg.playerId)) {
           const op = this.otherPlayers.get(msg.playerId);
           op.currentMap = msg.mapId;
-          op.x = msg.x;
-          op.y = msg.y;
+          op.x = op.tx = msg.x;
+          op.y = op.ty = msg.y;
+          op.renderMap = msg.mapId;
         }
         break;
 
@@ -91,8 +92,20 @@ export class NetworkManager {
         // Synchronize positions and walk animations of all other players
         msg.players.forEach(p => {
           if (p.id !== this.myPlayerId) {
-            const existing = this.otherPlayers.get(p.id) || {};
-            this.otherPlayers.set(p.id, { ...existing, ...p });
+            const existing = this.otherPlayers.get(p.id);
+            if (!existing) {
+              this.otherPlayers.set(p.id, { ...p, tx: p.x, ty: p.y });
+              return;
+            }
+            // Keep the rendered x/y; the game loop eases them toward the server target (tx/ty)
+            const { x, y, ...rest } = p;
+            Object.assign(existing, rest);
+            if (existing.currentMap !== existing.renderMap) {
+              existing.x = x; existing.y = y; // map change: snap, don't glide across the world
+              existing.renderMap = existing.currentMap;
+            }
+            existing.tx = x;
+            existing.ty = y;
           }
         });
         break;
