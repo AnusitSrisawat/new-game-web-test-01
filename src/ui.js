@@ -811,6 +811,16 @@ export class UIController {
     const pendTotal = STAT_KEYS.reduce((n, k) => n + (pend[k] || 0), 0);
     if (pendTotal > pl.statPoints) { STAT_KEYS.forEach(k => { pend[k] = 0; }); }
     const pendLeft = pl.statPoints - STAT_KEYS.reduce((n, k) => n + (pend[k] || 0), 0);
+    // Preview: temporarily apply staged points to read the derived stats, then restore
+    const readDerived = () => ({ hp: pl.maxHp, atk: pl.attack, def: pl.defense, aspd: pl.aspd, crit: pl.critRate });
+    const before = readDerived();
+    STAT_KEYS.forEach(k => { pl.stats[k] += pend[k] || 0; });
+    const after = readDerived();
+    STAT_KEYS.forEach(k => { pl.stats[k] -= pend[k] || 0; });
+    const prev = (key, fmt = v => v) => {
+      const a = after[key], b = before[key];
+      return a !== b ? `${fmt(b)} <span style="color:#4ade80;">→ ${fmt(a)}</span>` : fmt(b);
+    };
     const row = (l, v) => `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span>${l}</span> <b>${v}</b></div>`;
 
     body.innerHTML = `
@@ -852,11 +862,11 @@ export class UIController {
           ${row('อาวุธ:', w ? w.name : 'มือเปล่า')}
           ${row('ประเภท / ระยะโจมตี:', `${wtName} / ${info.range}px`)}
           ${row('เกราะ:', a ? a.name : '-')}
-          ${row('Max HP:', pl.maxHp)}
-          ${row('Total ATK:', pl.attack)}
-          ${row('Total DEF:', pl.defense)}
-          ${row('ASPD:', `${pl.aspd}/s`)}
-          ${row('Crit Rate:', `${(pl.critRate * 100).toFixed(1)}%`)}
+          ${row('Max HP:', prev('hp'))}
+          ${row('Total ATK:', prev('atk'))}
+          ${row('Total DEF:', prev('def'))}
+          ${row('ASPD:', prev('aspd', v => `${v}/s`))}
+          ${row('Crit Rate:', prev('crit', v => `${(v * 100).toFixed(1)}%`))}
           ${row('สมบัติ Relic:', `${pl.collectedRelics.length}/12 ชิ้น`)}
         </div>
       </div>
