@@ -4,7 +4,7 @@
 // overrides = {
 //   zones:    { [zoneId]:    { name, desc, reqLevel } },
 //   maps:     { [zoneId]:    { size, floor, wall } },
-//   monsters: { [monsterId]: { name, level, hp, atk, def, exp } },
+//   monsters: { [monsterId]: { name, level, hp, atk, def, exp, size } },
 //   ai:       { [monsterId]: { speed, aggro, attackRange, attackCooldown, leash, wanderRadius } },
 //   items:    { [itemId]:    { name, price, atk, def, hp, heal, reqLevel, desc } },
 //   quests:   { [questId]:   { title, desc, requiredCount, rewardGold, rewardExp, rewardTokens } },
@@ -41,7 +41,8 @@ export const SCHEMA = {
       hp: num('HP', 1, 10000000),
       atk: num('ATK', 0, 100000),
       def: num('DEF', 0, 100000),
-      exp: num('EXP ที่ได้', 0, 100000000)
+      exp: num('EXP ที่ได้', 0, 100000000),
+      size: num('ขนาดรูป (px กว้าง, ปกติ 92)', 30, 400)
     }
   },
   ai: {
@@ -166,7 +167,7 @@ export function snapshotEditable(data) {
     snap.maps[id] = { size: def.width, floor: def.floor, wall: def.wall };
   }
   for (const [id, m] of Object.entries(data.MONSTERS)) {
-    snap.monsters[id] = pick(m, SCHEMA.monsters.fields);
+    snap.monsters[id] = { size: 92, ...pick(m, SCHEMA.monsters.fields) };
     snap.ai[id] = { ...data.MONSTER_AI_DEFAULT, ...(data.MONSTER_AI[id] || {}) };
     snap.drops[id] = (m.drops || []).map(d => ({ itemId: d.itemId, chance: d.chance }));
   }

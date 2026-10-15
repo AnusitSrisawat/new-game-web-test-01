@@ -8,6 +8,8 @@ import { monsterSprite, itemSprite, weaponSprite } from './sprites.js';
 // ---- Sword swing animation (prog 0..1: wind-up, snap strike, follow-through) ----
 // Angles are the blade direction: 0 = straight up, positive = clockwise (towards the facing side).
 const ATTACK_ANIM = 0.34;
+const PLAYER_SCALE = 1.7;   // player ≈ 1.2x a default (92px) monster
+const PLAYER_TAG_UP = 40;   // extra height of the overhead tags at that scale
 const SWORD_REST = { blade: 0.5, arm: 2.6 };
 const SWINGS = [
   { a0: -1.9, a1: 1.9, pull: 0.35, lunge: 6 },    // overhead diagonal chop
@@ -230,6 +232,8 @@ export class GameEngine {
         atk: template.atk,
         def: template.def,
         exp: template.exp,
+        size: template.size || 92,
+        faceRight: false,
         drops: template.drops,
         isMvp: !!template.isMvp,
         x: sm.x,
@@ -1210,7 +1214,9 @@ export class GameEngine {
       if (m.squashTimer > 0) m.squashTimer -= dt;
       if (m.attackFlash > 0) m.attackFlash -= dt;
       const k = Math.min(1, dt * 10);
-      m.x += (m.tx - m.x) * k;
+      const mdx = m.tx - m.x;
+      if (Math.abs(mdx) > 0.5) m.faceRight = mdx > 0; // sprites are drawn facing left
+      m.x += mdx * k;
       m.y += (m.ty - m.y) * k;
       m.bobTimer += dt * 5;
     }
@@ -1608,8 +1614,9 @@ export class GameEngine {
   // Generic Articulated Player Renderer (Handles both Local Player & Detailed Remote Players)
   drawPlayerSprite(ctx, x, y, facing, legOffset = 0, isLocal = false, remoteProfile = null) {
     ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(facing || 1, 1);
+    ctx.translate(x, y + 24);
+    ctx.scale(PLAYER_SCALE * (facing || 1), PLAYER_SCALE); // scale around the feet
+    ctx.translate(0, -24);
 
     // No classes: the outfit is the same for everyone, only the held weapon differs
     const wType = isLocal ? this.player.weaponInfo.type : ((remoteProfile && remoteProfile.weaponType) || 'fist');
@@ -1951,12 +1958,12 @@ export class GameEngine {
     ctx.shadowColor = 'rgba(0,0,0,0.95)';
     ctx.shadowBlur = 4;
     const partyIcon = isPartyMember ? '🚩 [Party] ' : '👥 ';
-    ctx.fillText(`${partyIcon}${op.name}`, x, y - 44);
+    ctx.fillText(`${partyIcon}${op.name}`, x, y - 44 - PLAYER_TAG_UP);
 
     // Job Title & Level
     ctx.font = '9px sans-serif';
     ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(`Lv.${op.level || 1}`, x, y - 34);
+    ctx.fillText(`Lv.${op.level || 1}`, x, y - 34 - PLAYER_TAG_UP);
 
     // Mini Overhead Health Bar
     const maxHp = op.maxHp || 200;
@@ -1964,9 +1971,9 @@ export class GameEngine {
     const hpPct = Math.max(0, Math.min(1, hp / maxHp));
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-    ctx.fillRect(x - 20, y - 30, 40, 4);
+    ctx.fillRect(x - 20, y - 30 - PLAYER_TAG_UP, 40, 4);
     ctx.fillStyle = isPartyMember ? '#38bdf8' : (hpPct > 0.4 ? '#22c55e' : '#ef4444');
-    ctx.fillRect(x - 20, y - 30, 40 * hpPct, 4);
+    ctx.fillRect(x - 20, y - 30 - PLAYER_TAG_UP, 40 * hpPct, 4);
 
     ctx.restore();
   }
@@ -1999,14 +2006,14 @@ export class GameEngine {
 
     ctx.save();
     ctx.translate(x, y);
-    ctx.scale(scaleX, scaleY);
+    ctx.scale(scaleX * (m.faceRight ? -1 : 1), scaleY);
 
     const isFlashing = m.flashTimer > 0;
     const sp = monsterSprite(m.templateId);
     const sheet = sp ? this.getSheet(sp.src) : null;
     if (sheet) {
       // transparent cut-out standing on the ground (feet near the shadow)
-      const size = 92;
+      const size = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
       const dh = size * sp.sh / sp.sw;
       ctx.save();
       if (isFlashing && 'filter' in ctx) ctx.filter = 'brightness(2.2)';
@@ -2049,7 +2056,7 @@ export class GameEngine {
     ctx.fillStyle = '#ffffff';
     ctx.shadowColor = 'rgba(0,0,0,0.9)';
     ctx.shadowBlur = 4;
-    const labelUp = sp ? 62 : 28; // cut-out pictures are taller than the old emoji
+    const labelUp = sp ? 28 + (((MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92) * sp.sh / sp.sw) * 0.4 + 4 : 28; // cut-out pictures are taller than the old emoji
     ctx.fillText(`${m.name} Lv.${m.level}`, x, y - labelUp - 4);
 
     const hpPct = Math.max(0, m.currentHp / m.maxHp);
