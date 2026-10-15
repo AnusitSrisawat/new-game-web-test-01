@@ -14,6 +14,7 @@ export class UIController {
       'modal-status': () => this.renderStatusModal(),
       'modal-party': () => this.renderPartyModal(),
       'modal-inventory': () => this.renderInventoryModal(),
+      'modal-craft': () => this.renderCraftModal(),
       'modal-quests': () => this.renderQuestsModal(),
       'modal-relics': () => this.renderRelicsModal(),
       'modal-shop': () => this.renderShopModal(),
@@ -36,6 +37,7 @@ export class UIController {
       { id: 'btn-open-party', modalId: 'modal-party', render: () => this.renderPartyModal() },
       { id: 'btn-open-party-modal', modalId: 'modal-party', render: () => this.renderPartyModal() },
       { id: 'btn-open-inventory', modalId: 'modal-inventory', render: () => this.renderInventoryModal() },
+      { id: 'btn-open-craft', modalId: 'modal-craft', render: () => this.renderCraftModal() },
       { id: 'btn-open-quests', modalId: 'modal-quests', render: () => this.renderQuestsModal() },
       { id: 'btn-open-relics', modalId: 'modal-relics', render: () => this.renderRelicsModal() },
       { id: 'btn-open-shop', modalId: 'modal-shop', render: () => this.renderShopModal() },
@@ -169,6 +171,7 @@ export class UIController {
       if (key === 'c') this.toggleModal('modal-status', () => this.renderStatusModal());
       else if (key === 'p') this.toggleModal('modal-party', () => this.renderPartyModal());
       else if (key === 'i') this.toggleModal('modal-inventory', () => this.renderInventoryModal());
+      else if (key === 'b') this.toggleModal('modal-craft', () => this.renderCraftModal());
       else if (key === 'j') this.toggleModal('modal-quests', () => this.renderQuestsModal());
       else if (key === 't') this.toggleModal('modal-relics', () => this.renderRelicsModal());
       else if (key === 'k') this.toggleModal('modal-shop', () => this.renderShopModal());
@@ -814,37 +817,101 @@ export class UIController {
     });
   }
 
-  // 2. Inventory & Crafting Modal
+  // 2. Inventory Modal: items only, split into tabs (crafting lives in its own window)
   renderInventoryModal() {
     const body = document.getElementById('modal-inventory-body');
     if (!body) return;
 
+    const TABS = [
+      { id: 'all', label: '🎒 ทั้งหมด', match: () => true },
+      { id: 'gear', label: '🛡️ ของสวมใส่', match: it => it.type === 'weapon' || it.type === 'armor' },
+      { id: 'consumable', label: '🧪 ของใช้', match: it => it.type === 'consumable' },
+      { id: 'material', label: '🦴 วัสดุจากมอนสเตอร์', match: it => it.type === 'material' }
+    ];
+    if (!TABS.some(t => t.id === this.invTab)) this.invTab = 'all';
+    const tab = TABS.find(t => t.id === this.invTab);
+
     const weapon = ITEMS[this.player.equipment.weapon];
     const armor = ITEMS[this.player.equipment.armor];
+    const owned = Object.keys(this.player.inventory).filter(k => ITEMS[k] && this.player.inventory[k] > 0);
+    const countOf = t => owned.filter(k => t.match(ITEMS[k])).length;
+    const shown = owned.filter(k => tab.match(ITEMS[k]));
 
-    let invHtml = '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:8px; margin-top:8px;">';
-    const keys = Object.keys(this.player.inventory);
-    if (keys.length === 0) {
-      invHtml += '<p style="color:#94a3b8; font-size:0.85rem;">กระเป๋าว่างเปล่า ออกไปฟาร์มมอนสเตอร์กันเถอะ!</p>';
+    const tabsHtml = TABS.map(t => `<button class="btn-inv-tab" data-tab="${t.id}" style="padding:5px 10px; border:none; border-radius:5px 5px 0 0; cursor:pointer; font-size:0.78rem; font-weight:600; background:${t.id === tab.id ? '#2563eb' : 'rgba(255,255,255,0.08)'}; color:#fff;">${t.label} (${countOf(t)})</button>`).join('');
+
+    let invHtml = '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:8px; margin-top:10px;">';
+    if (shown.length === 0) {
+      invHtml += '<p style="color:#94a3b8; font-size:0.85rem; grid-column:1/-1;">ไม่มีไอเทมในหมวดนี้ ออกไปฟาร์มมอนสเตอร์กันเถอะ!</p>';
     } else {
-      keys.forEach(k => {
+      shown.forEach(k => {
         const count = this.player.inventory[k];
         const item = ITEMS[k];
-        if (!item) return;
+        const equippable = item.type === 'weapon' || item.type === 'armor';
+        const isOn = k === this.player.equipment.weapon || k === this.player.equipment.armor;
+        const btn = 'margin-top:3px; padding:2px 6px; color:#fff; border:none; border-radius:3px; cursor:pointer; font-size:0.68rem;';
         invHtml += `
-          <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:6px; text-align:center; font-size:0.75rem;">
-            <div style="font-size:24px;">${itemIconHtml(k, item.icon, 36)}</div>
+          <div title="${item.desc || ''}" style="background:rgba(255,255,255,0.04); border:1px solid ${isOn ? '#2563eb' : 'rgba(255,255,255,0.08)'}; border-radius:6px; padding:6px; text-align:center; font-size:0.75rem;">
+            <div style="height:40px; display:flex; align-items:center; justify-content:center; font-size:24px;">${itemIconHtml(k, item.icon, 38)}</div>
             <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.name}</div>
             <div style="color:#f59e0b;">x${count}</div>
+            ${equippable ? `<div style="color:#94a3b8; font-size:0.68rem;">${item.atk ? `ATK +${item.atk}` : ''}${item.atk && item.def ? ' ' : ''}${item.def ? `DEF +${item.def}` : ''}</div>` : ''}
             ${item.reqLevel > 1 ? `<div style="color:${this.player.baseLevel >= item.reqLevel ? '#94a3b8' : '#ef4444'}; font-size:0.68rem;">ต้องการ Lv.${item.reqLevel}</div>` : ''}
-            ${item.type === 'weapon' || item.type === 'armor' ? `<button class="btn-inv-equip" data-id="${k}" style="margin-top:3px; padding:2px 6px; background:#2563eb; color:#fff; border:none; border-radius:3px; cursor:pointer; font-size:0.68rem;">สวมใส่</button>` : ''}
+            ${equippable ? (isOn ? `<div style="${btn} background:#16a34a;">สวมอยู่</div>` : `<button class="btn-inv-equip" data-id="${k}" style="${btn} background:#2563eb;">สวมใส่</button>`) : ''}
+            ${item.type === 'consumable' && item.heal ? `<button class="btn-inv-use" data-id="${k}" style="${btn} background:#16a34a;">ใช้ (+${item.heal} HP)</button>` : ''}
           </div>
         `;
       });
     }
     invHtml += '</div>';
 
-    let craftHtml = '<div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">';
+    body.innerHTML = `
+      <div style="background:rgba(0,0,0,0.4); padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); margin-bottom:12px; font-size:0.85rem;">
+        <b>🛡️ อุปกรณ์ที่สวมใส่:</b>
+        <span style="margin-left:10px;">อาวุธ: <b>${weapon ? `${itemIconHtml(weapon.id, weapon.icon, 20)} ${weapon.name} (+${weapon.atk} ATK)` : 'ไม่มี'}</b></span>
+        <span style="margin-left:14px;">เกราะ: <b>${armor ? `${armor.icon} ${armor.name} (+${armor.def} DEF)` : 'ไม่มี'}</b></span>
+      </div>
+      <div style="display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,0.15);">${tabsHtml}</div>
+      ${invHtml}
+      <div style="margin-top:12px; font-size:0.78rem; color:#94a3b8;">🔨 อยากคราฟต์อุปกรณ์? เปิดหน้าต่าง <b>โต๊ะคราฟต์</b> <kbd>B</kbd></div>
+    `;
+
+    body.querySelectorAll('.btn-inv-tab').forEach(b => {
+      b.addEventListener('click', e => {
+        this.invTab = e.currentTarget.dataset.tab;
+        this.renderInventoryModal();
+      });
+    });
+
+    body.querySelectorAll('.btn-inv-equip').forEach(b => {
+      b.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        const res = this.player.equipItem(id);
+        if (!res.ok) {
+          this.gameEngine.onLog(`🚫 สวมใส่ ${ITEMS[id].name} ไม่ได้: ${res.reason}`, 'system');
+          return;
+        }
+        this.gameEngine.onLog(`🛡️ สวมใส่ ${ITEMS[id].name}`, 'system');
+        this.renderInventoryModal();
+        this.updateHUD();
+      });
+    });
+
+    body.querySelectorAll('.btn-inv-use').forEach(b => {
+      b.addEventListener('click', (e) => {
+        const res = this.player.usePotion(e.currentTarget.dataset.id);
+        if (res) this.gameEngine.onLog(`🧪 ใช้ ${res.itemName} ฟื้นฟู ${res.healed} HP`, 'system');
+        this.renderInventoryModal();
+        this.updateHUD();
+      });
+    });
+  }
+
+  // Crafting window (Blacksmith): recipes only, materials are taken from the bag
+  renderCraftModal() {
+    const body = document.getElementById('modal-craft-body');
+    if (!body) return;
+
+    let craftHtml = '<div style="display:flex; flex-direction:column; gap:8px;">';
     CRAFTING_RECIPES.forEach(r => {
       const resItem = ITEMS[r.resultItemId];
       if (!resItem) return;
@@ -869,38 +936,7 @@ export class UIController {
       `;
     });
     craftHtml += '</div>';
-
-    body.innerHTML = `
-      <div style="background:rgba(0,0,0,0.4); padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); margin-bottom:12px; font-size:0.85rem;">
-        <b>🛡️ อุปกรณ์ที่สวมใส่:</b>
-        <span style="margin-left:10px;">อาวุธ: <b>${weapon ? `${weapon.icon} ${weapon.name} (+${weapon.atk} ATK)` : 'ไม่มี'}</b></span>
-        <span style="margin-left:14px;">เกราะ: <b>${armor ? `${armor.icon} ${armor.name} (+${armor.def} DEF)` : 'ไม่มี'}</b></span>
-      </div>
-      <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:14px;">
-        <div>
-          <h4>🎒 ช่องเก็บของ (Inventory)</h4>
-          ${invHtml}
-        </div>
-        <div>
-          <h4>🔨 โต๊ะคราฟต์อุปกรณ์ (Blacksmith)</h4>
-          ${craftHtml}
-        </div>
-      </div>
-    `;
-
-    body.querySelectorAll('.btn-inv-equip').forEach(b => {
-      b.addEventListener('click', (e) => {
-        const id = e.currentTarget.dataset.id;
-        const res = this.player.equipItem(id);
-        if (!res.ok) {
-          this.gameEngine.onLog(`🚫 สวมใส่ ${ITEMS[id].name} ไม่ได้: ${res.reason}`, 'system');
-          return;
-        }
-        this.gameEngine.onLog(`🛡️ สวมใส่ ${ITEMS[id].name}`, 'system');
-        this.renderInventoryModal();
-        this.updateHUD();
-      });
-    });
+    body.innerHTML = `<div style="margin-bottom:8px; font-size:0.85rem;">🪙 ทองของคุณ: <b style="color:#f59e0b;">${this.player.gold.toLocaleString()}</b></div>${craftHtml}`;
 
     body.querySelectorAll('.btn-do-craft').forEach(b => {
       b.addEventListener('click', (e) => {
@@ -911,7 +947,8 @@ export class UIController {
           recipe.materials.forEach(m => this.player.removeItem(m.itemId, m.count));
           this.player.addItem(id, 1);
           this.gameEngine.onLog(`✨ คราฟต์สำเร็จ! ได้รับ ${ITEMS[id].icon} ${ITEMS[id].name}`, 'system');
-          this.renderInventoryModal();
+          this.renderCraftModal();
+          if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
           this.updateHUD();
         }
       });
