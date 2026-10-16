@@ -314,14 +314,16 @@ export class GameEngine {
 
         // Drop handling: roll drops, then let them pop out and fly into the player
         if (m.drops) {
-          m.drops.forEach(drop => {
+          // A monster drops at most ONE item per kill: the first successful roll wins.
+          for (const drop of m.drops) {
             if (Math.random() <= drop.chance) {
               const item = ITEMS[drop.itemId] || RELICS[drop.itemId];
               if (item) {
                 this.spawnLootOrb(m.x, m.y, 'item', { itemId: drop.itemId, icon: item.icon, sprite: itemSprite(drop.itemId), isRelic: !!RELICS[drop.itemId] });
+                break;
               }
             }
-          });
+          }
         }
       }
     }
