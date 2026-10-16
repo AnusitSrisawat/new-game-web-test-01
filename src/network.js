@@ -64,6 +64,10 @@ export class NetworkManager {
         }
         break;
 
+      case 'gm_action':
+        this.game.onGmAction(msg);
+        break;
+
       case 'server_buffs':
         this.game.serverBuffs = msg.buffs;
         break;

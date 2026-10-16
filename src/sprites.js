@@ -82,6 +82,10 @@ export function spriteStyle(sp, px) {
 
 // HTML for an item's icon: its picture when it has one, otherwise the emoji
 export function itemIconHtml(id, emoji, px = 28) {
+  if (id && id.startsWith('pet_')) {
+    const ms = monsterSprite(id.slice(4));
+    if (ms) return `<span style="${spriteStyle(ms, px)}"></span>`;
+  }
   const ws = weaponSprite(id);
   if (ws) {
     const k = Math.min(px / ws.w, px / ws.h);

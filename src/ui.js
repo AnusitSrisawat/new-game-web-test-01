@@ -746,6 +746,9 @@ export class UIController {
       statAlert.onclick = () => this.toggleModal('modal-status', () => this.renderStatusModal());
     }
 
+    // 5a. Buff icons (server buffs from /buffserver + running skill buffs)
+    this.updateBuffIcons();
+
     // 5b. HP potion quick slot
     this.updatePotionSlot();
 
@@ -794,6 +797,24 @@ export class UIController {
         }
       }
     }
+  }
+
+  updateBuffIcons() {
+    const host = document.getElementById('hud-buffs');
+    if (!host) return;
+    const parts = [];
+    const sb = this.gameEngine.serverBuffs || {};
+    const fmt = v => (Number.isInteger(v) ? v : Math.round(v * 100) / 100);
+    [['exp', '📈', 'EXP'], ['gold', '🪙', 'Gold'], ['drop', '🎁', 'ดรอป'], ['monster', '👾', 'มอนสเตอร์']].forEach(([k, icon, label]) => {
+      if (sb[k] && sb[k] !== 1) parts.push(`<div class="buff-icon server" title="บัฟเซิร์ฟเวอร์: ${label} x${fmt(sb[k])}">${icon}<span class="bi-txt">x${fmt(sb[k])}</span></div>`);
+    });
+    for (const [id, left] of Object.entries(this.player.activeBuffs || {})) {
+      const sk = SKILLS[id];
+      if (!sk || left <= 0) continue;
+      parts.push(`<div class="buff-icon" title="${sk.name} — เหลือ ${Math.ceil(left)} วินาที">${SKILL_ICONS[id] || '✨'}<span class="bi-txt">${Math.ceil(left)}s</span></div>`);
+    }
+    const html = parts.join('');
+    if (host.innerHTML !== html) host.innerHTML = html;
   }
 
   // Update Active Quest Tracker Widget on HUD
@@ -1000,7 +1021,7 @@ export class UIController {
 
     const TABS = [
       { id: 'all', label: '🎒 ทั้งหมด', match: () => true },
-      { id: 'gear', label: '🛡️ ของสวมใส่', match: it => it.type === 'weapon' || it.type === 'armor' },
+      { id: 'gear', label: '🛡️ ของสวมใส่', match: it => it.type === 'weapon' || it.type === 'armor' || it.type === 'pet' },
       { id: 'consumable', label: '🧪 ของใช้', match: it => it.type === 'consumable' },
       { id: 'material', label: '🦴 วัสดุจากมอนสเตอร์', match: it => it.type === 'material' }
     ];
@@ -1026,7 +1047,7 @@ export class UIController {
     } else {
       shown.forEach(k => {
         const item = ITEMS[k];
-        const isOn = k === this.player.equipment.weapon || k === this.player.equipment.armor;
+        const isOn = Object.values(this.player.equipment).includes(k);
         invHtml += `
           <div class="inv-slot" data-id="${k}" style="${slotStyle} border:1px solid ${isOn ? '#2563eb' : 'rgba(255,255,255,0.1)'};">
             <span style="font-size:26px; display:flex;">${itemIconHtml(k, item.icon, 40)}</span>
@@ -1036,7 +1057,7 @@ export class UIController {
     }
     invHtml += '</div>';
 
-    const gearRow = (label, it) => `
+    const gearRow = (label, it, slot = '') => `
       <div class="inv-slot" data-id="${it ? it.id : ''}" style="display:flex; gap:12px; align-items:center; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; margin-bottom:8px;">
         <div style="font-size:30px; display:flex;">${it ? itemIconHtml(it.id, it.icon, 44) : '—'}</div>
         <div style="font-size:0.85rem;">
@@ -1044,13 +1065,18 @@ export class UIController {
           <div style="font-weight:700;">${it ? it.name : 'ไม่มี'}</div>
           ${it ? `<div style="color:#fde68a;">${it.atk ? `ATK +${it.atk}` : ''}${it.atk && it.def ? ' · ' : ''}${it.def ? `DEF +${it.def}` : ''}</div>` : ''}
           ${it && it.desc ? `<div style="color:#94a3b8; font-size:0.72rem;">${it.desc}</div>` : ''}
+          ${it && slot ? `<button class="btn-unequip" data-slot="${slot}" style="margin-top:4px; padding:2px 10px; border:none; border-radius:4px; background:#64748b; color:#fff; cursor:pointer; font-size:0.72rem;">ถอด</button>` : ''}
         </div>
       </div>`;
 
     body.innerHTML = viewsHtml + (view === 'equip' ? `
       ${gearRow('⚔️ อาวุธ', weapon)}
-      ${gearRow('🛡️ เกราะ', armor)}
-      <div style="margin-top:8px; font-size:0.78rem; color:#94a3b8;">ดับเบิลคลิกอุปกรณ์ในแท็บ Inventory เพื่อสวมใส่</div>
+      ${gearRow('🛡️ เกราะ', armor, 'armor')}
+      ${gearRow('🐾 สัตว์เลี้ยง (Pet)', ITEMS[this.player.equipment.pet], 'pet')}
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px; margin-top:4px;">
+        ${['🎩 หมวก', '🧤 ถุงมือ', '👢 รองเท้า', '🧥 ผ้าคลุม', '💍 เครื่องประดับ 1', '📿 เครื่องประดับ 2'].map(l => `<div style="text-align:center; padding:10px 4px; border:1px dashed rgba(255,255,255,0.15); border-radius:8px; color:#64748b; font-size:0.75rem;">${l}<div style="font-size:0.65rem;">เร็วๆ นี้</div></div>`).join('')}
+      </div>
+      <div style="margin-top:8px; font-size:0.78rem; color:#94a3b8;">ดับเบิลคลิกอุปกรณ์/Pet ในแท็บ Inventory เพื่อสวมใส่ · กด "ถอด" เพื่อเก็บ Pet/เกราะ</div>
     ` : `
       <div style="display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,0.15);">${tabsHtml}</div>
       ${invHtml}
@@ -1071,7 +1097,7 @@ export class UIController {
     const panel = (title, inner, border) => `<div style="min-width:170px; max-width:220px; padding:8px 10px; background:rgba(15,23,42,0.97); border:1px solid ${border}; border-radius:8px;">${title}${inner}</div>`;
     const tipHtml = (k) => {
       const item = ITEMS[k];
-      const isGear = item.type === 'weapon' || item.type === 'armor';
+      const isGear = item.type === 'weapon' || item.type === 'armor' || item.type === 'pet';
       const curId = isGear ? this.player.equipment[item.type] : null;
       const cur = (curId && curId !== k) ? ITEMS[curId] : null;
       const head = (it, tag, tagColor) => `<div style="font-weight:700; font-size:0.85rem;">${it.name}</div><div style="color:${tagColor}; font-size:0.7rem; margin-bottom:4px;">${tag}</div>`;
@@ -1084,7 +1110,7 @@ export class UIController {
         }
         return row(label, `+${v}`, extra);
       }).join('');
-      const typeLabel = { weapon: 'อาวุธ', armor: 'เกราะ', consumable: 'ของใช้', material: 'วัสดุ' }[item.type] || '';
+      const typeLabel = { weapon: 'อาวุธ', armor: 'เกราะ', pet: 'สัตว์เลี้ยง (Pet)', consumable: 'ของใช้', material: 'วัสดุ' }[item.type] || '';
       const lv = item.reqLevel > 1 ? row('เลเวลที่ต้องการ', `Lv.${item.reqLevel}`, '') .replace('<span style="text-align:right; font-weight:600;">', `<span style="text-align:right; font-weight:600; color:${this.player.baseLevel >= item.reqLevel ? '#e2e8f0' : '#ef4444'};">`) : '';
       const hint = isGear ? (curId === k ? '<div style="color:#4ade80; margin-top:4px;">สวมอยู่</div>' : '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อสวมใส่</div>')
         : (item.type === 'consumable' ? '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อใช้</div>' : '');
@@ -1106,7 +1132,7 @@ export class UIController {
       el.addEventListener('dblclick', () => {
         tip.style.display = 'none';
         const item = ITEMS[k];
-        if (item.type === 'weapon' || item.type === 'armor') {
+        if (item.type === 'weapon' || item.type === 'armor' || item.type === 'pet') {
           const res = this.player.equipItem(k);
           if (!res.ok) { this.gameEngine.onLog(`🚫 สวมใส่ ${item.name} ไม่ได้: ${res.reason}`, 'system'); return; }
           this.gameEngine.onLog(`🛡️ สวมใส่ ${item.name}`, 'system');
@@ -1121,6 +1147,13 @@ export class UIController {
         this.updateHUD();
       });
     });
+
+    body.querySelectorAll('.btn-unequip').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();
+      this.player.unequip(e.currentTarget.dataset.slot);
+      this.renderInventoryModal();
+      this.updateHUD();
+    }));
 
     body.querySelectorAll('.btn-inv-view').forEach(b => b.addEventListener('click', e => {
       this.invView = e.currentTarget.dataset.view;
@@ -1420,28 +1453,21 @@ export class UIController {
     });
     html += '</div>';
 
-    // Pets (rare drop: looks like the monster)
-    const pets = this.player.pets || [];
-    html += `<h4 style="margin:16px 0 8px;">🐾 สัตว์เลี้ยง (${pets.length}/${Object.keys(MONSTERS).length}) <span style="font-size:0.72rem;color:#94a3b8;font-weight:400;">ดรอปหายากจากมอนสเตอร์ — เลือก 1 ตัวให้เดินตาม</span></h4>
-      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px;">`;
+    // Pets (rare item drop: looks like the monster) — wear them in the Equipment window
+    const ownedPet = (mid) => (this.player.inventory[`pet_${mid}`] || 0) > 0 || this.player.equipment.pet === `pet_${mid}`;
+    const petCount = Object.keys(MONSTERS).filter(ownedPet).length;
+    html += `<h4 style="margin:16px 0 8px;">🐾 สัตว์เลี้ยงที่เคยได้ (${petCount}/${Object.keys(MONSTERS).length}) <span style="font-size:0.72rem;color:#94a3b8;font-weight:400;">ดรอปหายากจากมอนสเตอร์ เป็นไอเทม — สวมใส่ในกระเป๋า [I] → อุปกรณ์สวมใส่</span></h4>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px;">`;
     Object.keys(MONSTERS).forEach(mid => {
-      const have = pets.includes(mid);
-      const on = this.player.activePet === mid;
+      const have = ownedPet(mid);
+      const on = this.player.equipment.pet === `pet_${mid}`;
       html += `<div style="background:rgba(0,0,0,0.3); border:1px solid ${on ? '#ec4899' : 'rgba(255,255,255,0.08)'}; border-radius:8px; padding:6px; text-align:center; opacity:${have ? 1 : 0.35}; font-size:0.75rem;">
         <div style="height:46px; display:flex; align-items:center; justify-content:center; font-size:26px;">${have ? monsterIconHtml(mid, MONSTERS[mid].emoji, 44) : '❓'}</div>
-        <div>${have ? MONSTERS[mid].name : '???'}</div>
-        ${have ? `<button class="btn-pet" data-id="${mid}" style="margin-top:3px; padding:2px 8px; border:none; border-radius:4px; cursor:pointer; color:#fff; font-size:0.7rem; background:${on ? '#64748b' : '#ec4899'};">${on ? 'เก็บเข้ากระเป๋า' : 'เรียกออกมา'}</button>` : ''}
-      </div>`;
+        <div>${have ? MONSTERS[mid].name : '???'}${on ? ' <span style="color:#ec4899;">(สวมอยู่)</span>' : ''}</div></div>`;
     });
     html += '</div>';
 
     body.innerHTML = html;
-    body.querySelectorAll('.btn-pet').forEach(b => b.addEventListener('click', e => {
-      const id = e.currentTarget.dataset.id;
-      this.player.activePet = this.player.activePet === id ? null : id;
-      this.player.saveToStorage();
-      this.renderRelicsModal();
-    }));
   }
 
   // 5. Shop & Gacha Modal
