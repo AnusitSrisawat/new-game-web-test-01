@@ -8,6 +8,7 @@
 //   ai:       { [monsterId]: { speed, aggro, attackRange, attackCooldown, leash, wanderRadius } },
 //   items:    { [itemId]:    { name, price, atk, def, hp, heal, reqLevel, desc } },
 //   quests:   { [questId]:   { title, desc, requiredCount, rewardGold, rewardExp, rewardTokens } },
+//   sounds:   { [soundId]:   { wave, freq, freqEnd, dur, vol, tone, noise, noiseFreq, noiseFreqEnd, arp, pitchVar } }   // see sounds.js
 //   skills:   { [skillId]:   { name, desc } }   // free-form list, not wired into the game yet
 //   objects:  { [zoneId]: [ { type, x, y, scale, solid } ] }  // replaces that map's object list
 //   ui:       { main: { hudBg, hudOpacity, ... show* } }          // HUD theme + show/hide panels
@@ -15,6 +16,7 @@
 // }
 
 import { TEXTURES, OBJECT_TYPES, MAX_OBJECTS_PER_MAP } from './maps.js';
+import { SOUND_DEFAULTS, SOUND_META } from './sounds.js';
 
 const text = (label, max) => ({ type: 'text', label, max });
 const num = (label, min, max, step = 1) => ({ type: 'number', label, min, max, step });
@@ -122,6 +124,28 @@ export const SCHEMA = {
       showZoom: select('ปุ่มซูม', SHOW_OPTIONS)
     }
   },
+  sounds: {
+    label: 'เสียง',
+    fixedIds: Object.keys(SOUND_DEFAULTS),
+    fields: {
+      wave: select('รูปคลื่นเสียง (โทน)', [
+        { value: 'sine', label: 'Sine (นุ่ม)' }, { value: 'triangle', label: 'Triangle (กลมๆ)' },
+        { value: 'square', label: 'Square (แข็ง/8-bit)' }, { value: 'sawtooth', label: 'Sawtooth (แหลม/หยาบ)' }
+      ]),
+      freq: num('ความถี่เริ่มต้น (Hz — สูง = แหลม)', 40, 4000),
+      freqEnd: num('ความถี่ตอนจบ (Hz — ต่ำกว่าเริ่ม = เสียงตก)', 20, 4000),
+      dur: num('ความยาว (วินาที)', 0.03, 2, 0.01),
+      vol: num('ความดัง (%)', 0, 100),
+      tone: num('ส่วนโทน (%)', 0, 100),
+      noise: num('ส่วนเสียงซ่า/ลม (%) — ใส่เยอะ = เสียงฟัน/กระแทก', 0, 100),
+      noiseFreq: num('ย่านเสียงซ่า เริ่ม (Hz)', 100, 8000),
+      noiseFreqEnd: num('ย่านเสียงซ่า จบ (Hz)', 50, 8000),
+      arp: select('โน้ต', [
+        { value: 'none', label: 'โน้ตเดียว' }, { value: 'chord', label: 'คอร์ดไล่ขึ้น (เมเจอร์)' }, { value: 'minor', label: 'คอร์ดไล่ขึ้น (ไมเนอร์)' }
+      ]),
+      pitchVar: num('สุ่มระดับเสียง ± (%) — ไม่ให้ซ้ำเป๊ะทุกครั้ง', 0, 30)
+    }
+  },
   skills: {
     label: 'สกิล',
     freeForm: true, // new skills can be created in Studio (defaults live in src/skills.js). Not run by the game yet.
@@ -169,6 +193,7 @@ export const SCHEMA = {
       bonusCritPct: num('โอกาสคริ (จุด %)', -100, 100),
       bonusSpPct: num('Max SP (%)', -100, 300),
       bonusMovePct: num('ความเร็วเดิน (%)', -100, 300),
+      sound: select('เสียงตอนใช้สกิล (ปรับเสียงได้ที่แท็บ "เสียง")', [{ value: '', label: '(ตามประเภทผลลัพธ์)' }, ...Object.entries(SOUND_META).map(([value, m]) => ({ value, label: m.label }))]),
       bookSellPrice: num('ราคาขายสมุดสกิล (Gold)', 0, 100000000),
       gachaWeight: num('น้ำหนักในตู้กาชา (ยิ่งมากยิ่งออกง่าย, 0 = ไม่ออก)', 0, 1000, 0.5)
     }
@@ -206,7 +231,9 @@ export function sanitizeOverrides(raw, known) {
     const dst = {};
     for (const [id, patch] of Object.entries(src)) {
       if (!patch || typeof patch !== 'object') continue;
-      if (spec.freeForm) {
+      if (spec.fixedIds) {
+        if (!spec.fixedIds.includes(id)) continue;
+      } else if (spec.freeForm) {
         if (!/^[a-z0-9_]{1,40}$/.test(id)) continue;
       } else if (!known[col] || !known[col].has(id)) {
         continue;
@@ -266,7 +293,7 @@ export function sanitizeOverrides(raw, known) {
 
 // Copy the editable fields of the current data so they can be restored / shown as "default".
 export function snapshotEditable(data) {
-  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {}, drops: {}, ui: { main: { ...UI_DEFAULTS } }, objects: {}, skills: {} };
+  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {}, drops: {}, ui: { main: { ...UI_DEFAULTS } }, objects: {}, skills: {}, sounds: {} };
   const pick = (obj, fields) => {
     const o = {};
     for (const k of Object.keys(fields)) if (obj && obj[k] !== undefined) o[k] = obj[k];
@@ -285,6 +312,7 @@ export function snapshotEditable(data) {
   for (const [id, it] of Object.entries(data.ITEMS)) snap.items[id] = pick(it, SCHEMA.items.fields);
   data.QUESTS.forEach(q => { snap.quests[q.id] = pick(q, SCHEMA.quests.fields); });
   for (const [id, sk] of Object.entries(data.SKILLS || {})) snap.skills[id] = pick(sk, SCHEMA.skills.fields);
+  for (const [id, sd] of Object.entries(SOUND_DEFAULTS)) snap.sounds[id] = { ...sd };
   return snap;
 }
 
@@ -330,6 +358,7 @@ export function applyOverrides(data, o) {
   // skills: merge field by field, so editing one value of a default skill keeps the rest
   data.SKILLS = data.SKILLS || {};
   for (const [id, p] of Object.entries(o.skills || {})) data.SKILLS[id] = { ...(data.SKILLS[id] || {}), ...p };
+  if (data.SOUNDS) for (const [id, p] of Object.entries(o.sounds || {})) data.SOUNDS[id] = { ...(data.SOUNDS[id] || {}), ...p };
 }
 
 export function validateSpawns(raw, mapIds, monsterIds) {

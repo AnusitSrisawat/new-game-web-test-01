@@ -1,7 +1,7 @@
 // 2D Canvas Game Engine with Large Tile World, Camera Follow, Real Sprites, Multiplayer Sync & High-Impact VFX
 import { WorldMap } from './map.js';
 import { getMapDef, TILE_SIZE } from './maps.js';
-import { ZONES, MONSTERS, ITEMS, RELICS, QUESTS, SKILLS } from './data.js';
+import { ZONES, MONSTERS, ITEMS, RELICS, QUESTS, SKILLS, SOUNDS } from './data.js';
 import { weaponMatches } from './player.js';
 import { soundEngine } from './audio.js';
 import { monsterSprite, itemSprite, weaponSprite } from './sprites.js';
@@ -261,6 +261,7 @@ export class GameEngine {
     const m = this.monsters.find(item => item.id === monsterId);
     if (m) {
       m.currentHp = currentHp;
+      soundEngine.play('monsterHit');
       m.flashTimer = 0.15;
       m.squashTimer = 0.18;
       this.addFloatingText(m.x, m.y - 20, `${damage}`, isCrit ? '#f59e0b' : '#ffffff', isCrit ? 22 : 16, isCrit);
@@ -275,6 +276,7 @@ export class GameEngine {
     const m = this.monsters.find(item => item.id === monsterId);
     if (m) {
       if (damage > 0) this.addFloatingText(m.x, m.y - 20, `${damage}`, isCrit ? '#f59e0b' : '#ffffff', isCrit ? 22 : 16, isCrit);
+      soundEngine.play('monsterDie');
       m.isDead = true;
       m.currentHp = 0;
       m.deathTimer = MONSTER_DEATH_TIME;
@@ -721,17 +723,21 @@ export class GameEngine {
     const pl = this.playerEntity;
     if (o.kind === 'gold') {
       this.player.gold += o.amount;
+      soundEngine.play('coin');
       this.player.saveToStorage();
       this.addFloatingText(pl.x, pl.y - 40, `+${o.amount} G`, '#fbbf24', 15);
       this.addParticle(pl.x, pl.y - 10, '#fbbf24', 4);
     } else if (o.kind === 'exp') {
+      const lv = this.player.baseLevel;
       this.player.gainExp(o.amount);
+      soundEngine.play(this.player.baseLevel > lv ? 'levelUp' : 'coin');
       this.player.saveToStorage();
       this.addFloatingText(pl.x, pl.y - 52, `+${o.amount} EXP`, '#4ade80', 15);
       this.addParticle(pl.x, pl.y - 10, '#4ade80', 4);
     } else {
       const item = ITEMS[o.itemId] || RELICS[o.itemId];
       const res = this.player.addItem(o.itemId, 1);
+      soundEngine.play('loot');
       if (res.isRelic) {
         this.onLog(`💎 ค้นพบสมบัติในตำนาน! [${item.name}] บันทึกลงสมุดสมบัติสำเร็จ!`, 'relic');
         this.addSkillBanner(`💎 RELIC FOUND: ${item.name}`, '#a855f7');
@@ -914,6 +920,8 @@ export class GameEngine {
     p.attackAnimTimer = ATTACK_ANIM;
     const color = { damage: '#f97316', heal: '#22c55e', buff: '#38bdf8', debuff: '#a855f7', dash: '#facc15' }[sk.effect] || '#fff';
     this.addSkillBanner(sk.name.replace(/\s*\(.*\)/, '').toUpperCase(), color);
+    // Studio can pick the sound per skill; otherwise it follows the effect type
+    soundEngine.play(SOUNDS[sk.sound] ? sk.sound : { damage: 'critHit', heal: 'firstAid', buff: 'berserk', debuff: 'warCry', dash: 'dash' }[sk.effect]);
 
     if (sk.effect === 'damage') {
       const cx = sk.target === 'self_area' ? p.x : target.x;
@@ -926,7 +934,6 @@ export class GameEngine {
       victims = victims.filter(Boolean).slice(0, 8);
       if (sk.radius > 0) this.addShockwave(cx, cy, color, sk.radius * 0.5);
       const stat = sk.scalesWith && sk.scalesWith !== 'none' ? (pl.stats[sk.scalesWith] || 0) * (sk.statCoef || 0) : 0;
-      soundEngine.playCritHit();
       for (const m of victims) {
         for (let h = 0; h < Math.max(1, sk.hits); h++) {
           setTimeout(() => {
@@ -949,7 +956,6 @@ export class GameEngine {
       const stat = sk.scalesWith && sk.scalesWith !== 'none' ? (pl.stats[sk.scalesWith] || 0) * (sk.statCoef || 0) : 0;
       const heal = Math.floor(pl.maxHp * sk.power / 100 + stat);
       pl.currentHp = Math.min(pl.maxHp, pl.currentHp + heal);
-      soundEngine.playPotion();
       this.addHealSpiral(p.x, p.y);
       this.addFloatingText(p.x, p.y - 35, `+${heal} HP`, '#22c55e', 18);
     } else if (sk.effect === 'buff') {
@@ -1121,6 +1127,7 @@ export class GameEngine {
   }
 
   applyMonsterDamage(damage) {
+    soundEngine.play('playerHurt');
     this.player.currentHp = Math.max(0, this.player.currentHp - damage);
     this.addParticle(this.playerEntity.x, this.playerEntity.y, '#ef4444', 4);
     this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 25, `-${damage}`, '#f87171', 14);
