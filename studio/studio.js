@@ -59,6 +59,18 @@
     return h('span', { class: 'pic', style: `width:${px}px;height:${Math.round(sprite.sh * k)}px;background-image:url(/${sprite.src});` +
       `background-size:${Math.round(sprite.iw * k)}px ${Math.round(sprite.ih * k)}px;background-position:-${Math.round(sprite.sx * k)}px -${Math.round(sprite.sy * k)}px` });
   }
+  // Picture of an item: its sprite crop, else the mount / paper-doll part image, else the emoji
+  function itemPic(id, px = 56) {
+    const info = state.itemsInfo?.[id] || {};
+    if (info.sprite) return pic(info.sprite, info.icon, px);
+    const src = info.type === 'mount' ? `/assets/sprites/mounts/${id}.png` : info.part ? `/assets/sprites/player/parts/${info.part}.png` : null;
+    if (!src) return pic(null, info.icon, px);
+    const holder = h('span', { class: 'pic', style: `width:${px}px;height:${px}px;display:inline-flex;align-items:center;justify-content:center` });
+    const img = h('img', { src, style: `max-width:${px}px;max-height:${px}px;object-fit:contain` });
+    img.onerror = () => holder.replaceChildren(pic(null, info.icon, px));
+    holder.append(img);
+    return holder;
+  }
   const monsterPic = (id, px = 56) => pic(state.monsters[id]?.sprite, state.monsters[id]?.emoji, px);
 
   // ---- value helpers ----
@@ -648,7 +660,7 @@
     return Object.keys(state.defaults.items).filter(id => itemPassesFilter(id) && matches(q, id, valueOf('items', id, 'name'))).map(id => {
       const prev = gearPreview(id);
       const card = h('div', { class: 'card' },
-        h('h3', {}, valueOf('items', id, 'name'), h('small', {}, id)),
+        h('h3', {}, itemPic(id, 48), ' ', valueOf('items', id, 'name'), h('small', {}, id)),
         prev ? h('div', { class: 'hint' }, 'ตัวอย่างบนตัวละคร (ปรับค่าแล้วภาพขยับตามทันที)') : null,
         prev ? prev.cv : null,
         useEffectBox(id),
