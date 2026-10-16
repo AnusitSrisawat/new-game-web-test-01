@@ -97,12 +97,24 @@ function itemLookup() {
   return itemIndex;
 }
 
+const POTION_SPRITES = new Set([
+  'hp_potion_s', 'hp_potion_m', 'hp_potion_l',
+  'sp_potion_s', 'sp_potion_m', 'sp_potion_l',
+  'exp_potion_s', 'exp_potion_m', 'exp_potion_l'
+]);
+export function potionSprite(id) {
+  if (!POTION_SPRITES.has(id)) return null;
+  return { src: `assets/sprites/potions/${id}.png`, sx: 0, sy: 0, sw: 140, sh: 140, iw: 140, ih: 140 };
+}
+
 // -> { src, sx, sy, sw, sh } or null when the monster/item/relic has no picture yet
 export function monsterSprite(id) {
   const e = MONSTER_SPRITES[id];
   return e ? spriteOf('monsters', e[0], e[1], MONSTER_PX) : null;
 }
 export function itemSprite(id) {
+  const p = potionSprite(id);
+  if (p) return p;
   const r = relicSprite(id); // relic pictures win over the old item-sheet icons
   if (r) return r;
   const e = itemLookup()[id];
@@ -133,6 +145,8 @@ export function itemIconHtml(id, emoji, px = 28) {
     const ms = monsterSprite(id.slice(4));
     if (ms) return `<span style="${spriteStyle(ms, px)}"></span>`;
   }
+  const ps = potionSprite(id);
+  if (ps) return `<span style="${spriteStyle(ps, px)}"></span>`;
   const rs = relicSprite(id);
   if (rs) return `<span style="${spriteStyle(rs, px)}"></span>`;
   const ws = weaponSprite(id);

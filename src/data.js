@@ -218,13 +218,21 @@ export const ITEMS = {
   ancient_alloy: { id: 'ancient_alloy', name: 'Ancient Alloy', price: 950, icon: '🪙', type: 'material', desc: 'โลหะผสมโบราณไร้สนิม' },
   dragon_heart_core: { id: 'dragon_heart_core', name: 'Dragon Heart Core', price: 5000, icon: '🔥', type: 'material', desc: 'หัวใจมังกรบรรพกาล แหล่งพลังงานเพลิงไร้ที่สิ้นสุด' },
 
-  // Potions
+  // Potions (3 Types x 3 Sizes: S, M, L)
+  // Red HP Potions
   hp_potion_s: { id: 'hp_potion_s', name: 'Red Potion (S)', price: 20, icon: '🧪', type: 'consumable', heal: 60, desc: 'ยาเพิ่มพลังขนาดเล็ก ฟื้นฟู 60 HP' },
   hp_potion_m: { id: 'hp_potion_m', name: 'Red Potion (M)', price: 60, icon: '🧪', type: 'consumable', heal: 200, desc: 'ยาเพิ่มพลังขนาดกลาง ฟื้นฟู 200 HP' },
   hp_potion_l: { id: 'hp_potion_l', name: 'Red Potion (L)', price: 180, icon: '🧪', type: 'consumable', heal: 600, desc: 'ยาเพิ่มพลังขนาดใหญ่ ฟื้นฟู 600 HP' },
 
+  // Blue SP Potions
   sp_potion_s: { id: 'sp_potion_s', name: 'Blue Potion (S)', price: 30, icon: '💧', type: 'consumable', sp: 40, desc: 'ยาฟื้นฟู SP ขนาดเล็ก ฟื้นฟู 40 SP' },
   sp_potion_m: { id: 'sp_potion_m', name: 'Blue Potion (M)', price: 90, icon: '💧', type: 'consumable', sp: 120, desc: 'ยาฟื้นฟู SP ขนาดกลาง ฟื้นฟู 120 SP' },
+  sp_potion_l: { id: 'sp_potion_l', name: 'Blue Potion (L)', price: 250, icon: '💧', type: 'consumable', sp: 300, desc: 'ยาฟื้นฟู SP ขนาดใหญ่ ฟื้นฟู 300 SP' },
+
+  // Yellow EXP Potions
+  exp_potion_s: { id: 'exp_potion_s', name: 'Yellow EXP Potion (S)', price: 100, icon: '⭐', type: 'consumable', exp: 100, desc: 'ยาเพิ่มค่าประสบการณ์ขนาดเล็ก มอบ 100 EXP ทันที' },
+  exp_potion_m: { id: 'exp_potion_m', name: 'Yellow EXP Potion (M)', price: 400, icon: '⭐', type: 'consumable', exp: 500, desc: 'ยาเพิ่มค่าประสบการณ์ขนาดกลาง มอบ 500 EXP ทันที' },
+  exp_potion_l: { id: 'exp_potion_l', name: 'Yellow EXP Potion (L)', price: 1500, icon: '⭐', type: 'consumable', exp: 2500, desc: 'ยาเพิ่มค่าประสบการณ์ขนาดใหญ่ มอบ 2,500 EXP ทันที' },
 
   // Starter & staves
   wooden_stick: { id: 'wooden_stick', name: 'Wooden Stick (กิ่งไม้)', type: 'weapon', weaponType: 'stick', atk: 3, def: 0, reqLevel: 1, icon: '🌿', desc: 'กิ่งไม้ที่เก็บได้ข้างทาง อาวุธเริ่มต้นของนักผจญภัย' },

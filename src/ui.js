@@ -499,7 +499,7 @@ export class UIController {
     if (!id || !ITEMS[id]) id = null;
     // Shows the chosen potion, or the weakest owned one when none is chosen
     const shown = id || owned[0] || null;
-    iconEl.textContent = shown ? (ITEMS[shown].icon || '🧪') : '＋';
+    iconEl.innerHTML = shown ? itemIconHtml(shown, ITEMS[shown].icon, 28) : '＋';
     countEl.textContent = shown ? (this.player.inventory[shown] || 0) : '';
     document.getElementById('slot-hp-potion')?.classList.toggle('empty', !shown || !(this.player.inventory[shown] > 0));
     const spOwned = this.player.ownedSpPotions();
@@ -507,7 +507,7 @@ export class UIController {
     const spIcon = document.getElementById('qs-sp-icon');
     const spCount = document.getElementById('qs-sp-count');
     if (spIcon && spCount) {
-      spIcon.textContent = spShown ? (ITEMS[spShown].icon || '💧') : '＋';
+      spIcon.innerHTML = spShown ? itemIconHtml(spShown, ITEMS[spShown].icon, 28) : '＋';
       spCount.textContent = spShown ? (this.player.inventory[spShown] || 0) : '';
     }
     document.getElementById('slot-sp-potion')?.classList.toggle('empty', !spShown);
@@ -1194,6 +1194,9 @@ export class UIController {
         } else if (item.type === 'consumable' && item.heal) {
           const res = this.player.usePotion(k);
           if (res) this.gameEngine.onLog(`🧪 ใช้ ${res.itemName} ฟื้นฟู ${res.healed} HP`, 'system');
+        } else if (item.type === 'consumable' && item.exp) {
+          const res = this.player.useExpPotion(k);
+          if (res) this.gameEngine.onLog(`⭐ ใช้ ${res.itemName} ได้รับ ${res.exp} EXP!`, 'system');
         } else return;
         this.renderInventoryModal();
         this.updateHUD();
@@ -1547,25 +1550,25 @@ export class UIController {
       <div style="display:grid; grid-template-columns:1fr 1.2fr; gap:14px;">
         <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
           <h4>🛒 ร้านค้าของชำ (NPC Merchant)</h4>
-          <p style="font-size:0.78rem; color:#94a3b8; margin:6px 0 10px;">ขายขยะฟาร์ม หรือซื้อโพชั่นเพิ่มเลือด</p>
+          <p style="font-size:0.78rem; color:#94a3b8; margin:6px 0 10px;">ขายขยะฟาร์ม หรือซื้อโพชั่นเพิ่มเลือด/มานา/EXP</p>
           <button id="modal-sell-trash" style="width:100%; padding:8px; background:#f59e0b; color:#000; font-weight:700; border:none; border-radius:6px; cursor:pointer; margin-bottom:12px;">💰 ขายขยะทั้งหมด (Sell All Trash)</button>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
-              <span>🧪 Red Potion (S)</span>
-              <button class="btn-buy-pot-m" data-id="hp_potion_s" data-cost="20" style="padding:3px 8px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">ซื้อ (20 G)</button>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
-              <span>💧 Blue Potion (S) +40 SP</span>
-              <button class="btn-buy-pot-m" data-id="sp_potion_s" data-cost="30" style="padding:3px 8px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">ซื้อ (30 G)</button>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
-              <span>💧 Blue Potion (M) +120 SP</span>
-              <button class="btn-buy-pot-m" data-id="sp_potion_m" data-cost="90" style="padding:3px 8px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">ซื้อ (90 G)</button>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
-              <span>🧪 Red Potion (M)</span>
-              <button class="btn-buy-pot-m" data-id="hp_potion_m" data-cost="60" style="padding:3px 8px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">ซื้อ (60 G)</button>
-            </div>
+          <div style="display:flex; flex-direction:column; gap:6px; max-height:260px; overflow-y:auto; padding-right:4px;">
+            ${[
+              'hp_potion_s', 'hp_potion_m', 'hp_potion_l',
+              'sp_potion_s', 'sp_potion_m', 'sp_potion_l',
+              'exp_potion_s', 'exp_potion_m', 'exp_potion_l'
+            ].filter(id => ITEMS[id]).map(id => {
+              const it = ITEMS[id];
+              return `
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; background:rgba(255,255,255,0.03); padding:4px 8px; border-radius:6px; border:1px solid rgba(255,255,255,0.06);">
+                  <span style="display:flex; align-items:center; gap:6px;">
+                    ${itemIconHtml(id, it.icon, 22)}
+                    <b>${it.name}</b>
+                  </span>
+                  <button class="btn-buy-pot-m" data-id="${id}" data-cost="${it.price}" style="padding:3px 10px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">ซื้อ (${it.price} G)</button>
+                </div>
+              `;
+            }).join('')}
           </div>
         </div>
 

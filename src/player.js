@@ -2,7 +2,7 @@
 import { ITEMS, RELICS, WEAPON_TYPES, BASE_STATS, STAT_KEYS, SKILLS } from './data.js';
 
 export const HP_POTION_IDS = ['hp_potion_s', 'apple', 'hp_potion_m', 'boar_meat', 'hp_potion_l']; // weakest first
-export const SP_POTION_IDS = ['sp_potion_s', 'sp_potion_m'];
+export const SP_POTION_IDS = ['sp_potion_s', 'sp_potion_m', 'sp_potion_l'];
 export const SKILL_SLOTS = 4;     // skills usable at once (passives take a slot too)
 export const GACHA_SINGLE = 500;   // gold per skill-book pull
 export const GACHA_PACK = 4500;    // gold for 10 pulls
@@ -355,6 +355,15 @@ export class Player {
     this.removeItem(id, 1);
     this.currentSp = Math.min(this.maxSp, this.currentSp + item.sp);
     return { restored: item.sp, itemName: item.name, itemId: id };
+  }
+
+  useExpPotion(itemId) {
+    if (!itemId || !this.inventory[itemId] || this.inventory[itemId] <= 0) return null;
+    const item = ITEMS[itemId];
+    if (!item || !item.exp) return null;
+    this.removeItem(itemId, 1);
+    this.gainExp(item.exp);
+    return { exp: item.exp, itemName: item.name, itemId };
   }
 
   // ---- skills ----
