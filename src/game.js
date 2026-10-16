@@ -2476,7 +2476,7 @@ export class GameEngine {
       riding: !!(remoteProfile && remoteProfile.riding && remoteProfile.mount)
     };
     const moving = Math.abs(legOffset) > 0.5;
-    let seatY = 0;
+    let seatY = 0, seatClip = 0;
     if (look.riding && ITEMS[look.mount]) {
       const mi = ITEMS[look.mount], ms = PLAYER_SPRITES.mounts[look.mount], img = ms && this.getSheet(`assets/sprites/mounts/${look.mount}.png`);
       if (img) {
@@ -2496,7 +2496,8 @@ export class GameEngine {
         // the rider sits on the saddle: feet at the seat point (mount picture fractions)
         const sx = ((flip > 0 ? seat[0] : 1 - seat[0]) - 0.5) * w + (mi.offX || 0);
         seatY = 24 - bob + (mi.offY || 0) - h + seat[1] * h;
-        ctx.translate(sx, seatY - 24 + 12);
+        ctx.translate(sx, seatY - 24 + (mi.seatDrop ?? 6));
+        seatClip = mi.seatClip ?? 0;
       }
     }
     {
@@ -2505,7 +2506,7 @@ export class GameEngine {
       ctx.save();
       ctx.translate(0, -bob);
       ctx.rotate(pose.lean * 0.6);
-      if (look.riding && seatY) { ctx.beginPath(); ctx.rect(-80, -120, 160, 120 + 24 - 12 - 3); ctx.clip(); } // legs hidden by the saddle
+      if (look.riding && seatClip > 0) { ctx.beginPath(); ctx.rect(-80, -120, 160, 120 + 24 - seatClip); ctx.clip(); } // optional: cut the rider's legs (seatClip units from the feet)
       drawLook(ctx, (src) => this.getSheet(src), look, kb);
       ctx.restore();
     }

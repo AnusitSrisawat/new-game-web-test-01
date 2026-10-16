@@ -181,7 +181,7 @@ export function installPlayerGear(ITEMS) {
   const SEAT = { mount_runner: [0.5, 0.4], mount_wolf: [0.52, 0.3], mount_unicorn: [0.43, 0.3], mount_drake: [0.58, 0.5] };
   // scale / offX / offY / seatX / seatY: how the picture sits on the player (tune them in Studio -> items)
   const add = (it) => {
-    const look = it.partW ? {} : it.type === 'mount' ? { scale: 1, offX: 0, offY: 0, seatX: SEAT[it.id][0], seatY: SEAT[it.id][1] }
+    const look = it.partW ? {} : it.type === 'mount' ? { scale: 1, offX: 0, offY: 0, seatX: SEAT[it.id][0], seatY: SEAT[it.id][1], seatDrop: 6, seatClip: 0 }
       : it.type === 'shield' ? { scale: 0.8, offX: 0, offY: 3 } : { scale: 1, offX: 0, offY: 0 };
     ITEMS[it.id] = { reqLevel: 1, price: 0, ...look, ...it };
   };

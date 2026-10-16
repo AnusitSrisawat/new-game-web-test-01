@@ -543,7 +543,7 @@
     const live = (iid) => {
       const base = state.itemsInfo[iid] || {};
       const o = { ...base };
-      for (const k of ['scale', 'offX', 'offY', 'seatX', 'seatY', 'partW', 'partX', 'partY']) { const x = Number(valueOf('items', iid, k)); if (Number.isFinite(x)) o[k] = x; }
+      for (const k of ['scale', 'offX', 'offY', 'seatX', 'seatY', 'seatDrop', 'seatClip', 'partW', 'partX', 'partY']) { const x = Number(valueOf('items', iid, k)); if (Number.isFinite(x)) o[k] = x; }
       return o;
     };
     const draw = async () => {
@@ -580,11 +580,11 @@
         ctx.save(); ctx.translate(cx + v('offX', 0) * U, gy + v('offY', 0) * U); if (left) ctx.scale(-1, 1);
         if (img.complete) ctx.drawImage(img, -w / 2, -h2, w, h2); ctx.restore();
         const sx = v('seatX', 0.5), sy = v('seatY', 0.4);
-        rx = cx + v('offX', 0) * U + ((left ? 1 - sx : sx) - 0.5) * w; ry = gy + v('offY', 0) * U - h2 + sy * h2 + 12 * U;
+        rx = cx + v('offX', 0) * U + ((left ? 1 - sx : sx) - 0.5) * w; ry = gy + v('offY', 0) * U - h2 + sy * h2 + v('seatDrop', 6) * U;
       }
       ctx.save();
       ctx.translate(rx, ry - 24 * U);
-      if (type === 'mount') { ctx.beginPath(); ctx.rect(-130, -190, 260, 190 + 24 * U - 3 * U); ctx.clip(); }
+      if (type === 'mount' && v('seatClip', 0) > 0) { ctx.beginPath(); ctx.rect(-130, -190, 260, 190 + 24 * U - v('seatClip', 0) * U); ctx.clip(); }
       // drawLook works in world units: scale the context instead of k
       ctx.scale(U, U);
       drawLook(ctx, (src) => { const im = loadImg('/' + src); return im.complete && im.naturalWidth ? im : null; }, look, 58 / 301);
@@ -606,7 +606,7 @@
         h('h3', {}, valueOf('items', id, 'name'), h('small', {}, id)),
         prev ? h('div', { class: 'hint' }, 'ตัวอย่างบนตัวละคร (ปรับค่าแล้วภาพขยับตามทันที)') : null,
         prev ? prev.cv : null,
-        h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'heal', 'reqLevel', 'lootSpeed', 'speedPct', 'partW', 'partX', 'partY', 'scale', 'offX', 'offY', 'seatX', 'seatY', 'desc']))
+        h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'heal', 'reqLevel', 'lootSpeed', 'speedPct', 'partW', 'partX', 'partY', 'scale', 'offX', 'offY', 'seatX', 'seatY', 'seatDrop', 'seatClip', 'desc']))
       );
       if (prev) { card.addEventListener('input', () => setTimeout(prev.redraw, 0)); card.addEventListener('change', () => setTimeout(prev.redraw, 0)); }
       return card;
