@@ -720,7 +720,7 @@ export class GameEngine {
       landY: y + Math.sin(ang) * dist * 0.6,
       t: 0,                                  // pop-out progress time
       popTime: 0.45,
-      delay: 1.5 + Math.random() * 0.4,      // pause on the ground before flying in by itself (a pet fetches it sooner)
+      delay: 0.5 + Math.random() * 0.3,      // pause on the ground before flying in
       state: 'pop',                          // pop -> wait -> fly
       speed: 120,
       bob: Math.random() * 6
@@ -900,7 +900,7 @@ export class GameEngine {
     const d = Math.hypot(tx - pet.x, ty - pet.y);
     if (d > 700 && !fast) { pet.x = gx; pet.y = gy; }
     else if (fast) {
-      speed = 380 * dt;
+      speed = Math.min(1500, 260 * this.player.petLootSpeed) * dt; // pet loot speed stat (from the monster's level)
       if (d <= speed) { pet.x = tx; pet.y = ty; } else { pet.x += (tx - pet.x) / d * speed; pet.y += (ty - pet.y) / d * speed; }
     } else if (d > 4) {
       const k = Math.min(1, 0.06 + d / 400); pet.x += (tx - pet.x) * k * 0.2; pet.y += (ty - pet.y) * k * 0.2;
@@ -963,46 +963,7 @@ export class GameEngine {
     if (this.petState && this.petState.carry) { this.collectLootOrb(this.petState.carry); this.petState.carry = null; }
   }
 
-  // The pet runs out to a piece of loot, picks it up and brings it to the player (speed = 200 px/s x pet loot speed)
-  updatePet(dt) {
-    const p = this.playerEntity;
-    if (!this.player.activePet) { this.petState = null; return; }
-    const pet = this.petState || (this.petState = { x: p.x - 40, y: p.y + 14, mode: 'follow', orb: null, moving: false });
-    const speed = 200 * this.player.petLootSpeed;
-    const go = (tx, ty, sp) => {
-      const dx = tx - pet.x, dy = ty - pet.y, d = Math.hypot(dx, dy);
-      pet.moving = d > 3;
-      if (d <= sp * dt) { pet.x = tx; pet.y = ty; return true; }
-      pet.x += dx / d * sp * dt; pet.y += dy / d * sp * dt;
-      if (Math.abs(dx) > 2) pet.dir = dx > 0 ? 1 : -1;
-      return false;
-    };
-    if (Math.hypot(pet.x - p.x, pet.y - p.y) > 900) { pet.x = p.x; pet.y = p.y; pet.mode = 'follow'; pet.orb = null; }
-    if (pet.mode === 'follow') {
-      // look for landed loot near the player
-      let best = null, bd = 700;
-      for (const o of this.lootOrbs) {
-        if (o.state !== 'wait' || o.t < 0.2) continue;
-        const d = Math.hypot(o.x - p.x, o.y - p.y);
-        if (d < bd) { bd = d; best = o; }
-      }
-      if (best) { best.state = 'claimed'; pet.orb = best; pet.mode = 'fetch'; }
-      else go(p.x - p.facing * 46, p.y + 14, 140 + 40 * Math.min(3, this.player.petLootSpeed));
-    } else if (pet.mode === 'fetch') {
-      if (!pet.orb || !this.lootOrbs.includes(pet.orb)) { pet.mode = 'follow'; pet.orb = null; }
-      else if (go(pet.orb.x, pet.orb.y, speed)) { pet.orb.state = 'carried'; pet.mode = 'return'; }
-    } else if (pet.mode === 'return') {
-      if (!pet.orb || !this.lootOrbs.includes(pet.orb)) { pet.mode = 'follow'; pet.orb = null; }
-      else if (go(p.x, p.y + 6, speed)) {
-        this.collectLootOrb(pet.orb);
-        this.lootOrbs.splice(this.lootOrbs.indexOf(pet.orb), 1);
-        pet.orb = null; pet.mode = 'follow';
-      }
-    }
-  }
-
   updateLootOrbs(dt) {
-    this.updatePet(dt);
     const pl = this.playerEntity;
     for (let i = this.lootOrbs.length - 1; i >= 0; i--) {
       const o = this.lootOrbs[i];
@@ -1014,17 +975,9 @@ export class GameEngine {
         if (k >= 1) { o.state = 'wait'; o.t = 0; }
       } else if (o.state === 'wait') {
         o.t += dt;
-        // nobody fetched it in time (no pet, or the pet is busy): it flies in by itself — a pet can only make it faster
         if (o.t >= o.delay) o.state = 'fly';
-      } else if (o.state === 'claimed') {
-        if (!this.player.activePet) o.state = 'wait';
-      } else if (o.state === 'carried') {
-        // the pet is bringing it: follows the pet; if the pet is taken off it flies to the player
-        if (!this.player.activePet) o.state = 'fly';
-        else { o.x = this.petState.x; o.y = this.petState.y - 26; }
       } else {
-        const ls = this.player.petLootSpeed; // equipped pet: faster collecting
-        o.speed += 300 * ls * ls * dt;
+        o.speed += 900 * dt;
         const dx = pl.x - o.x;
         const dy = (pl.y - 12) - o.y;
         const d = Math.hypot(dx, dy);
@@ -1047,7 +1000,7 @@ export class GameEngine {
       const x = o.x, y = o.y + hover;
       ctx.save();
       // ground shadow
-      if (o.state !== 'fly' && o.state !== 'carried') {
+      if (o.state !== 'fly') {
         ctx.fillStyle = 'rgba(0,0,0,0.25)';
         ctx.beginPath();
         ctx.ellipse(o.landX, o.landY + 8, 7, 3, 0, 0, Math.PI * 2);
@@ -2046,26 +1999,36 @@ export class GameEngine {
     }
   }
 
-  // Pet: a small copy of the chosen monster that trails behind the player
+  // Pet: a small copy of the chosen monster (own pet + other players' pets); shows the item it carries
   drawPet(ctx) {
     const mid = this.player.activePet;
-    const sp = mid && monsterSprite(mid);
+    if (!mid || !this.petState) return;
+    this.drawPetSprite(ctx, mid, this.petState, this.petState.dir || this.playerEntity.facing);
+  }
+
+  drawPetSprite(ctx, mid, pet, facing) {
+    const sp = monsterSprite(mid);
     const sheet = sp ? this.getSheet(sp.src) : null;
-    const pet = this.petState;
-    if (!sheet || !pet) return;
+    if (!sheet) return;
     const now = performance.now() / 1000;
     const size = ((MONSTERS[mid] && MONSTERS[mid].size) || 92) * 0.42;
     const dh = size * sp.sh / sp.sw;
-    const hop = pet.moving ? Math.abs(Math.sin(now * 14)) * 6 : 0;
+    const hop = pet.moving ? Math.abs(Math.sin(now * 12)) * 5 : 0;
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.beginPath(); ctx.ellipse(pet.x, pet.y + 8, size * 0.35, 4, 0, 0, Math.PI * 2); ctx.fill();
-    const dir = pet.dir || this.playerEntity.facing;
-    const f = MONSTERS[mid]?.facing === 'none' ? false : (MONSTERS[mid]?.facing === 'right' ? dir < 0 : dir > 0);
+    const f = MONSTERS[mid]?.facing === 'none' ? false : (MONSTERS[mid]?.facing === 'right' ? facing < 0 : facing > 0);
     ctx.translate(pet.x, pet.y + 8 - hop);
     if (f) ctx.scale(-1, 1);
     ctx.drawImage(sheet, sp.sx, sp.sy, sp.sw, sp.sh, -size / 2, -dh, size, dh);
     ctx.restore();
+    if (pet.carry) { // the item it is bringing back
+      ctx.save();
+      ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const c = pet.carry;
+      ctx.fillText(c.icon || (c.isPet ? '🐾' : (ITEMS[c.itemId] || RELICS[c.itemId])?.icon || '🎁'), pet.x, pet.y - dh - 6 - hop);
+      ctx.restore();
+    }
   }
 
   // Draw local player
