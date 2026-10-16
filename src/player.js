@@ -92,6 +92,7 @@ export class Player {
     this.auto = {
       range: 12,               // search radius in tiles
       disabledMonsters: {},    // templateId -> true means "don't attack"
+      pickup: false,           // Auto walks over to dropped items (not needed with a worn pet: it fetches them)
       hpPotion: { enabled: true, percent: 45, itemId: null }, // itemId null = cheapest usable potion
       spPotion: { enabled: true, percent: 25, itemId: null }
     };
@@ -466,6 +467,7 @@ export class Player {
         if (d.auto) {
           const a = d.auto;
           if (typeof a.range === 'number') this.auto.range = Math.min(400, Math.max(1, a.range));
+          if (typeof a.pickup === 'boolean') this.auto.pickup = a.pickup;
           if (a.disabledMonsters && typeof a.disabledMonsters === 'object') this.auto.disabledMonsters = a.disabledMonsters;
           if (a.hpPotion) Object.assign(this.auto.hpPotion, a.hpPotion);
           if (a.spPotion) Object.assign(this.auto.spPotion, a.spPotion);

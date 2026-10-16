@@ -569,6 +569,14 @@ export class UIController {
           <div class="auto-note">1 ช่อง = ${TILE_SIZE} px • สูงสุด ${maxRange} ช่อง = ครอบคลุมทั้งแมพ (แมพนี้ ${md.width / TILE_SIZE}×${md.height / TILE_SIZE} ช่อง) • Auto จะไล่ตีเฉพาะมอนสเตอร์ที่อยู่ในระยะนี้จากตัวคุณ</div>
         </div>
 
+        <div class="auto-card full">
+          <h4>🎁 เก็บของดรอป</h4>
+          <div class="auto-row">
+            <label><input type="checkbox" id="auto-pickup" ${a.pickup ? 'checked' : ''}> ให้ Auto เดินไปเก็บไอเท็มที่ตกพื้น</label>
+          </div>
+          <div class="auto-note">EXP และเงินเข้าตัวเองอัตโนมัติ ส่วนไอเท็มอื่นจะตกที่พื้น (ทุกคนเห็น) • คนที่ตีมอนสเตอร์ตัวนั้นมากสุดเก็บได้ก่อน คนอื่นเก็บได้เมื่อของตกพื้นครบ 3 นาที • มี Pet สวมใส่อยู่ Pet จะวิ่งไปเก็บมาให้เอง ไม่ต้องเปิดตัวเลือกนี้</div>
+        </div>
+
         <div class="auto-card">
           <h4>🧪 ใช้ยา HP อัตโนมัติ</h4>
           <div class="auto-row">
@@ -627,6 +635,7 @@ export class UIController {
       document.getElementById('auto-range-val').textContent = rangeLabel(a.range);
       save();
     });
+    document.getElementById('auto-pickup').addEventListener('change', e => { a.pickup = e.target.checked; save(); });
     document.getElementById('auto-hp-on').addEventListener('change', e => { a.hpPotion.enabled = e.target.checked; save(); });
     const pct = document.getElementById('auto-hp-pct');
     pct.addEventListener('input', () => {

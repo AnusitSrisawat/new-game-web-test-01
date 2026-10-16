@@ -9,6 +9,7 @@ import { monsterSprite, itemSprite, weaponSprite } from './sprites.js';
 // ---- Sword swing animation (prog 0..1: wind-up, snap strike, follow-through) ----
 // Angles are the blade direction: 0 = straight up, positive = clockwise (towards the facing side).
 const ATTACK_ANIM = 0.34;
+const PET_FETCH_RANGE = 750;     // px around the player in which a pet goes to fetch dropped items
 const MONSTER_DEATH_TIME = 0.7;  // seconds of the death animation
 const MONSTER_SPAWN_TIME = 0.6;  // seconds of the spawn animation
 const PLAYER_SCALE = 1.7;   // player ≈ 1.2x a default (92px) monster
@@ -83,7 +84,8 @@ export class GameEngine {
     this.particles = [];
     this.floatingTexts = [];
     this.serverBuffs = { exp: 1, gold: 1, drop: 1, monster: 1 }; // set by the server (GM /buffserver)
-    this.lootOrbs = []; // Dropped gold / EXP / items that pop out, wait, then fly into the player
+    this.lootOrbs = []; // Dropped gold / EXP that pop out, wait, then fly into the player
+    this.groundLoot = []; // Server-owned item drops lying on the ground (visible to everyone on the map)
     this.attackEffects = [];
     this.afterimages = [];
     this.projectiles = []; // Arrows & spells
@@ -315,33 +317,7 @@ export class GameEngine {
           }
         });
 
-        // Drop handling: roll drops, then let them pop out and fly into the player.
-        // Server drop buff (xN): N whole rolls plus a fractional chance of one more.
-        const dm = this.serverBuffs.drop || 1;
-        const dropRolls = Math.floor(dm) + (Math.random() < dm - Math.floor(dm) ? 1 : 0);
-        for (let ri = 0; ri < dropRolls; ri++) {
-        // 1) normal drop table: ONE roll. chances are shares of 100% (the remainder = nothing drops)
-        if (m.drops) {
-          const r = Math.random();
-          let acc = 0;
-          for (const drop of m.drops) {
-            acc += drop.chance;
-            if (r < acc) {
-              const item = ITEMS[drop.itemId];
-              if (item) this.spawnLootOrb(m.x, m.y, 'item', { itemId: drop.itemId, icon: item.icon, sprite: itemSprite(drop.itemId) });
-              break;
-            }
-          }
-        }
-        // 2) pet and 3) the monster's own relic: separate rolls, independent of the table above
-        if (Math.random() < (m.petChance || 0)) {
-          this.spawnLootOrb(m.x, m.y, 'item', { isPet: true, monsterId: m.templateId, icon: m.emoji || '🐾', sprite: monsterSprite(m.templateId) });
-        }
-        const relic = Object.values(RELICS).find(rl => rl.monsterId === m.templateId);
-        if (relic && Math.random() < (m.relicChance || 0)) {
-          this.spawnLootOrb(m.x, m.y, 'item', { itemId: relic.id, icon: relic.icon, isRelic: true });
-        }
-        }
+        // Item drops are rolled by the server and lie on the ground (see onLootSpawn).
       }
     }
   }
@@ -640,6 +616,18 @@ export class GameEngine {
       }
     }
 
+    // click on a dropped item: walk over it (stepping on it picks it up)
+    const clicked = this.groundLoot.find(l => l.map === this.currentZone.id && l.state === 'ground' && Math.hypot(worldX - l.x, worldY - l.y) < 30);
+    if (clicked) {
+      if (this.lootAvailable(clicked)) {
+        this.playerEntity.targetX = clicked.x;
+        this.playerEntity.targetY = clicked.y;
+      } else {
+        this.onLog(`🔒 ของชิ้นนี้เป็นของ [${clicked.ownerName}] อีก ${this.fmtLock((clicked.unlockAt - performance.now()) / 1000)}`, 'system');
+      }
+      return;
+    }
+
     if (this.worldMap.isWalkable(worldX, worldY, 14)) {
       this.playerEntity.targetX = worldX;
       this.playerEntity.targetY = worldY;
@@ -776,10 +764,196 @@ export class GameEngine {
     }
   }
 
+  // ---- Ground loot (server-owned): everyone on the map sees it; the top damage dealer picks first ----
+  makeGroundLoot(d) {
+    const sprite = d.isPet ? monsterSprite(d.monsterId) : itemSprite(d.itemId);
+    const item = d.isPet ? null : (ITEMS[d.itemId] || RELICS[d.itemId]);
+    const mon = d.isPet ? MONSTERS[d.monsterId] : null;
+    const now = performance.now();
+    return {
+      ...d,
+      name: d.isPet ? `Pet ${mon?.name || d.monsterId}` : (item?.name || d.itemId),
+      icon: d.isPet ? (mon?.emoji || '🐾') : (item?.icon || '🎁'),
+      sprite,
+      unlockAt: now + (d.lockLeft || 0) * 1000,
+      startX: d.fromX ?? d.x, startY: d.fromY ?? d.y,
+      state: d.fromX === undefined ? 'ground' : 'pop',
+      t: 0, popTime: 0.45, bob: Math.random() * 6,
+      ignoreUntil: 0, pending: 0
+    };
+  }
+
+  onLootSync(items) {
+    this.groundLoot = items.map(d => this.makeGroundLoot({ ...d, fromX: undefined, fromY: undefined }));
+  }
+
+  onLootSpawn(items) {
+    for (const d of items) {
+      if (!this.groundLoot.some(l => l.id === d.id)) this.groundLoot.push(this.makeGroundLoot(d));
+    }
+    const mine = items.filter(d => d.ownerId === this.network?.myPlayerId && d.map === this.currentZone.id);
+    if (mine.length) {
+      const names = mine.map(d => (this.groundLoot.find(l => l.id === d.id) || {}).name).filter(Boolean).join(', ');
+      this.onLog(`🎁 ของดรอปตกที่พื้น (เป็นของคุณ 3 นาที): ${names}`, 'loot');
+    }
+  }
+
+  onLootRemoved(id) {
+    const i = this.groundLoot.findIndex(l => l.id === id);
+    if (i !== -1) this.groundLoot.splice(i, 1);
+    if (this.petState && this.petState.targetId === id) this.petState.targetId = null;
+  }
+
+  onLootPicked(msg) {
+    if (msg.viaPet && this.petState) {
+      // the pet brings it back to the player before it lands in the bag
+      this.petState.carry = msg;
+      this.petState.targetId = null;
+    } else {
+      this.collectLootOrb(msg);
+    }
+  }
+
+  onLootDenied(msg) {
+    const l = this.groundLoot.find(x => x.id === msg.id);
+    if (l) { l.unlockAt = performance.now() + (msg.lockLeft || 0) * 1000; l.pending = 0; l.ignoreUntil = performance.now() + 2000; }
+    if (this.petState) this.petState.targetId = null;
+    if (!msg.viaPet) this.onLog(`🔒 ของชิ้นนี้เป็นของ [${msg.ownerName}] อีก ${this.fmtLock(msg.lockLeft)}`, 'system');
+  }
+
+  fmtLock(sec) {
+    const s = Math.max(0, Math.ceil(sec));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  // Can this player pick the item up right now? (owner, lock over, or the owner left the server)
+  lootAvailable(l) {
+    const me = this.network && this.network.myPlayerId;
+    if (l.map !== this.currentZone.id || l.state === 'pop') return false;
+    if (!this.network) return true;
+    if (l.ownerId === me || performance.now() >= l.unlockAt) return true;
+    return !this.network.otherPlayers.has(l.ownerId);
+  }
+
+  requestPickup(l, viaPet = false) {
+    const now = performance.now();
+    if (now < l.pending || now < l.ignoreUntil) return;
+    l.pending = now + 1500;
+    if (this.network) this.network.sendPickupLoot(l.id, viaPet);
+  }
+
+  // Nearest available loot to (x, y) within maxDist, skipping `skipId`
+  nearestLoot(x, y, maxDist) {
+    const now = performance.now();
+    let best = null, bd = maxDist;
+    for (const l of this.groundLoot) {
+      if (now < l.ignoreUntil || !this.lootAvailable(l)) continue;
+      const d = Math.hypot(l.x - x, l.y - y);
+      if (d <= bd) { bd = d; best = l; }
+    }
+    return best;
+  }
+
+  updateGroundLoot(dt) {
+    const pl = this.playerEntity;
+    for (const l of this.groundLoot) {
+      if (l.state === 'pop') {
+        l.t += dt;
+        const k = Math.min(1, l.t / l.popTime);
+        l.px = l.startX + (l.x - l.startX) * k;
+        l.py = l.startY + (l.y - l.startY) * k - Math.sin(k * Math.PI) * 38;
+        if (k >= 1) l.state = 'ground';
+      } else {
+        l.px = l.x; l.py = l.y;
+        // walking over an available item picks it up
+        if (this.lootAvailable(l) && Math.hypot(l.x - pl.x, l.y - pl.y) < 44) this.requestPickup(l);
+      }
+    }
+  }
+
+  // The pet runs to available loot, picks it up and brings it to the player
+  updatePet(dt) {
+    const mid = this.player.activePet;
+    const p = this.playerEntity;
+    if (!mid) { this.petState = null; return; }
+    const pet = this.petState || (this.petState = { x: p.x - 40, y: p.y + 10 });
+    const gx = p.x - p.facing * 46, gy = p.y + 14;
+    let tx = gx, ty = gy, speed = 0, fast = false;
+    if (pet.carry) {
+      // go back to the player; hand the item over when close
+      tx = p.x; ty = p.y;
+      fast = true;
+      if (Math.hypot(p.x - pet.x, p.y - pet.y) < 40) { this.collectLootOrb(pet.carry); pet.carry = null; }
+    } else {
+      let l = pet.targetId && this.groundLoot.find(x => x.id === pet.targetId);
+      if (l && !this.lootAvailable(l)) l = null;
+      if (!l) {
+        pet.targetId = null;
+        const cand = this.nearestLoot(p.x, p.y, PET_FETCH_RANGE);
+        if (cand) { l = cand; pet.targetId = cand.id; }
+      }
+      if (l) {
+        tx = l.x; ty = l.y; fast = true;
+        if (Math.hypot(l.x - pet.x, l.y - pet.y) < 16) this.requestPickup(l, true);
+      }
+    }
+    const d = Math.hypot(tx - pet.x, ty - pet.y);
+    if (d > 700 && !fast) { pet.x = gx; pet.y = gy; }
+    else if (fast) {
+      speed = 380 * dt;
+      if (d <= speed) { pet.x = tx; pet.y = ty; } else { pet.x += (tx - pet.x) / d * speed; pet.y += (ty - pet.y) / d * speed; }
+    } else if (d > 4) {
+      const k = Math.min(1, 0.06 + d / 400); pet.x += (tx - pet.x) * k * 0.2; pet.y += (ty - pet.y) * k * 0.2;
+    }
+    pet.moving = d > 12;
+  }
+
+  drawGroundLoot(ctx) {
+    const now = performance.now();
+    const t = now / 1000;
+    const me = this.network && this.network.myPlayerId;
+    for (const l of this.groundLoot) {
+      if (l.map !== this.currentZone.id) continue;
+      const locked = !this.lootAvailable(l) && l.state !== 'pop';
+      const mine = l.ownerId === me && now < l.unlockAt;
+      const hover = l.state === 'ground' ? Math.sin(t * 4 + l.bob) * 2 : 0;
+      const x = l.px ?? l.x, y = (l.py ?? l.y) + hover;
+      ctx.save();
+      if (l.state !== 'pop') {
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath(); ctx.ellipse(l.x, l.y + 8, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = locked ? 0.7 : 1;
+      ctx.shadowColor = l.isRelic ? '#a855f7' : l.isPet ? '#ec4899' : mine ? '#4ade80' : locked ? '#94a3b8' : '#fde68a';
+      ctx.shadowBlur = 10;
+      const sheet = l.sprite ? this.getSheet(l.sprite.src) : null;
+      if (sheet) {
+        const ow = 30, oh = ow * l.sprite.sh / l.sprite.sw;
+        ctx.drawImage(sheet, l.sprite.sx, l.sprite.sy, l.sprite.sw, l.sprite.sh, x - ow / 2, y - oh / 2, ow, oh);
+      } else {
+        ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(l.icon, x, y);
+      }
+      ctx.shadowBlur = 0;
+      if (l.state === 'ground') {
+        ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        const label = locked ? `🔒 ${l.name} ${this.fmtLock((l.unlockAt - now) / 1000)}` : l.name;
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(label, x, y + 26);
+        ctx.fillStyle = locked ? '#cbd5e1' : mine ? '#86efac' : '#fde68a'; ctx.fillText(label, x, y + 26);
+        if (locked && l.ownerName) {
+          ctx.font = '10px sans-serif'; ctx.fillStyle = '#94a3b8';
+          ctx.strokeText(`ของ ${l.ownerName}`, x, y + 38); ctx.fillText(`ของ ${l.ownerName}`, x, y + 38);
+        }
+      }
+      ctx.restore();
+    }
+  }
+
   // Instantly collect everything (used on map change so nothing is lost)
   flushLoot() {
     for (const o of this.lootOrbs) this.collectLootOrb(o);
     this.lootOrbs = [];
+    if (this.petState && this.petState.carry) { this.collectLootOrb(this.petState.carry); this.petState.carry = null; }
   }
 
   updateLootOrbs(dt) {
@@ -1240,7 +1414,13 @@ export class GameEngine {
       // Auto Battle or Target Approach
       const currentMapMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
 
-      if (this.player.autoBattle && (!this.selectedTarget || this.selectedTarget.isDead || this.selectedTarget.map !== this.currentZone.id)) {
+      // Auto pickup: with nothing to fight, walk to dropped items (a worn pet does this by itself)
+      let lootGoal = null;
+      if (this.player.autoBattle && this.player.auto.pickup && !this.player.activePet && (!this.selectedTarget || this.selectedTarget.isDead)) {
+        lootGoal = this.nearestLoot(p.x, p.y, this.player.auto.range * TILE_SIZE);
+      }
+
+      if (!lootGoal && this.player.autoBattle && (!this.selectedTarget || this.selectedTarget.isDead || this.selectedTarget.map !== this.currentZone.id)) {
         // Auto: nearest allowed monster within the configured range (in tiles)
         const maxDist = this.player.auto.range * TILE_SIZE;
         const disabled = this.player.auto.disabledMonsters;
@@ -1255,7 +1435,25 @@ export class GameEngine {
         }
       }
 
-      if (this.selectedTarget && !this.selectedTarget.isDead && this.selectedTarget.map === this.currentZone.id) {
+      if (lootGoal) {
+        const dx = lootGoal.x - p.x;
+        const dy = lootGoal.y - p.y;
+        const dist = Math.hypot(dx, dy);
+        p.facing = dx >= 0 ? 1 : -1;
+        if (dist > 20) {
+          const speed = 175 * this.player.moveMul;
+          const stepX = (dx / dist) * speed * dt;
+          const stepY = (dy / dist) * speed * dt;
+          if (this.worldMap.isWalkable(p.x + stepX, p.y, 16)) { p.x += stepX; hasMoved = true; }
+          if (this.worldMap.isWalkable(p.x, p.y + stepY, 16)) { p.y += stepY; hasMoved = true; }
+          p.walkFrame += dt * 10;
+        } else {
+          this.requestPickup(lootGoal); // standing on it but not yet requested / retry
+          lootGoal.ignoreUntil = Math.max(lootGoal.ignoreUntil, performance.now() + 1000);
+        }
+        p.targetX = p.x;
+        p.targetY = p.y;
+      } else if (this.selectedTarget && !this.selectedTarget.isDead && this.selectedTarget.map === this.currentZone.id) {
         const target = this.selectedTarget;
         const dx = target.x - p.x;
         const dy = target.y - p.y;
@@ -1457,6 +1655,8 @@ export class GameEngine {
     }
 
     this.updateLootOrbs(dt);
+    this.updateGroundLoot(dt);
+    this.updatePet(dt);
 
     // Update Floating texts
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
@@ -1565,6 +1765,7 @@ export class GameEngine {
       ctx.fill();
     }
 
+    this.drawGroundLoot(ctx);
     this.drawLootOrbs(ctx);
 
     // 13. Render Floating Damage Numbers
@@ -1784,13 +1985,11 @@ export class GameEngine {
     if (!sheet) return;
     const p = this.playerEntity;
     const now = performance.now() / 1000;
-    const pet = this.petState || (this.petState = { x: p.x - 40, y: p.y + 10 });
-    const gx = p.x - p.facing * 46, gy = p.y + 14;
-    const d = Math.hypot(gx - pet.x, gy - pet.y);
-    if (d > 500) { pet.x = gx; pet.y = gy; } else if (d > 4) { const k = Math.min(1, 0.06 + d / 400); pet.x += (gx - pet.x) * k * 0.2; pet.y += (gy - pet.y) * k * 0.2; }
+    const pet = this.petState;
+    if (!pet) return;
     const size = ((MONSTERS[mid] && MONSTERS[mid].size) || 92) * 0.42;
     const dh = size * sp.sh / sp.sw;
-    const hop = d > 12 ? Math.abs(Math.sin(now * 12)) * 5 : 0;
+    const hop = pet.moving ? Math.abs(Math.sin(now * 12)) * 5 : 0;
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.beginPath(); ctx.ellipse(pet.x, pet.y + 8, size * 0.35, 4, 0, 0, Math.PI * 2); ctx.fill();
@@ -1799,6 +1998,13 @@ export class GameEngine {
     if (f) ctx.scale(-1, 1);
     ctx.drawImage(sheet, sp.sx, sp.sy, sp.sw, sp.sh, -size / 2, -dh, size, dh);
     ctx.restore();
+    if (pet.carry) { // the item it is bringing back
+      ctx.save();
+      ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const c = pet.carry, isp = c.isPet;
+      ctx.fillText(isp ? '🐾' : (ITEMS[c.itemId] || RELICS[c.itemId])?.icon || '🎁', pet.x, pet.y - dh - 6 - hop);
+      ctx.restore();
+    }
   }
 
   // Draw local player
