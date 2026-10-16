@@ -531,13 +531,15 @@
   }
   // Live preview of a player-gear item (outfit / shield / mount) with the values being edited
   const IMG_CACHE = {};
+  let previewZoom = 1.6; // preview magnification (kept across cards)
   const loadImg = (src) => IMG_CACHE[src] || (IMG_CACHE[src] = Object.assign(new Image(), { src }));
   function gearPreview(id) {
     const info = state.itemsInfo?.[id];
     const type = info?.type;
     if (!['hat', 'head', 'outfit', 'back', 'shield', 'mount'].includes(type)) return null;
     const isPiece = ['hat', 'head', 'outfit', 'back'].includes(type);
-    const cv = h('canvas', { width: isPiece ? 300 : 260, height: isPiece ? 400 : 190, class: 'gearprev' });
+    const BW = isPiece ? 300 : 260, BH = isPiece ? 400 : 190;
+    const cv = h('canvas', { width: Math.round(BW * previewZoom), height: Math.round(BH * previewZoom), class: 'gearprev' });
     const v = (k, d) => { const x = Number(valueOf('items', id, k)); return Number.isFinite(x) ? x : d; };
     // this item with the values being edited (not saved yet) + its fixed part ids from the server
     const live = (iid) => {
@@ -550,20 +552,21 @@
     const draw = async () => {
       const PS = (await import('/src/player_sprites.js')).PLAYER_SPRITES;
       const { drawLook } = await import('/src/player_look.js');
-      const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+      const ctx = cv.getContext('2d'); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
       ctx.fillStyle = '#7fb069'; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.scale(previewZoom, previewZoom);
       if (isPiece) {
         // base model + this piece, with a ruler in base-model pixels (y = 0 is the top of the head, 301 = the feet)
         const S = 0.95, cx = 150, feetY = 385, yOf = (by) => feetY + (by - 301) * S;
         ctx.font = '10px sans-serif'; ctx.textBaseline = 'middle';
         for (let by = -100; by <= 300; by += 50) {
           ctx.strokeStyle = by === 0 || by === 134 || by === 301 ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.28)';
-          ctx.beginPath(); ctx.moveTo(26, yOf(by)); ctx.lineTo(cv.width, yOf(by)); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(26, yOf(by)); ctx.lineTo(BW, yOf(by)); ctx.stroke();
           ctx.fillStyle = '#fff'; ctx.fillText(String(by), 2, yOf(by));
         }
         ctx.fillStyle = 'rgba(255,255,255,0.8)';
         ctx.fillText('คาง=134', 215, yOf(134) - 7); ctx.fillText('เท้า=301', 215, yOf(301) - 7);
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, cv.height); ctx.stroke(); ctx.setLineDash([]);
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, BH); ctx.stroke(); ctx.setLineDash([]);
         const me = live(id);
         const look = { back: type === 'back' ? me : null, outfit: type === 'outfit' ? me : null, head: type === 'head' ? me : null, hat: type === 'hat' ? me : null };
         ctx.save(); ctx.translate(cx + 1, feetY - 24 * S); ctx.scale(S, S);
@@ -622,7 +625,9 @@
         const tog = (key, a, b, label) => h('button', { class: 'btn small', onclick: () => { setValue('items', id, key, valueOf('items', id, key) === a ? b : a); renderList(); } }, label);
         card.insertBefore(h('div', { class: 'dropbtns' },
           tog('flip', 'yes', 'no', '↔ กลับด้านซ้าย-ขวา (flip)'),
-          tog('layer', 'behind', 'front', '⇅ สลับ ข้างหน้า / ข้างหลังโมเดล')), prev.cv);
+          tog('layer', 'behind', 'front', '⇅ สลับ ข้างหน้า / ข้างหลังโมเดล'),
+          h('button', { class: 'btn small', onclick: () => { previewZoom = Math.min(4, previewZoom + 0.4); renderList(); } }, '🔍＋ ขยาย'),
+          h('button', { class: 'btn small', onclick: () => { previewZoom = Math.max(0.8, previewZoom - 0.4); renderList(); } }, '🔍－ ย่อ')), prev.cv);
       }
       if (prev) { card.addEventListener('input', () => setTimeout(prev.redraw, 0)); card.addEventListener('change', () => setTimeout(prev.redraw, 0)); }
       return card;
