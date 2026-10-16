@@ -1148,7 +1148,7 @@ export class GameEngine {
             if (m.isDead) return;
             const crit = Math.random() <= pl.critRate;
             let dmg = Math.max(1, pl.attack * sk.power / 100 + stat - m.def) * (0.9 + Math.random() * 0.2);
-            if (crit) dmg *= 1.6;
+            if (crit) dmg *= pl.critDamage;
             dmg = Math.floor(dmg);
             m.flashTimer = 0.15;
             m.squashTimer = 0.18;
@@ -1317,7 +1317,7 @@ export class GameEngine {
     let damage = Math.max(1, this.player.attack - monster.def);
     const variance = 0.9 + Math.random() * 0.2;
     damage = Math.floor(damage * variance);
-    if (isCrit) damage = Math.floor(damage * 1.6);
+    if (isCrit) damage = Math.floor(damage * this.player.critDamage);
 
     const weapon = this.player.weaponInfo;
 

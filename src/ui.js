@@ -911,7 +911,7 @@ export class UIController {
     if (pendTotal > pl.statPoints) { STAT_KEYS.forEach(k => { pend[k] = 0; }); }
     const pendLeft = pl.statPoints - STAT_KEYS.reduce((n, k) => n + (pend[k] || 0), 0);
     // Preview: temporarily apply staged points to read the derived stats, then restore
-    const readDerived = () => ({ hp: pl.maxHp, atk: pl.attack, def: pl.defense, aspd: pl.aspd, move: pl.moveMul, crit: pl.critRate });
+    const readDerived = () => ({ hp: pl.maxHp, atk: pl.displayAtk, matk: pl.displayMatk, cdmg: pl.critDamage, def: pl.defense, aspd: pl.aspd, move: pl.moveMul, crit: pl.critRate });
     const before = readDerived();
     STAT_KEYS.forEach(k => { pl.stats[k] += pend[k] || 0; });
     const after = readDerived();
@@ -932,7 +932,6 @@ export class UIController {
           <div style="width:${bPct}%; height:100%; background:linear-gradient(90deg,#0284c7,#38bdf8);"></div>
         </div>
         <div style="font-size:0.7rem; color:#94a3b8; margin-top:2px; text-align:right;">${pl.baseExp.toLocaleString()} / ${maxB.toLocaleString()} EXP</div>
-        <div style="font-size:0.72rem; color:#94a3b8; margin-top:4px;">เลเวลใช้เป็นเงื่อนไขสวมอาวุธ/เกราะหายาก</div>
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
@@ -942,15 +941,25 @@ export class UIController {
             <span style="color:#f59e0b; font-size:0.85rem;">แต้มคงเหลือ: <b>${pendLeft}</b>
               <button id="btn-stat-reset" style="margin-left:8px; padding:2px 8px; background:#7f1d1d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">🔄 รีสเตตัส (ฟรี)</button></span>
           </div>
-          ${STAT_KEYS.map(k => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05);" title="${statHelp[k]}">
-              <span style="font-weight:600; text-transform:uppercase; width:42px;">${k}</span>
-              <span style="flex:1; font-size:0.68rem; color:#94a3b8;">${statHelp[k]}</span>
-              <b style="width:50px; text-align:right; margin-right:8px;">${pl.stats[k]}${pend[k] ? `<span style="color:#4ade80;"> +${pend[k]}</span>` : ''}</b>
-              <button class="btn-stat-sub" data-stat="${k}" ${pend[k] > 0 ? '' : 'disabled'} style="width:24px; height:24px; margin-right:4px; background:#475569; color:#fff; border:none; border-radius:4px; cursor:pointer; touch-action:none; ${pend[k] > 0 ? '' : 'opacity:0.4;'}">−</button>
-              <button class="btn-stat-add" data-stat="${k}" ${pendLeft > 0 ? '' : 'disabled'} style="width:24px; height:24px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer; touch-action:none;">+</button>
-            </div>
-          `).join('')}
+          ${STAT_KEYS.map(k => {
+            const bs = 'height:26px; border:none; border-radius:4px; color:#fff; cursor:pointer; font-size:0.72rem; font-weight:700; touch-action:none; padding:0 7px;';
+            const canAdd = pendLeft > 0, canSub = pend[k] > 0;
+            const addBtn = (n, label, bg) => `<button class="btn-stat-add" data-stat="${k}" data-amt="${n}" ${canAdd ? '' : 'disabled'} style="${bs} background:${bg}; ${canAdd ? '' : 'opacity:0.35; cursor:default;'}">${label}</button>`;
+            return `
+            <div style="padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+              <div style="display:flex; align-items:baseline; gap:8px;">
+                <span style="font-weight:700; text-transform:uppercase; width:38px;">${k}</span>
+                <b style="font-size:1.05rem;">${pl.stats[k]}${pend[k] ? `<span style="color:#4ade80;"> +${pend[k]}</span>` : ''}</b>
+                <span style="flex:1; text-align:right; font-size:0.66rem; color:#94a3b8;">${statHelp[k]}</span>
+              </div>
+              <div style="display:flex; gap:4px; margin-top:4px; justify-content:flex-end;">
+                <button class="btn-stat-sub" data-stat="${k}" data-amt="1" ${canSub ? '' : 'disabled'} style="${bs} background:#475569; ${canSub ? '' : 'opacity:0.35; cursor:default;'}">−1</button>
+                <button class="btn-stat-sub" data-stat="${k}" data-amt="all" ${canSub ? '' : 'disabled'} style="${bs} background:#7f1d1d; ${canSub ? '' : 'opacity:0.35; cursor:default;'}">ล้าง</button>
+                <span style="flex:1;"></span>
+                ${addBtn(1, '+1', '#2563eb')}${addBtn(10, '+10', '#1d4ed8')}${addBtn(100, '+100', '#4338ca')}${addBtn('max', 'MAX', '#b45309')}
+              </div>
+            </div>`;
+          }).join('')}
           ${pendTotal > 0 ? `<div style="display:flex; gap:8px; margin-top:10px;">
             <button id="btn-stat-confirm" style="flex:1; padding:6px; background:#16a34a; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:700;">✅ ยืนยัน (${pendTotal} แต้ม)</button>
             <button id="btn-stat-cancel" style="padding:6px 10px; background:#475569; color:#fff; border:none; border-radius:4px; cursor:pointer;">ยกเลิก</button>
@@ -958,16 +967,14 @@ export class UIController {
         </div>
         <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); font-size:0.85rem;">
           <h4 style="margin-bottom:8px;">⚔️ ข้อมูลพลังรบรวม</h4>
-          ${row('อาวุธ:', w ? w.name : 'มือเปล่า')}
-          ${row('ประเภท / ระยะโจมตี:', `${wtName} / ${info.range}px`)}
-          ${row('เกราะ:', a ? a.name : '-')}
-          ${row('Max HP:', prev('hp'))}
-          ${row('Total ATK:', prev('atk'))}
-          ${row('Total DEF:', prev('def'))}
-          ${row('ASPD:', prev('aspd', v => `${v}/s`))}
-          ${row('Move Speed:', prev('move', v => `${Math.round(v * 100)}%`))}
-          ${row('Crit Rate:', prev('crit', v => `${(v * 100).toFixed(1)}%`))}
-          ${row('สมบัติ Relic:', `${pl.collectedRelics.length}/12 ชิ้น`)}
+          ${row('Max HP', prev('hp'))}
+          ${row('ATK', prev('atk'))}
+          ${row('MATK', prev('matk'))}
+          ${row('DEF', prev('def'))}
+          ${row('ASPD', prev('aspd', v => `${v}/s`))}
+          ${row('Crit Rate', prev('crit', v => `${(v * 100).toFixed(1)}%`))}
+          ${row('Crit Damage', prev('cdmg', v => `${Math.round(v * 100)}%`))}
+          ${row('Move Speed', prev('move', v => `${Math.round(v * 100)}%`))}
         </div>
       </div>
     `;
@@ -997,12 +1004,13 @@ export class UIController {
       body._holdBound = true;
       let delay = null, tick = null;
       const stop = () => { clearTimeout(delay); clearInterval(tick); delay = tick = null; };
-      const step = (k, dir) => {
+      const step = (k, dir, amt) => {
         const p = this.pendingStats || (this.pendingStats = {});
         const left = this.player.statPoints - STAT_KEYS.reduce((n, key) => n + (p[key] || 0), 0);
-        if (dir > 0 && left <= 0) return false;
-        if (dir < 0 && !(p[k] > 0)) return false;
-        p[k] = (p[k] || 0) + dir;
+        let n = amt === 'max' || amt === 'all' ? Infinity : parseInt(amt, 10) || 1;
+        n = dir > 0 ? Math.min(n, left) : Math.min(n, p[k] || 0);
+        if (n <= 0) return false;
+        p[k] = (p[k] || 0) + dir * n;
         this.renderStatusModal();
         return true;
       };
@@ -1010,12 +1018,13 @@ export class UIController {
         const btn = e.target.closest('.btn-stat-add, .btn-stat-sub');
         if (!btn || btn.disabled) return;
         e.preventDefault();
-        const k = btn.dataset.stat;
+        const k = btn.dataset.stat, amt = btn.dataset.amt;
         const dir = btn.classList.contains('btn-stat-add') ? 1 : -1;
         stop();
-        if (!step(k, dir)) return;
+        if (!step(k, dir, amt)) return;
+        if (amt !== '1') return; // hold-to-repeat only for single steps
         delay = setTimeout(() => {
-          tick = setInterval(() => { if (!step(k, dir)) stop(); }, 110);
+          tick = setInterval(() => { if (!step(k, dir, 1)) stop(); }, 110);
         }, 400);
       });
       ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => body.addEventListener(ev, stop));
