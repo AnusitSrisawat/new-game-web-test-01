@@ -136,7 +136,7 @@
   const TABS = [
     { id: 'maps', icon: '🗺️', label: 'แมพ', sub: 'ชื่อ ขนาด สี texture' },
     { id: 'objects', icon: '🌳', label: 'วางออบเจกต์', sub: 'ต้นไม้ บ้าน หิน ในแมพ' },
-    { id: 'ui', icon: '🖥️', label: 'หน้าจอ UI', sub: 'สีธีม + ซ่อน/แสดงแผง' },
+    { id: 'ui', icon: '🖥️', label: 'หน้าจอ UI', sub: 'สีธีม + ขนาดตัวละคร + ซ่อน/แสดงแผง' },
     { id: 'monsters', icon: '👾', label: 'มอนสเตอร์', sub: 'ค่าพลัง + พฤติกรรม' },
     { id: 'spawns', icon: '🌱', label: 'การเกิดของมอนสเตอร์', sub: 'จำนวน + เวลาเกิดใหม่' },
     { id: 'items', icon: '🎒', label: 'ไอเทม', sub: 'อาวุธ เกราะ ยา' },
