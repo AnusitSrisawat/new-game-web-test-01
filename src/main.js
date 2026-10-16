@@ -214,6 +214,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
   });
 
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const hit = game.handleMouseMove(e.clientX - rect.left, e.clientY - rect.top);
+    canvas.style.cursor = hit ? 'crosshair' : '';
+  });
+  canvas.addEventListener('mouseleave', () => {
+    game.hoverMonster = null;
+    canvas.style.cursor = '';
+  });
+
   canvas.addEventListener('mousedown', (e) => {
     if (document.activeElement === chatInput) chatInput.blur();
     const rect = canvas.getBoundingClientRect();
