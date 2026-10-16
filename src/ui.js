@@ -949,7 +949,7 @@ export class UIController {
             const canAdd = pendLeft > 0, canSub = pend[k] > 0;
             const dis = on => on ? '' : 'disabled';
             const dim = on => on ? '' : 'opacity:0.35; cursor:default;';
-            const addBtn = (n, label, bg) => `<button class="btn-stat-add" data-stat="${k}" data-amt="${n}" ${dis(canAdd)} style="${bs} background:${bg}; ${dim(canAdd)}">${label}</button>`;
+            const addBtn = (n, label, bg) => canAdd ? `<button class="btn-stat-add" data-stat="${k}" data-amt="${n}" style="${bs} background:${bg};">${label}</button>` : '';
             return `
             <div style="display:flex; align-items:center; gap:4px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
               <span class="stat-name" data-stat="${k}" style="font-weight:700; text-transform:uppercase; width:36px; cursor:help; text-decoration:underline dotted rgba(255,255,255,0.4); text-underline-offset:3px;">${k}</span>
@@ -957,7 +957,7 @@ export class UIController {
               <span style="flex:1;"></span>
               ${canSub ? `<button class="btn-stat-sub" data-stat="${k}" data-amt="all" style="${bs} background:#7f1d1d;">ล้าง</button>` : ''}
               ${canSub ? `<button class="btn-stat-sub" data-stat="${k}" data-amt="1" style="${bs} background:#475569;">−1</button>` : ''}
-              <span style="width:1px; height:18px; background:rgba(255,255,255,0.2); margin:0 2px;"></span>
+              ${canSub && canAdd ? '<span style="width:1px; height:18px; background:rgba(255,255,255,0.2); margin:0 2px;"></span>' : ''}
               ${addBtn(1, '+1', '#2563eb')}${addBtn(10, '+10', '#1d4ed8')}${addBtn('max', 'MAX', '#b45309')}
             </div>`;
           }).join('')}
