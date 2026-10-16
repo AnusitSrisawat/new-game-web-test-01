@@ -944,22 +944,21 @@ export class UIController {
             <span style="color:#f59e0b; font-size:0.85rem; text-align:right;">แต้มคงเหลือ: <b>${pendLeft}</b></span>
           </div>
           ${STAT_KEYS.map(k => {
-            const bs = 'height:26px; border:none; border-radius:4px; color:#fff; cursor:pointer; font-size:0.72rem; font-weight:700; touch-action:none; padding:0 7px;';
+            const bs = 'height:26px; border:none; border-radius:4px; color:#fff; cursor:pointer; font-size:0.72rem; font-weight:700; touch-action:none; padding:0 7px; white-space:nowrap;';
             const canAdd = pendLeft > 0, canSub = pend[k] > 0;
-            const addBtn = (n, label, bg) => `<button class="btn-stat-add" data-stat="${k}" data-amt="${n}" ${canAdd ? '' : 'disabled'} style="${bs} background:${bg}; ${canAdd ? '' : 'opacity:0.35; cursor:default;'}">${label}</button>`;
+            const dis = on => on ? '' : 'disabled';
+            const dim = on => on ? '' : 'opacity:0.35; cursor:default;';
+            const addBtn = (n, label, bg) => `<button class="btn-stat-add" data-stat="${k}" data-amt="${n}" ${dis(canAdd)} style="${bs} background:${bg}; ${dim(canAdd)}">${label}</button>`;
             return `
-            <div style="padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-              <div style="display:flex; align-items:baseline; gap:8px;">
-                <span style="font-weight:700; text-transform:uppercase; width:38px;">${k}</span>
-                <b style="font-size:1.05rem;">${pl.stats[k]}${pend[k] ? `<span style="color:#4ade80;"> +${pend[k]}</span>` : ''}</b>
-                <span style="flex:1; text-align:right; font-size:0.66rem; color:#94a3b8;">${statHelp[k]}</span>
-              </div>
-              <div style="display:flex; gap:4px; margin-top:4px; justify-content:flex-end;">
-                <button class="btn-stat-sub" data-stat="${k}" data-amt="1" ${canSub ? '' : 'disabled'} style="${bs} background:#475569; ${canSub ? '' : 'opacity:0.35; cursor:default;'}">−1</button>
-                <button class="btn-stat-sub" data-stat="${k}" data-amt="all" ${canSub ? '' : 'disabled'} style="${bs} background:#7f1d1d; ${canSub ? '' : 'opacity:0.35; cursor:default;'}">ล้าง</button>
-                <span style="flex:1;"></span>
-                ${addBtn(1, '+1', '#2563eb')}${addBtn(10, '+10', '#1d4ed8')}${addBtn(100, '+100', '#4338ca')}${addBtn('max', 'MAX', '#b45309')}
-              </div>
+            <div style="display:flex; align-items:center; gap:4px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+              <span style="font-weight:700; text-transform:uppercase; width:36px;">${k}</span>
+              <b style="min-width:54px; font-size:1rem;">${pl.stats[k]}${pend[k] ? `<span style="color:#4ade80;"> +${pend[k]}</span>` : ''}</b>
+              <button class="btn-stat-info" data-stat="${k}" title="รายละเอียด" style="${bs} background:#334155; width:24px; padding:0; border-radius:50%;">i</button>
+              <span style="flex:1;"></span>
+              <button class="btn-stat-sub" data-stat="${k}" data-amt="all" ${dis(canSub)} style="${bs} background:#7f1d1d; ${dim(canSub)}">ล้าง</button>
+              <button class="btn-stat-sub" data-stat="${k}" data-amt="1" ${dis(canSub)} style="${bs} background:#475569; ${dim(canSub)}">−1</button>
+              <span style="width:1px; height:18px; background:rgba(255,255,255,0.2); margin:0 2px;"></span>
+              ${addBtn(1, '+1', '#2563eb')}${addBtn(10, '+10', '#1d4ed8')}${addBtn('max', 'MAX', '#b45309')}
             </div>`;
           }).join('')}
           ${pendTotal > 0 ? `<div style="display:flex; gap:8px; margin-top:10px;">
@@ -980,6 +979,8 @@ export class UIController {
         </div>
       </div>
     `;
+
+    body.querySelectorAll('.btn-stat-info').forEach(b => b.addEventListener('click', () => this.showStatInfo(b.dataset.stat)));
 
     const confirmBtn = body.querySelector('#btn-stat-confirm');
     if (confirmBtn) confirmBtn.addEventListener('click', () => {
@@ -1032,6 +1033,32 @@ export class UIController {
       ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => body.addEventListener(ev, stop));
       document.addEventListener('pointerup', stop);
     }
+  }
+
+  // Popup explaining what each point of a stat gives
+  showStatInfo(k) {
+    const INFO = {
+      str: ['STR (พลังกาย)', ['ATK +3 ต่อ 1 แต้ม เมื่อใช้อาวุธประชิด (มือเปล่า/กิ่งไม้/ดาบ)', 'ATK +1 ต่อ 1 แต้ม เมื่อใช้ธนู/คฑา', 'ดาเมจสกิลที่สเกลตาม STR']],
+      agi: ['AGI (ความคล่องแคล่ว)', ['ASPD +0.015 ต่อ 1 แต้ม', 'Move Speed +0.3% ต่อ 1 แต้ม (สูงสุด +40%)', 'ดาเมจสกิลที่สเกลตาม AGI']],
+      vit: ['VIT (ความอึด)', ['Max HP +18 ต่อ 1 แต้ม', 'DEF +1.5 ต่อ 1 แต้ม', 'ดาเมจสกิลที่สเกลตาม VIT']],
+      dex: ['DEX (ความแม่นยำ)', ['ATK +3 ต่อ 1 แต้ม เมื่อใช้ธนู', 'ATK +1 ต่อ 1 แต้ม เมื่อใช้อาวุธอื่น', 'ดาเมจสกิลที่สเกลตาม DEX']],
+      int: ['INT (สติปัญญา)', ['MATK +3 ต่อ 1 แต้ม เมื่อใช้คฑา', 'Max SP +4 ต่อ 1 แต้ม', 'SP ฟื้นตัว +0.1/วินาที ต่อ 1 แต้ม', 'ดาเมจสกิลที่สเกลตาม INT']],
+      luk: ['LUK (โชค)', ['Crit Rate +0.5% ต่อ 1 แต้ม (สูงสุด 75%)', 'ดาเมจสกิลที่สเกลตาม LUK']]
+    };
+    const [title, lines] = INFO[k] || [k.toUpperCase(), []];
+    document.getElementById('stat-info-overlay')?.remove();
+    const ov = document.createElement('div');
+    ov.id = 'stat-info-overlay';
+    ov.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:10000;';
+    ov.innerHTML = `
+      <div style="background:#0f172a; border:1px solid rgba(245,158,11,0.4); border-radius:10px; padding:16px 18px; width:min(340px, 90vw); color:#e2e8f0;">
+        <div style="font-weight:700; font-size:1.05rem; color:#f59e0b; margin-bottom:10px;">${title}</div>
+        <div style="font-size:0.78rem; color:#94a3b8; margin-bottom:6px;">ทุก 1 แต้มที่อัพ จะได้:</div>
+        <ul style="margin:0 0 14px 18px; padding:0; font-size:0.85rem; line-height:1.6;">${lines.map(l => `<li>${l}</li>`).join('')}</ul>
+        <button style="width:100%; padding:6px; background:#475569; color:#fff; border:none; border-radius:4px; cursor:pointer;">ปิด</button>
+      </div>`;
+    ov.addEventListener('click', (e) => { if (e.target === ov || e.target.tagName === 'BUTTON') ov.remove(); });
+    document.body.appendChild(ov);
   }
 
   // 2. Inventory Modal: items only, split into tabs (crafting lives in its own window)
