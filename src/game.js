@@ -276,6 +276,10 @@ export class GameEngine {
       m.squashTimer = 0.18;
       this.addFloatingText(m.x, m.y - 20, `${damage}`, isCrit ? '#f59e0b' : '#ffffff', isCrit ? 22 : 16, isCrit);
       this.spawnHitVFX(m.x, m.y, isCrit, 1);
+      if (damage <= 1) { // our attack barely scratched it (ATK <= its DEF): show the deflect flash
+        this.particles.push({ x: m.x, y: m.y - 6, vx: 0, vy: -8, sprite: 'hit_deflect', color: '#67e8f9', size: 54, scale: 0.6, scaleEnd: 1.3,
+          life: 0.3, maxLife: 0.3, friction: 0.9, rotation: 0, vRot: 0, blend: 'lighter' });
+      }
       if (this.selectedTarget && this.selectedTarget.id === monsterId) {
         this.updateTargetHUD(m);
       }
@@ -1306,6 +1310,8 @@ export class GameEngine {
 
   // 4. ได้รับดาเมจ (ตัวละครโดนโจมตี): รอยกรงเล็บ/บาดแผล เลือดสาดจากตัวผู้เล่น
   spawnPlayerHurtVFX(x, y, damage = 10) {
+    this.particles.push({ x, y: y - 14, vx: 0, vy: -6, sprite: 'blood_spray', color: '#b91c1c', size: 52, scale: 0.6, scaleEnd: 1.25,
+      life: 0.4, maxLife: 0.4, friction: 0.95, rotation: (Math.random() - 0.5) * 0.8, vRot: 0 });
     this.particles.push({
       x,
       y: y - 8,
