@@ -3,7 +3,7 @@ import { Player } from './player.js';
 import { GameEngine } from './game.js';
 import { UIController } from './ui.js';
 import { NetworkManager } from './network.js';
-import { ZONES, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS, SKILLS, SOUNDS } from './data.js';
+import { ZONES, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS, SKILLS, SOUNDS, RELICS } from './data.js';
 import { MAP_DEFS } from './maps.js';
 import { applyOverrides } from './overrides.js';
 import { applyUiTheme } from './uitheme.js';
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const res = await fetch('/api/overrides', { cache: 'no-store' });
     if (res.ok) {
       const ov = await res.json();
-      applyOverrides({ ZONES, MAP_DEFS, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS, SKILLS, SOUNDS }, ov);
+      applyOverrides({ ZONES, MAP_DEFS, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS, SKILLS, SOUNDS, RELICS }, ov);
       applyUiTheme(ov.ui && ov.ui.main);
     }
   } catch (e) {

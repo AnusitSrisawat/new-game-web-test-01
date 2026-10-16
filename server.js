@@ -73,7 +73,7 @@ const server = http.createServer((req, res) => {
 const DATA_DIR = path.join(__dirname, 'data');
 const OVERRIDES_FILE = path.join(DATA_DIR, 'overrides.json');
 const SPAWNS_FILE = path.join(DATA_DIR, 'spawns.json');
-const gameData = { ZONES, MAP_DEFS, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS, SKILLS, SOUNDS };
+const gameData = { ZONES, MAP_DEFS, MONSTERS, MONSTER_AI, MONSTER_AI_DEFAULT, ITEMS, QUESTS, SKILLS, SOUNDS, RELICS };
 const DEFAULTS = snapshotEditable(gameData); // untouched values, to restore before re-applying overrides
 const KNOWN = {
   zones: new Set(ZONES.map(z => z.id)),
@@ -82,6 +82,7 @@ const KNOWN = {
   ai: new Set(Object.keys(MONSTERS)),
   items: new Set(Object.keys(ITEMS)),
   quests: new Set(QUESTS.map(q => q.id)),
+  relics: new Set(Object.keys(RELICS)),
   ui: new Set(['main'])
 };
 

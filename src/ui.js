@@ -34,7 +34,8 @@ export class UIController {
       'modal-shop': () => this.renderShopModal(),
       'modal-zones': () => this.renderZonesModal(),
       'modal-auto': () => this.renderAutoModal(),
-      'modal-skills': () => this.renderSkillsModal()
+      'modal-skills': () => this.renderSkillsModal(),
+      'modal-info': () => this.renderInfoModal()
     };
 
     this.initEventListeners();
@@ -52,6 +53,7 @@ export class UIController {
       { id: 'btn-open-party', modalId: 'modal-party', render: () => this.renderPartyModal() },
       { id: 'btn-open-party-modal', modalId: 'modal-party', render: () => this.renderPartyModal() },
       { id: 'btn-open-inventory', modalId: 'modal-inventory', render: () => this.renderInventoryModal() },
+      { id: 'btn-open-info', modalId: 'modal-info', render: () => this.renderInfoModal() },
       { id: 'btn-open-skills', modalId: 'modal-skills', render: () => this.renderSkillsModal() },
       { id: 'btn-open-craft', modalId: 'modal-craft', render: () => this.renderCraftModal() },
       { id: 'btn-open-quests', modalId: 'modal-quests', render: () => this.renderQuestsModal() },
@@ -206,6 +208,7 @@ export class UIController {
       else if (key === 'm') this.toggleModal('modal-zones', () => this.renderZonesModal());
       else if (key === 'q') this.gameEngine.usePotionSlot();
       else if (key === 'e') this.gameEngine.useSpPotionSlot();
+      else if (key === 'n') this.toggleModal('modal-info', () => this.renderInfoModal());
       else if (key === 'v') this.toggleModal('modal-skills', () => this.renderSkillsModal());
       else if (key === 'escape') {
         const front = this.frontWindowId();
@@ -344,7 +347,7 @@ export class UIController {
     this.lastWindowSig = sig;
     const a = document.activeElement;
     this.openWindows.forEach(id => {
-      if (id === 'modal-party' || id === 'modal-auto' || id === 'modal-zones') return; // have their own refresh / inputs
+      if (id === 'modal-party' || id === 'modal-auto' || id === 'modal-zones' || id === 'modal-info') return; // have their own refresh / inputs
       const modal = document.getElementById(id);
       if (a && modal && modal.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
       const r = this.windowRenderers[id];
@@ -1130,6 +1133,64 @@ export class UIController {
         this.renderInventoryModal();
       });
     });
+  }
+
+  // Info window: every monster with stats, drops (%), pet/relic chance and the maps it lives in (with warp)
+  renderInfoModal() {
+    const body = document.getElementById('modal-info-body');
+    if (!body) return;
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const q = (this.infoSearch || '').trim().toLowerCase();
+    const pct = (v) => `${Math.round(v * 10000) / 100}%`;
+    // where each monster lives: what the server actually spawned (Studio spawns), else the map's static list
+    const mapsOf = (mid) => {
+      const set = new Set(this.gameEngine.monsters.filter(m => m.templateId === mid).map(m => m.map));
+      if (!set.size) ZONES.forEach(z => { if ((z.monsterIds || []).includes(mid)) set.add(z.id); });
+      return ZONES.filter(z => set.has(z.id));
+    };
+    const here = this.gameEngine.currentZone.id;
+    const cards = Object.entries(MONSTERS).filter(([id, m]) => !q || `${id} ${m.name}`.toLowerCase().includes(q)).sort((a, b) => a[1].level - b[1].level).map(([id, m]) => {
+      const drops = (m.drops || []).map(d => {
+        const it = ITEMS[d.itemId];
+        return it ? `<div style="display:flex;gap:6px;align-items:center;">${itemIconHtml(d.itemId, it.icon, 22)} <span style="flex:1;">${esc(it.name)}</span><b style="color:#fbbf24;">${pct(d.chance)}</b></div>` : '';
+      }).join('');
+      const total = (m.drops || []).reduce((a, d) => a + d.chance, 0);
+      const relic = Object.values(RELICS).find(r => r.monsterId === id);
+      const maps = mapsOf(id);
+      const mapBtns = maps.length ? maps.map(z => z.id === here
+        ? `<span style="padding:3px 8px;border-radius:4px;background:#16a34a;font-size:0.72rem;">📍 ${esc(z.name)} (อยู่ที่นี่)</span>`
+        : `<button class="info-warp" data-zone="${z.id}" data-mon="${id}" style="padding:3px 8px;border:none;border-radius:4px;background:#2563eb;color:#fff;cursor:pointer;font-size:0.72rem;">🚀 วาร์ปไป ${esc(z.name)}</button>`).join(' ')
+        : '<span style="color:#94a3b8;font-size:0.75rem;">ยังไม่มีในแมพไหน</span>';
+      return `<div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;margin-bottom:8px;display:flex;gap:10px;">
+        <div style="width:64px;text-align:center;font-size:36px;">${monsterIconHtml(id, m.emoji, 60)}</div>
+        <div style="flex:1;font-size:0.78rem;">
+          <div><b style="font-size:0.9rem;">${esc(m.name)}</b> <span style="color:#7dd3fc;">Lv.${m.level}</span></div>
+          <div style="color:#94a3b8;">HP ${m.hp.toLocaleString()} • ATK ${m.atk} • DEF ${m.def} • EXP ${m.exp.toLocaleString()}</div>
+          <div style="margin:6px 0 2px;color:#94a3b8;">🎁 ไอเทมที่ดรอป (สุ่มครั้งเดียว)</div>
+          ${drops || '<div style="color:#64748b;">ไม่มี</div>'}
+          <div style="display:flex;gap:6px;"><span style="flex:1;color:#94a3b8;">🚫 ไม่ดรอป</span><b>${pct(Math.max(0, 1 - total))}</b></div>
+          <div style="margin:6px 0 2px;color:#94a3b8;">✨ สุ่มแยก</div>
+          <div style="display:flex;gap:6px;"><span style="flex:1;">🐾 Pet ${esc(m.name)}</span><b style="color:#ec4899;">${pct(m.petChance || 0)}</b></div>
+          ${relic ? `<div style="display:flex;gap:6px;"><span style="flex:1;">${relic.icon} ${esc(relic.name)} <span style="color:#94a3b8;">(${esc(relic.bonusText || '')})</span></span><b style="color:#a855f7;">${pct(m.relicChance || 0)}</b></div>` : ''}
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">🗺️ ${mapBtns}</div>
+        </div></div>`;
+    }).join('');
+    body.innerHTML = `<input type="text" id="info-search" placeholder="ค้นหามอนสเตอร์..." value="${esc(this.infoSearch || '')}" style="width:100%;margin-bottom:10px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:#fff;">
+      ${cards || '<p style="color:#94a3b8;">ไม่พบมอนสเตอร์</p>'}`;
+    const inp = document.getElementById('info-search');
+    inp.addEventListener('input', () => {
+      this.infoSearch = inp.value;
+      const pos = inp.selectionStart;
+      this.renderInfoModal();
+      const n = document.getElementById('info-search');
+      n.focus(); n.setSelectionRange(pos, pos);
+    });
+    body.querySelectorAll('.info-warp').forEach(b => b.addEventListener('click', e => {
+      const zone = ZONES.find(z => z.id === e.currentTarget.dataset.zone);
+      const mon = MONSTERS[e.currentTarget.dataset.mon];
+      if (!zone) return;
+      this.showConfirm(`ต้องการเดินทางไป "${zone.name}" เพื่อล่า ${mon ? mon.name : ''} หรือไม่?`, () => this.gameEngine.changeMap(zone.id));
+    }));
   }
 
   // Skills window: 4-slot loadout, learned skills, skill books (learn / sell), book gacha
