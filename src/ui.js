@@ -121,7 +121,7 @@ export class UIController {
       e.stopPropagation();
       const menu = document.getElementById('option-menu');
       const open = menu.style.display === 'none';
-      menu.style.display = open ? 'flex' : 'none';
+      menu.style.display = open ? 'grid' : 'none';
       optBtn.classList.toggle('open', open);
     });
     document.addEventListener('click', (e) => {
