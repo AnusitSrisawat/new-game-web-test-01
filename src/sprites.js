@@ -91,16 +91,22 @@ export function itemIconHtml(id, emoji, px = 28) {
   return sp ? `<span style="${spriteStyle(sp, px)}"></span>` : (emoji || '📦');
 }
 
-// Sword pictures (upright cut-outs from assets/weapons/*.jpg, see tools/weapons_cutout.py): item id -> picture name
+// Weapon pictures (cut-outs from assets/weapons/<category>/*.jpg, see tools/weapons_cutout.py): item id -> picture name
 export const WEAPON_SPRITE_OF = {
+  // Swords
   novice_sword: 'wooden_sword', iron_blade: 'iron_broadsword', wolf_fang_saber: 'wolf_fang_saber',
   goblin_cleaver: 'bone_cleaver', rune_claymore: 'rune_claymore', titan_slayer: 'titan_earthbreaker',
-  dragon_scale_blade: 'dragon_scale_blade'
+  dragon_scale_blade: 'dragon_scale_blade',
+  // Staves
+  wooden_stick: 'wooden_wand', apprentice_staff: 'oak_apprentice_rod', sage_staff: 'ruby_fire_staff',
+  // Bows
+  wooden_bow: 'wooden_shortbow', hunter_bow: 'hunting_recurve_bow', gale_wind_bow: 'gale_windforce_bow',
+  dragon_bone_bow: 'dragon_breath_longbow'
 };
 
 // -> { src, w, h } (tip up, hilt at the bottom) or null
 export function weaponSprite(id) {
-  const name = WEAPON_SPRITE_OF[id];
+  const name = WEAPON_SPRITE_OF[id] || (WEAPON_SPRITES[id] ? id : null);
   const wh = name && WEAPON_SPRITES[name];
   return wh ? { src: `assets/sprites/weapons/${name}.png`, w: wh[0], h: wh[1] } : null;
 }
