@@ -124,12 +124,13 @@ export function dropSprite(kind, amountOrSize = 0) {
     else if (amountOrSize >= 150) size = 'm';
     else size = 's';
   }
+  if (size === 'xl') size = 'l'; // XL reuses the L picture (game.js draws it 1.2x bigger)
   const id = `${kind}_${size}`;
   if (!DROP_SPRITES.has(id)) return null;
   return { src: `assets/sprites/drops/${id}.png`, sx: 0, sy: 0, sw: 140, sh: 140, iw: 140, ih: 140 };
 }
 
-// Display-only split of a gold / EXP reward into S (50) / M (100) / L (500) pieces, biggest first.
+// Display-only split of a gold / EXP reward into S (50) / M (100) / L (500) / XL (1000) pieces, biggest first.
 // 620 -> L, M, S.  Anything under 50 still shows one S.  The pieces' amounts always add up to `total`.
 export const DROP_PIECE_MAX = 12;
 export function splitDropPieces(total) {
@@ -137,20 +138,22 @@ export function splitDropPieces(total) {
   if (total <= 0) return [];
   const sizes = [];
   let rest = total;
+  const xl = Math.floor(rest / 1000); rest -= xl * 1000;
   const l = Math.floor(rest / 500); rest -= l * 500;
   const m = Math.floor(rest / 100); rest -= m * 100;
   const sn = Math.ceil(rest / 50);
+  for (let i = 0; i < xl; i++) sizes.push('xl');
   for (let i = 0; i < l; i++) sizes.push('l');
   for (let i = 0; i < m; i++) sizes.push('m');
   for (let i = 0; i < sn; i++) sizes.push('s');
   const capped = sizes.length > DROP_PIECE_MAX;
-  if (capped) { // huge reward: keep 1 M + 1 S and fill the rest with L
+  if (capped) { // huge reward: keep 1 M + 1 S and fill the rest with XL
     sizes.length = 0;
-    for (let i = 0; i < DROP_PIECE_MAX - 2; i++) sizes.push('l');
+    for (let i = 0; i < DROP_PIECE_MAX - 2; i++) sizes.push('xl');
     sizes.push('m', 's');
   }
-  // nominal values for the small pieces, the L pieces share the remainder so the sum is exact
-  const nominal = { s: 50, m: 100, l: 500 };
+  // nominal values for the small pieces, the XL pieces share the remainder so the sum is exact
+  const nominal = { s: 50, m: 100, l: 500, xl: 1000 };
   const pieces = sizes.map(size => ({ size, amount: nominal[size] }));
   if (sizes.length <= DROP_PIECE_MAX && !capped) { // normal case: the last S carries the leftover
     pieces[pieces.length - 1].amount += total - pieces.reduce((a, p) => a + p.amount, 0);
@@ -158,7 +161,7 @@ export function splitDropPieces(total) {
   }
   let diff = total - pieces.reduce((a, p) => a + p.amount, 0);
   if (diff !== 0) {
-    const big = pieces.filter(p => p.size === 'l');
+    const big = pieces.filter(p => p.size === 'xl');
     const adj = big.length ? big : [pieces[pieces.length - 1]];
     const each = Math.trunc(diff / adj.length);
     adj.forEach(p => { p.amount += each; });
