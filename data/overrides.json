@@ -134,27 +134,26 @@
       "offX": -12
     },
     "mount_runner": {
-      "layer": "front",
       "scale": 1.25,
-      "seatClip": 10,
-      "seatY": 0.52
+      "seatClip": 10.5,
+      "seatY": 0.51
     },
     "mount_wolf": {
-      "layer": "front",
       "scale": 1.25,
-      "seatY": 0.45
+      "seatClip": 10.5,
+      "seatY": 0.39
     },
     "mount_unicorn": {
-      "layer": "front",
       "scale": 0.95,
-      "seatX": 0.5,
-      "seatY": 0.45
+      "seatX": 0.45,
+      "seatClip": 11,
+      "seatY": 0.42
     },
     "mount_drake": {
       "scale": 1.9,
       "seatX": 0.5,
       "seatClip": 10,
-      "seatY": 0.45
+      "seatY": 0.49
     }
   },
   "ui": {
