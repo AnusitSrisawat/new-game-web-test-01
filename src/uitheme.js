@@ -12,6 +12,9 @@ const PANELS = {
   showZoom: '.zoom-buttons'
 };
 
+// Live character sizes read by the renderer (updated by applyUiTheme)
+export const CHAR_SCALE = { player: UI_DEFAULTS.playerScale, pet: UI_DEFAULTS.petScale };
+
 function hexToRgba(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
@@ -20,6 +23,8 @@ function hexToRgba(hex, a) {
 // `ui` may be partial (only the edited fields); everything else keeps the built-in look.
 export function applyUiTheme(ui, root = document.documentElement) {
   const u = { ...UI_DEFAULTS, ...(ui || {}) };
+  CHAR_SCALE.player = u.playerScale;
+  CHAR_SCALE.pet = u.petScale;
   const st = root.style;
   st.setProperty('--hud-bg', hexToRgba(u.hudBg, u.hudOpacity / 100));
   for (const [key, cssVar] of Object.entries(VARS)) {

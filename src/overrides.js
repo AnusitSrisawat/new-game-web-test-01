@@ -32,6 +32,7 @@ export const UI_DEFAULTS = {
   goldAccent: '#f59e0b', goldBorder: '#d97706',
   hpRed: '#ef4444', spBlue: '#3b82f6', expYellow: '#eab308',
   textMain: '#f8fafc', textDim: '#94a3b8',
+  playerScale: 3.4, petScale: 0.84,
   showMinimap: 'show', showChat: 'show', showSidePanel: 'show', showZoom: 'show'
 };
 
@@ -135,6 +136,8 @@ export const SCHEMA = {
       expYellow: color('สีแถบ EXP'),
       textMain: color('สีตัวอักษรหลัก'),
       textDim: color('สีตัวอักษรรอง'),
+      playerScale: num('ขนาดตัวผู้เล่น (x, ตัวคูณ — ปกติ 3.4)', 0.5, 10, 0.1),
+      petScale: num('ขนาด Pet (x ของขนาดมอนสเตอร์ — ปกติ 0.84)', 0.1, 4, 0.01),
       showMinimap: select('มินิแมพ', SHOW_OPTIONS),
       showChat: select('แชท', SHOW_OPTIONS),
       showSidePanel: select('แผงปาร์ตี้/เควสต์ (ซ้ายบน)', SHOW_OPTIONS),
@@ -224,7 +227,8 @@ function cleanValue(def, v) {
   if (def.type === 'number') {
     if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
     const clamped = Math.min(def.max, Math.max(def.min, v));
-    return def.step && def.step < 1 ? Math.round(clamped * 10) / 10 : Math.round(clamped);
+    if (def.step && def.step < 1) { const k = Math.pow(10, Math.ceil(-Math.log10(def.step))); return Math.round(clamped * k) / k; }
+    return Math.round(clamped);
   }
   if (def.type === 'select') {
     return def.options.some(o => o.value === v) ? v : undefined;

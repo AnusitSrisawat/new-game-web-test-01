@@ -4,6 +4,7 @@ import { getMapDef, TILE_SIZE } from './maps.js';
 import { ZONES, WEAPON_TYPES, MONSTERS, ITEMS, RELICS, QUESTS, SKILLS, SOUNDS } from './data.js';
 import { weaponMatches } from './player.js';
 import { soundEngine } from './audio.js';
+import { CHAR_SCALE } from './uitheme.js';
 import { monsterSprite, itemSprite, weaponSprite, dropSprite, splitDropPieces, particleSprite, PARTICLE_SPRITES } from './sprites.js';
 
 // ---- Sword swing animation (prog 0..1: wind-up, snap strike, follow-through) ----
@@ -12,7 +13,6 @@ const ATTACK_ANIM = 0.34;
 const PET_FETCH_RANGE = 750;     // px around the player in which a pet goes to fetch dropped items
 const MONSTER_DEATH_TIME = 0.7;  // seconds of the death animation
 const MONSTER_SPAWN_TIME = 0.6;  // seconds of the spawn animation
-const PLAYER_SCALE = 3.4;   // player ≈ 2.4x a default (92px) monster
 const PLAYER_TAG_UP = 40;   // extra height of the overhead tags at that scale
 const SWORD_REST = { blade: 0.5, arm: 2.6 };
 const SWINGS = [
@@ -2377,7 +2377,7 @@ export class GameEngine {
     const sheet = sp ? this.getSheet(sp.src) : null;
     if (!sheet) return;
     const now = performance.now() / 1000;
-    const size = ((MONSTERS[mid] && MONSTERS[mid].size) || 92) * 0.84;
+    const size = ((MONSTERS[mid] && MONSTERS[mid].size) || 92) * CHAR_SCALE.pet;
     const dh = size * sp.sh / sp.sw;
     const hop = pet.moving ? Math.abs(Math.sin(now * 12)) * 5 : 0;
     ctx.save();
@@ -2409,7 +2409,7 @@ export class GameEngine {
   drawPlayerSprite(ctx, x, y, facing, legOffset = 0, isLocal = false, remoteProfile = null) {
     ctx.save();
     ctx.translate(x, y + 24);
-    ctx.scale(PLAYER_SCALE * (facing || 1), PLAYER_SCALE); // scale around the feet
+    ctx.scale(CHAR_SCALE.player * (facing || 1), CHAR_SCALE.player); // scale around the feet
     ctx.translate(0, -24);
 
     // No classes: the outfit is the same for everyone, only the held weapon differs
