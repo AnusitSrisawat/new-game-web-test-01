@@ -63,7 +63,8 @@
   function itemPic(id, px = 56) {
     const info = state.itemsInfo?.[id] || {};
     if (info.sprite) return pic(info.sprite, info.icon, px);
-    const src = info.type === 'mount' ? `/assets/sprites/mounts/${id}.png` : info.part ? `/assets/sprites/player/parts/${info.part}.png` : null;
+    const part = info.part || (id && id.startsWith('hair_') ? id.replace(/^hair_/, 'head_') : null);
+    const src = info.type === 'mount' ? `/assets/sprites/mounts/${id}.png` : part ? `/assets/sprites/player/parts/${part}.png` : null;
     if (!src) return pic(null, info.icon, px);
     const holder = h('span', { class: 'pic', style: `width:${px}px;height:${px}px;display:inline-flex;align-items:center;justify-content:center` });
     const img = h('img', { src, style: `max-width:${px}px;max-height:${px}px;object-fit:contain` });
@@ -227,7 +228,7 @@
       const list = currentDrops(id).map(d => ({ ...d }));
       const rows = list.map((d, i) => {
         const info = state.itemsInfo[d.itemId] || { name: d.itemId };
-        const holder = h('span', { class: 'pichold' }, pic(info.sprite, info.icon, 34));
+        const holder = h('span', { class: 'pichold' }, itemPic(d.itemId, 34));
         const sel = h('select', { onchange: (e) => {
           if (list.some((x, j) => j !== i && x.itemId === e.target.value)) { toast('ไอเทมนี้อยู่ในรายการดรอปแล้ว', true); e.target.value = d.itemId; return; }
           list[i].itemId = e.target.value; setDrops(id, list); draw();
@@ -543,7 +544,7 @@
     ];
   }
   // filter: all / normal items / wearable (paper-doll) items, wearable split by slot
-  const WEAR_TYPES = [['hat', '🎩 หมวก'], ['head', '🙂 หัว'], ['outfit', '👕 ชุด'], ['back', '🪽 ปีก/ผ้าคลุม'], ['shield', '🛡️ โล่'], ['mount', '🐎 สัตว์ขี่']];
+  const WEAR_TYPES = [['hat', '🎩 หมวก'], ['hair', '💇 ทรงผม'], ['face', '👀 หน้าตา'], ['mouth', '👄 ปาก'], ['head', '🙂 หัว'], ['outfit', '👕 ชุด'], ['back', '🪽 ปีก/ผ้าคลุม'], ['shield', '🛡️ โล่'], ['mount', '🐎 สัตว์ขี่']];
   let itemGroup = 'all', itemWear = 'all';
   function itemFilterBar() {
     const bar = h('div', { class: 'dropbtns' });
@@ -660,8 +661,8 @@
   function gearPreview(id) {
     const info = state.itemsInfo?.[id];
     const type = info?.type;
-    if (!['hat', 'head', 'outfit', 'back', 'shield', 'mount'].includes(type)) return null;
-    const isPiece = ['hat', 'head', 'outfit', 'back'].includes(type);
+    if (!['hat', 'hair', 'face', 'mouth', 'head', 'outfit', 'back', 'shield', 'mount'].includes(type)) return null;
+    const isPiece = ['hat', 'hair', 'face', 'mouth', 'head', 'outfit', 'back'].includes(type);
     const BW = isPiece ? 300 : type === 'mount' ? 320 : 260, BH = isPiece ? 400 : type === 'mount' ? 280 : 190;
     const cv = h('canvas', { width: Math.round(BW * previewZoom), height: Math.round(BH * previewZoom), class: 'gearprev' });
     const v = (k, d) => { const x = Number(valueOf('items', id, k)); return Number.isFinite(x) ? x : d; };
@@ -693,7 +694,15 @@
         ctx.fillText('คาง=134', 215, yOf(134) - 7); ctx.fillText('เท้า=301', 215, yOf(301) - 7);
         ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, BH); ctx.stroke(); ctx.setLineDash([]);
         const me = live(id);
-        const look = { back: type === 'back' ? me : null, outfit: type === 'outfit' ? me : null, head: type === 'head' ? me : null, hat: type === 'hat' ? me : null };
+        const look = {
+          back: type === 'back' ? me : null,
+          outfit: type === 'outfit' ? me : null,
+          head: type === 'head' ? me : (['hat', 'hair', 'face', 'mouth'].includes(type) ? { part: 'head_0', partW: 131, partY: 134 } : null),
+          hair: type === 'hair' ? me : null,
+          face: type === 'face' ? me : null,
+          mouth: type === 'mouth' ? me : null,
+          hat: type === 'hat' ? me : null
+        };
         ctx.save(); ctx.translate(cx + 1, feetY - 24 * S); ctx.scale(S, S);
         drawLook(ctx, (src) => { const im = loadImg('/' + src); return im.complete && im.naturalWidth ? im : null; }, look, 1);
         ctx.restore();
@@ -754,7 +763,7 @@
         h('h3', {}, itemPic(id, 48), ' ', valueOf('items', id, 'name'), h('small', {}, id)),
         prev ? h('div', { class: 'hint' }, 'ตัวอย่างบนตัวละคร (ปรับค่าแล้วภาพขยับตามทันที)') : null,
         prev ? prev.cv : null,
-        (prev && ['hat', 'head', 'outfit', 'back'].includes(state.itemsInfo[id].type)) ? layersEditor(id, () => prev.redraw()) : null,
+        (prev && ['hat', 'hair', 'face', 'mouth', 'head', 'outfit', 'back'].includes(state.itemsInfo[id].type)) ? layersEditor(id, () => prev.redraw()) : null,
         useEffectBox(id),
         h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'reqLevel', 'lootSpeed', 'speedPct', 'flip', 'layer', 'partW', 'partX', 'partY', 'scale', 'offX', 'offY', 'seatX', 'seatY', 'seatDrop', 'seatClip', 'desc']))
       );

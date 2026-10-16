@@ -204,9 +204,13 @@ export function relicIconHtml(id, emoji, px = 28) {
 
 // HTML for an item's icon: its picture when it has one, otherwise the emoji
 export function itemIconHtml(id, emoji, px = 28) {
-  // player gear pictures: whole-look outfits, shields, mounts
-  const PART_OF = { back_angel: 'wings_angel', back_dragon: 'wings_dragon', back_fairy: 'wings_fairy', back_cape: 'cape_red' };
-  const gearImg = id && (/^(hat|head|outfit|shield|back)_/.test(id) ? `assets/sprites/player/parts/${PART_OF[id] || id}.png`
+  // player gear pictures: whole-look outfits, shields, mounts, hairstyles, faces, mouths
+  const PART_OF = {
+    back_angel: 'wings_angel', back_dragon: 'wings_dragon', back_fairy: 'wings_fairy', back_cape: 'cape_red',
+    face_default: 'head_0', mouth_default: 'head_0'
+  };
+  const partName = PART_OF[id] || (id && id.startsWith('hair_') ? id.replace(/^hair_/, 'head_') : id);
+  const gearImg = id && (/^(hat|head|hair|face|mouth|outfit|shield|back)_/.test(id) ? `assets/sprites/player/parts/${partName}.png`
     : id.startsWith('mount_') ? `assets/sprites/mounts/${id}.png` : null);
   if (gearImg) return `<img src="/${gearImg}" alt="" style="max-width:${px}px;max-height:${px}px;object-fit:contain;vertical-align:middle;">`;
   if (id && id.startsWith('pet_')) {

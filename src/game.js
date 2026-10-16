@@ -2465,12 +2465,12 @@ export class GameEngine {
     // ---- the look: mount (when riding) -> body + outfit + hat + wings (one baked picture) -> left-hand shield ----
     const eq = isLocal ? this.player.equipment : (remoteProfile || {});
     const look = isLocal ? {
-      hat: ITEMS[eq.hat], head: ITEMS[eq.head], outfit: ITEMS[eq.outfit], back: ITEMS[eq.back],
+      hat: ITEMS[eq.hat], hair: ITEMS[eq.hair], face: ITEMS[eq.face], mouth: ITEMS[eq.mouth], head: ITEMS[eq.head], outfit: ITEMS[eq.outfit], back: ITEMS[eq.back],
       shield: this.player.equipment.offhand,
       mount: this.player.equipment.mount,
       riding: this.player.riding
     } : {
-      hat: ITEMS[eq.hat], head: ITEMS[eq.head], outfit: ITEMS[eq.outfit], back: ITEMS[eq.back],
+      hat: ITEMS[eq.hat], hair: ITEMS[eq.hair], face: ITEMS[eq.face], mouth: ITEMS[eq.mouth], head: ITEMS[eq.head], outfit: ITEMS[eq.outfit], back: ITEMS[eq.back],
       shield: remoteProfile && remoteProfile.shield,
       mount: remoteProfile && remoteProfile.mount,
       riding: !!(remoteProfile && remoteProfile.riding && remoteProfile.mount)

@@ -199,6 +199,49 @@ export function installPlayerGear(ITEMS) {
   piece('head', 'head_1', 'head_1', 'Cheerful Head (หัวร่าเริง)', '😊', 131, 134, { price: 100, desc: 'ทรงหัวและหน้าแบบที่ 2' });
   piece('head', 'head_2', 'head_2', 'Calm Head (หัวนิ่งสงบ)', '😌', 131, 134, { price: 100, desc: 'ทรงหัวและหน้าแบบที่ 3' });
   piece('head', 'head_3', 'head_3', 'Sweet Head (หัวใจดี)', '🥰', 131, 134, { price: 100, desc: 'ทรงหัวและหน้าแบบที่ 4' });
+
+  // 32 Hairstyles (from AI sheets)
+  const HAIRSTYLES = [
+    { id: 'hair_01_blonde', part: 'head_01_blonde', name: 'Golden Spiky Hero', w: 145, desc: '01. สไปกี้สีทองสไตล์ผู้กล้า' },
+    { id: 'hair_02_brown', part: 'head_02_brown', name: 'Brown Short Crop', w: 140, desc: '02. ซอยสั้นสีน้ำตาลธรรมชาติ' },
+    { id: 'hair_03_pink', part: 'head_03_pink', name: 'Rose Twin Buns', w: 150, desc: '03. ดังโงะคู่สีชมพูหวาน' },
+    { id: 'hair_04_samurai', part: 'head_04_samurai', name: 'Shadow Samurai Topknot', w: 145, desc: '04. มัดจุกซามูไรดำขลับ' },
+    { id: 'hair_05_lavender', part: 'head_05_lavender', name: 'Lavender Flowing Waves', w: 140, desc: '05. ลอนยาวพริ้วไหวสีลาเวนเดอร์' },
+    { id: 'hair_06_crimson', part: 'head_06_crimson', name: 'Crimson Flame Wild', w: 145, desc: '06. ซอยชี้ป่าเถื่อนสีแดงเพลิง' },
+    { id: 'hair_07_silver', part: 'head_07_silver', name: 'Silver Knight Parted', w: 145, desc: '07. แสกกลางสีเงินสง่างาม' },
+    { id: 'hair_08_navy', part: 'head_08_navy', name: 'Navy Side Braid', w: 138, desc: '08. เปียข้างเรียบร้อยสีน้ำเงิน' },
+    { id: 'hair_09_mint_pixie', part: 'head_09_mint_pixie', name: 'Mint Pixie Cut', w: 140, desc: '09. พิกซี่คัตสดใสสีมิ้นต์' },
+    { id: 'hair_10_wheat_braid', part: 'head_10_wheat_braid', name: 'Wheat Noble Braid', w: 135, desc: '10. เปียเดี่ยวสีบลอนด์ทอง' },
+    { id: 'hair_11_sakura_asym', part: 'head_11_sakura_asym', name: 'Sakura Asymmetric Bob', w: 142, desc: '11. บ๊อบเฉียงสีชมพูซากุระ' },
+    { id: 'hair_12_royal_ponytail', part: 'head_12_royal_ponytail', name: 'Royal High Ponytail', w: 145, desc: '12. หางม้าสูงสีน้ำเงินราชวงศ์' },
+    { id: 'hair_13_caramel_updo', part: 'head_13_caramel_updo', name: 'Caramel Elegant Updo', w: 138, desc: '13. มุ่นผมหรูหราสีคาราเมล' },
+    { id: 'hair_14_lilac_twintails', part: 'head_14_lilac_twintails', name: 'Lilac Fluffy Twintails', w: 148, desc: '14. ทวินเทลปุยฟูสีม่วงไลแลค' },
+    { id: 'hair_15_ruby_punk', part: 'head_15_ruby_punk', name: 'Ruby Punk Undercut', w: 140, desc: '15. อันเดอร์คัตพังก์สีทับทิม' },
+    { id: 'hair_16_midnight_braid', part: 'head_16_midnight_braid', name: 'Midnight Long Plait', w: 135, desc: '16. ถักเปียยาวสีดำมิดไนท์' },
+    { id: 'hair_17_yellow_wolf', part: 'head_17_yellow_wolf', name: 'Yellow Wolf Cut', w: 142, desc: '17. วูล์ฟคัตเซอร์ๆ สีเหลืองมะนาว' },
+    { id: 'hair_18_auburn_braids', part: 'head_18_auburn_braids', name: 'Auburn Twin Braids', w: 135, desc: '18. เปียคู่คลาสสิกสีน้ำตาลแดง' },
+    { id: 'hair_19_blue_mohawk', part: 'head_19_blue_mohawk', name: 'Cobalt Modern Mohawk', w: 140, desc: '19. โมฮอว์กโมเดิร์นสีน้ำเงินโคบอลต์' },
+    { id: 'hair_20_cream_bob', part: 'head_20_cream_bob', name: 'Vanilla Neat Bob', w: 136, desc: '20. บ๊อบตรงหน้าม้าสีวานิลลา' },
+    { id: 'hair_21_green_ponytail', part: 'head_21_green_ponytail', name: 'Emerald Wind Ponytail', w: 145, desc: '21. หางม้าพริ้วสายลมสีมรกต' },
+    { id: 'hair_22_plum_shag', part: 'head_22_plum_shag', name: 'Plum Layered Shag', w: 140, desc: '22. แชกกี้เลเยอร์สีพลัมม่วง' },
+    { id: 'hair_23_silver_buns', part: 'head_23_silver_buns', name: 'Silver Double Odango', w: 142, desc: '23. โอดังโงะคู่สีเงินแวววาว' },
+    { id: 'hair_24_brown_quiff', part: 'head_24_brown_quiff', name: 'Chestnut Slick Quiff', w: 135, desc: '24. หวีเสยหล่อเท่สีเชสต์นัต' },
+    { id: 'hair_25_emerald_messy', part: 'head_25_emerald_messy', name: 'Forest Messy Waves', w: 148, desc: '25. ลอนยุ่งธรรมชาติสีเขียวป่า' },
+    { id: 'hair_26_ginger_buns', part: 'head_26_ginger_buns', name: 'Ginger Space Buns', w: 145, desc: '26. สเปซบันน่ารักสีส้มจิงเจอร์' },
+    { id: 'hair_27_snow_braids', part: 'head_27_snow_braids', name: 'Snow Princess Braids', w: 136, desc: '27. เปียเจ้าหญิงหิมะสีขาวบริสุทธิ์' },
+    { id: 'hair_28_chestnut_bowl', part: 'head_28_chestnut_bowl', name: 'Choco Modern Bowl', w: 138, desc: '28. โบว์ลคัตอินดี้สีช็อกโกแลต' },
+    { id: 'hair_29_sunset_ponytail', part: 'head_29_sunset_ponytail', name: 'Sunset Grand Tail', w: 152, desc: '29. หางม้ายักษ์สีส้มอาทิตย์อัสดง' },
+    { id: 'hair_30_midnight_shag', part: 'head_30_midnight_shag', name: 'Midnight Wild Shag', w: 145, desc: '30. ซอยยาวเซอร์เข้มสีดำรัตติกาล' },
+    { id: 'hair_31_golden_drills', part: 'head_31_golden_drills', name: 'Golden Ojou Drills', w: 145, desc: '31. ลอนเกลียวคุณหนูสีบลอนด์ทอง' },
+    { id: 'hair_32_violet_undercut', part: 'head_32_violet_undercut', name: 'Violet Cyber Undercut', w: 142, desc: '32. ไซเบอร์อันเดอร์คัตสีไวโอเล็ต' }
+  ];
+  for (const h of HAIRSTYLES) {
+    piece('hair', h.id, h.part, h.name, '💇', h.w, 134, { price: 150, desc: h.desc });
+  }
+
+  // Placeholder Face and Mouth items (ready for future face/mouth custom assets)
+  piece('face', 'face_default', 'head_0', 'Anime Eyes (ตามาตรฐาน)', '👀', 131, 134, { price: 0, desc: 'ดวงตาอนิเมะสดใส (เตรียมพร้อมสำหรับปรับแต่งในอนาคต)' });
+  piece('mouth', 'mouth_default', 'head_0', 'Sweet Smile (รอยยิ้มหวาน)', '👄', 131, 134, { price: 0, desc: 'รอยยิ้มพิมพ์ใจ (เตรียมพร้อมสำหรับปรับแต่งในอนาคต)' });
   piece('outfit', 'outfit_knight', 'outfit_knight', 'Knight Plate (ชุดอัศวิน)', '🛡️', 128, 303, { def: 8, hp: 40, price: 400, desc: 'เกราะอัศวินน้ำเงินเงิน' });
   piece('outfit', 'outfit_ranger', 'outfit_ranger', 'Emerald Ranger Tunic (ชุดนายพราน)', '🏹', 134, 303, { def: 5, hp: 30, price: 400, desc: 'เสื้อหนังเขียวมรกต' });
   piece('outfit', 'outfit_sorcerer', 'outfit_sorcerer', 'Crimson Sorcerer Robe (ชุดจอมเวท)', '🔮', 133, 303, { def: 4, hp: 25, price: 400, desc: 'ชุดคลุมเวทสีแดงเข้ม' });

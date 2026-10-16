@@ -797,6 +797,9 @@ wss.on('connection', (ws) => {
           p.hp = Math.min(p.hp, p.maxHp);
           const ofType = (v, t) => (typeof v === 'string' && ITEMS[v]?.type === t ? v : null);
           if (data.hat !== undefined) p.hat = ofType(data.hat, 'hat');
+          if (data.hair !== undefined) p.hair = ofType(data.hair, 'hair');
+          if (data.face !== undefined) p.face = ofType(data.face, 'face');
+          if (data.mouth !== undefined) p.mouth = ofType(data.mouth, 'mouth');
           if (data.head !== undefined) p.head = ofType(data.head, 'head') || 'head_0';
           if (data.outfit !== undefined) p.outfit = ofType(data.outfit, 'outfit');
           if (data.back !== undefined) p.back = ofType(data.back, 'back');
