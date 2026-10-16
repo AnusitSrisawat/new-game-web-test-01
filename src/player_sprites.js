@@ -9,6 +9,70 @@ export const PLAYER_SPRITES = {
    "w": 162,
    "h": 125
   },
+  "fullhead_01_blonde": {
+   "w": 594,
+   "h": 558
+  },
+  "fullhead_01_blonde_orig": {
+   "w": 594,
+   "h": 558
+  },
+  "fullhead_02_brown": {
+   "w": 535,
+   "h": 498
+  },
+  "fullhead_02_brown_orig": {
+   "w": 535,
+   "h": 498
+  },
+  "fullhead_03_pink": {
+   "w": 684,
+   "h": 509
+  },
+  "fullhead_03_pink_orig": {
+   "w": 684,
+   "h": 509
+  },
+  "fullhead_04_samurai": {
+   "w": 600,
+   "h": 606
+  },
+  "fullhead_04_samurai_orig": {
+   "w": 600,
+   "h": 606
+  },
+  "fullhead_05_lavender": {
+   "w": 555,
+   "h": 655
+  },
+  "fullhead_05_lavender_orig": {
+   "w": 555,
+   "h": 655
+  },
+  "fullhead_06_crimson": {
+   "w": 604,
+   "h": 604
+  },
+  "fullhead_06_crimson_orig": {
+   "w": 604,
+   "h": 604
+  },
+  "fullhead_07_silver": {
+   "w": 588,
+   "h": 556
+  },
+  "fullhead_07_silver_orig": {
+   "w": 588,
+   "h": 556
+  },
+  "fullhead_08_navy": {
+   "w": 489,
+   "h": 602
+  },
+  "fullhead_08_navy_orig": {
+   "w": 489,
+   "h": 602
+  },
   "hat_cat": {
    "w": 136,
    "h": 96
@@ -29,17 +93,273 @@ export const PLAYER_SPRITES = {
    "w": 135,
    "h": 134
   },
+  "head_01_blonde": {
+   "w": 593,
+   "h": 558
+  },
+  "head_01_blonde_orig": {
+   "w": 593,
+   "h": 558
+  },
+  "head_02_brown": {
+   "w": 535,
+   "h": 498
+  },
+  "head_02_brown_orig": {
+   "w": 535,
+   "h": 498
+  },
+  "head_03_pink": {
+   "w": 681,
+   "h": 496
+  },
+  "head_03_pink_orig": {
+   "w": 681,
+   "h": 496
+  },
+  "head_04_samurai": {
+   "w": 600,
+   "h": 606
+  },
+  "head_04_samurai_orig": {
+   "w": 600,
+   "h": 606
+  },
+  "head_05_lavender": {
+   "w": 555,
+   "h": 655
+  },
+  "head_05_lavender_orig": {
+   "w": 555,
+   "h": 655
+  },
+  "head_06_crimson": {
+   "w": 604,
+   "h": 603
+  },
+  "head_06_crimson_orig": {
+   "w": 604,
+   "h": 603
+  },
+  "head_07_silver": {
+   "w": 588,
+   "h": 556
+  },
+  "head_07_silver_orig": {
+   "w": 588,
+   "h": 556
+  },
+  "head_08_navy": {
+   "w": 489,
+   "h": 602
+  },
+  "head_08_navy_orig": {
+   "w": 489,
+   "h": 602
+  },
+  "head_09_mint_pixie": {
+   "w": 541,
+   "h": 474
+  },
+  "head_09_mint_pixie_orig": {
+   "w": 541,
+   "h": 474
+  },
   "head_1": {
    "w": 91,
    "h": 94
+  },
+  "head_10_wheat_braid": {
+   "w": 470,
+   "h": 577
+  },
+  "head_10_wheat_braid_orig": {
+   "w": 470,
+   "h": 577
+  },
+  "head_11_sakura_asym": {
+   "w": 567,
+   "h": 526
+  },
+  "head_11_sakura_asym_orig": {
+   "w": 567,
+   "h": 526
+  },
+  "head_12_royal_ponytail": {
+   "w": 584,
+   "h": 608
+  },
+  "head_12_royal_ponytail_orig": {
+   "w": 584,
+   "h": 608
+  },
+  "head_13_caramel_updo": {
+   "w": 538,
+   "h": 504
+  },
+  "head_13_caramel_updo_orig": {
+   "w": 538,
+   "h": 504
+  },
+  "head_14_lilac_twintails": {
+   "w": 626,
+   "h": 571
+  },
+  "head_14_lilac_twintails_orig": {
+   "w": 626,
+   "h": 571
+  },
+  "head_15_ruby_punk": {
+   "w": 547,
+   "h": 541
+  },
+  "head_15_ruby_punk_orig": {
+   "w": 547,
+   "h": 541
+  },
+  "head_16_midnight_braid": {
+   "w": 500,
+   "h": 566
+  },
+  "head_16_midnight_braid_orig": {
+   "w": 500,
+   "h": 566
+  },
+  "head_17_yellow_wolf": {
+   "w": 549,
+   "h": 592
+  },
+  "head_17_yellow_wolf_orig": {
+   "w": 549,
+   "h": 592
+  },
+  "head_18_auburn_braids": {
+   "w": 461,
+   "h": 564
+  },
+  "head_18_auburn_braids_orig": {
+   "w": 461,
+   "h": 564
+  },
+  "head_19_blue_mohawk": {
+   "w": 537,
+   "h": 527
+  },
+  "head_19_blue_mohawk_orig": {
+   "w": 537,
+   "h": 527
   },
   "head_2": {
    "w": 91,
    "h": 94
   },
+  "head_20_cream_bob": {
+   "w": 478,
+   "h": 526
+  },
+  "head_20_cream_bob_orig": {
+   "w": 478,
+   "h": 526
+  },
+  "head_21_green_ponytail": {
+   "w": 563,
+   "h": 585
+  },
+  "head_21_green_ponytail_orig": {
+   "w": 563,
+   "h": 585
+  },
+  "head_22_plum_shag": {
+   "w": 526,
+   "h": 552
+  },
+  "head_22_plum_shag_orig": {
+   "w": 526,
+   "h": 552
+  },
+  "head_23_silver_buns": {
+   "w": 529,
+   "h": 453
+  },
+  "head_23_silver_buns_orig": {
+   "w": 529,
+   "h": 453
+  },
+  "head_24_brown_quiff": {
+   "w": 446,
+   "h": 457
+  },
+  "head_24_brown_quiff_orig": {
+   "w": 446,
+   "h": 457
+  },
+  "head_25_emerald_messy": {
+   "w": 630,
+   "h": 566
+  },
+  "head_25_emerald_messy_orig": {
+   "w": 630,
+   "h": 566
+  },
+  "head_26_ginger_buns": {
+   "w": 571,
+   "h": 550
+  },
+  "head_26_ginger_buns_orig": {
+   "w": 571,
+   "h": 550
+  },
+  "head_27_snow_braids": {
+   "w": 470,
+   "h": 559
+  },
+  "head_27_snow_braids_orig": {
+   "w": 470,
+   "h": 559
+  },
+  "head_28_chestnut_bowl": {
+   "w": 503,
+   "h": 494
+  },
+  "head_28_chestnut_bowl_orig": {
+   "w": 503,
+   "h": 494
+  },
+  "head_29_sunset_ponytail": {
+   "w": 685,
+   "h": 574
+  },
+  "head_29_sunset_ponytail_orig": {
+   "w": 685,
+   "h": 574
+  },
   "head_3": {
    "w": 91,
    "h": 94
+  },
+  "head_30_midnight_shag": {
+   "w": 600,
+   "h": 612
+  },
+  "head_30_midnight_shag_orig": {
+   "w": 600,
+   "h": 612
+  },
+  "head_31_golden_drills": {
+   "w": 567,
+   "h": 547
+  },
+  "head_31_golden_drills_orig": {
+   "w": 567,
+   "h": 547
+  },
+  "head_32_violet_undercut": {
+   "w": 562,
+   "h": 517
+  },
+  "head_32_violet_undercut_orig": {
+   "w": 562,
+   "h": 517
   },
   "outfit_assassin": {
    "w": 126,
