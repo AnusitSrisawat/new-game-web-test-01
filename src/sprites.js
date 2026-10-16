@@ -103,11 +103,10 @@ export function monsterSprite(id) {
   return e ? spriteOf('monsters', e[0], e[1], MONSTER_PX) : null;
 }
 export function itemSprite(id) {
-  const e = itemLookup()[id];
-  if (e) return spriteOf('items', e[0], e[1], ITEM_PX);
-  const r = relicSprite(id);
+  const r = relicSprite(id); // relic pictures win over the old item-sheet icons
   if (r) return r;
-  return null;
+  const e = itemLookup()[id];
+  return e ? spriteOf('items', e[0], e[1], ITEM_PX) : null;
 }
 export function relicSprite(id) {
   const e = RELIC_SPRITES[id];
