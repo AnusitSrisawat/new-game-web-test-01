@@ -239,6 +239,8 @@ export class GameEngine {
         faceRight: false,
         facing: template.facing || 'left',
         drops: template.drops,
+        petChance: template.petChance,
+        relicChance: template.relicChance,
         x: sm.x,
         y: sm.y,
         tx: sm.x,
@@ -313,17 +315,26 @@ export class GameEngine {
         });
 
         // Drop handling: roll drops, then let them pop out and fly into the player
+        // 1) normal drop table: ONE roll. chances are shares of 100% (the remainder = nothing drops)
         if (m.drops) {
-          // A monster drops at most ONE item per kill: the first successful roll wins.
+          const r = Math.random();
+          let acc = 0;
           for (const drop of m.drops) {
-            if (Math.random() <= drop.chance) {
-              const item = ITEMS[drop.itemId] || RELICS[drop.itemId];
-              if (item) {
-                this.spawnLootOrb(m.x, m.y, 'item', { itemId: drop.itemId, icon: item.icon, sprite: itemSprite(drop.itemId), isRelic: !!RELICS[drop.itemId] });
-                break;
-              }
+            acc += drop.chance;
+            if (r < acc) {
+              const item = ITEMS[drop.itemId];
+              if (item) this.spawnLootOrb(m.x, m.y, 'item', { itemId: drop.itemId, icon: item.icon, sprite: itemSprite(drop.itemId) });
+              break;
             }
           }
+        }
+        // 2) pet and 3) the monster's own relic: separate rolls, independent of the table above
+        if (Math.random() < (m.petChance || 0)) {
+          this.spawnLootOrb(m.x, m.y, 'item', { isPet: true, monsterId: m.templateId, icon: m.emoji || '🐾', sprite: monsterSprite(m.templateId) });
+        }
+        const relic = Object.values(RELICS).find(rl => rl.monsterId === m.templateId);
+        if (relic && Math.random() < (m.relicChance || 0)) {
+          this.spawnLootOrb(m.x, m.y, 'item', { itemId: relic.id, icon: relic.icon, isRelic: true });
         }
       }
     }
@@ -736,6 +747,12 @@ export class GameEngine {
       this.player.saveToStorage();
       this.addFloatingText(pl.x, pl.y - 52, `+${o.amount} EXP`, '#4ade80', 15);
       this.addParticle(pl.x, pl.y - 10, '#4ade80', 4);
+    } else if (o.isPet) {
+      const name = MONSTERS[o.monsterId]?.name || o.monsterId;
+      const isNew = this.player.addPet(o.monsterId);
+      soundEngine.play('loot');
+      this.onLog(isNew ? `🐾 ได้รับสัตว์เลี้ยงใหม่: ${name}! ตั้งเป็นเพื่อนเดินทางได้ที่สมุดสมบัติ [T]` : `🐾 ได้ Pet ${name} ซ้ำ (มีอยู่แล้ว)`, 'relic');
+      if (isNew) this.addSkillBanner(`🐾 NEW PET: ${name}`, '#ec4899');
     } else {
       const item = ITEMS[o.itemId] || RELICS[o.itemId];
       const res = this.player.addItem(o.itemId, 1);
@@ -801,7 +818,7 @@ export class GameEngine {
         ctx.fill();
       }
       if (o.kind === 'item') {
-        ctx.shadowColor = o.isRelic ? '#a855f7' : '#fde68a';
+        ctx.shadowColor = o.isRelic ? '#a855f7' : o.isPet ? '#ec4899' : '#fde68a';
         ctx.shadowBlur = 10;
         const sheet = o.sprite ? this.getSheet(o.sprite.src) : null;
         if (sheet) {
@@ -1708,9 +1725,35 @@ export class GameEngine {
     }
   }
 
+  // Pet: a small copy of the chosen monster that trails behind the player
+  drawPet(ctx) {
+    const mid = this.player.activePet;
+    const sp = mid && monsterSprite(mid);
+    const sheet = sp ? this.getSheet(sp.src) : null;
+    if (!sheet) return;
+    const p = this.playerEntity;
+    const now = performance.now() / 1000;
+    const pet = this.petState || (this.petState = { x: p.x - 40, y: p.y + 10 });
+    const gx = p.x - p.facing * 46, gy = p.y + 14;
+    const d = Math.hypot(gx - pet.x, gy - pet.y);
+    if (d > 500) { pet.x = gx; pet.y = gy; } else if (d > 4) { const k = Math.min(1, 0.06 + d / 400); pet.x += (gx - pet.x) * k * 0.2; pet.y += (gy - pet.y) * k * 0.2; }
+    const size = ((MONSTERS[mid] && MONSTERS[mid].size) || 92) * 0.42;
+    const dh = size * sp.sh / sp.sw;
+    const hop = d > 12 ? Math.abs(Math.sin(now * 12)) * 5 : 0;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath(); ctx.ellipse(pet.x, pet.y + 8, size * 0.35, 4, 0, 0, Math.PI * 2); ctx.fill();
+    const f = MONSTERS[mid]?.facing === 'none' ? false : (MONSTERS[mid]?.facing === 'right' ? p.facing < 0 : p.facing > 0);
+    ctx.translate(pet.x, pet.y + 8 - hop);
+    if (f) ctx.scale(-1, 1);
+    ctx.drawImage(sheet, sp.sx, sp.sy, sp.sw, sp.sh, -size / 2, -dh, size, dh);
+    ctx.restore();
+  }
+
   // Draw local player
   drawPlayer(ctx) {
     const p = this.playerEntity;
+    this.drawPet(ctx);
     const legOffset = p.walkFrame ? Math.sin(p.walkFrame) * 4 : 0;
     this.drawPlayerSprite(ctx, p.x, p.y, p.facing, legOffset, true);
   }

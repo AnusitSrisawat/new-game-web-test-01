@@ -3,7 +3,13 @@ import { ZONES, ITEMS, RELICS, CRAFTING_RECIPES, GACHA_COSTUMES, QUESTS, WEAPON_
 import { SP_POTION_IDS, SKILL_SLOTS, GACHA_SINGLE, GACHA_PACK } from './player.js';
 import { TILE_SIZE, getMapDef } from './maps.js';
 import { soundEngine } from './audio.js';
-import { itemIconHtml } from './sprites.js';
+import { itemIconHtml, monsterSprite, spriteStyle } from './sprites.js';
+
+// cut-out of a monster picture (falls back to its emoji)
+function monsterIconHtml(mid, emoji, px) {
+  const sp = monsterSprite(mid);
+  return sp ? `<span style="${spriteStyle(sp, px)}"></span>` : (emoji || '🐾');
+}
 
 const SKILL_ICONS = {
   power_strike: '💥', whirlwind: '🌀', double_shot: '🏹', arrow_rain: '🌧️', fire_bolt: '🔥', frost_nova: '❄️', meteor_fall: '☄️',
@@ -1334,7 +1340,7 @@ export class UIController {
     const list = Object.values(RELICS);
     let html = `
       <div style="background:rgba(236,72,153,0.1); border:1px solid #ec4899; padding:10px; border-radius:8px; margin-bottom:12px; font-size:0.85rem;">
-        💎 มอนสเตอร์ทุกตัวในเกมมี <b>Rare Relic ประจำตัว 1 ชิ้น</b> สะสมแล้วจะเพิ่มสเตตัสถาวรให้ทั้งตัวละคร! (สะสมแล้ว: <b>${this.player.collectedRelics.length}/${list.length} ชิ้น</b>)
+        💎 มอนสเตอร์ทุกตัวในเกมมี <b>Rare Relic ประจำตัว 1 ชิ้น</b> (ดรอปแยกจากไอเทมปกติ) สะสมแล้วจะเพิ่มสเตตัสถาวรให้ทั้งตัวละคร! (สะสมแล้ว: <b>${this.player.collectedRelics.length}/${list.length} ชิ้น</b>)
       </div>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px;">
     `;
@@ -1353,7 +1359,28 @@ export class UIController {
     });
     html += '</div>';
 
+    // Pets (rare drop: looks like the monster)
+    const pets = this.player.pets || [];
+    html += `<h4 style="margin:16px 0 8px;">🐾 สัตว์เลี้ยง (${pets.length}/${Object.keys(MONSTERS).length}) <span style="font-size:0.72rem;color:#94a3b8;font-weight:400;">ดรอปหายากจากมอนสเตอร์ — เลือก 1 ตัวให้เดินตาม</span></h4>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px;">`;
+    Object.keys(MONSTERS).forEach(mid => {
+      const have = pets.includes(mid);
+      const on = this.player.activePet === mid;
+      html += `<div style="background:rgba(0,0,0,0.3); border:1px solid ${on ? '#ec4899' : 'rgba(255,255,255,0.08)'}; border-radius:8px; padding:6px; text-align:center; opacity:${have ? 1 : 0.35}; font-size:0.75rem;">
+        <div style="height:46px; display:flex; align-items:center; justify-content:center; font-size:26px;">${have ? monsterIconHtml(mid, MONSTERS[mid].emoji, 44) : '❓'}</div>
+        <div>${have ? MONSTERS[mid].name : '???'}</div>
+        ${have ? `<button class="btn-pet" data-id="${mid}" style="margin-top:3px; padding:2px 8px; border:none; border-radius:4px; cursor:pointer; color:#fff; font-size:0.7rem; background:${on ? '#64748b' : '#ec4899'};">${on ? 'เก็บเข้ากระเป๋า' : 'เรียกออกมา'}</button>` : ''}
+      </div>`;
+    });
+    html += '</div>';
+
     body.innerHTML = html;
+    body.querySelectorAll('.btn-pet').forEach(b => b.addEventListener('click', e => {
+      const id = e.currentTarget.dataset.id;
+      this.player.activePet = this.player.activePet === id ? null : id;
+      this.player.saveToStorage();
+      this.renderRelicsModal();
+    }));
   }
 
   // 5. Shop & Gacha Modal

@@ -80,6 +80,9 @@ export class Player {
 
     // Treasure Relics unlocked: array of relicIds
     this.collectedRelics = [];
+    // Pets: monster ids you own (a pet looks like that monster) + the one walking with you
+    this.pets = [];
+    this.activePet = null;
 
     // Quest Tracking: { [questId]: { progress: 0, completed: false, claimed: false } }
     this.questProgress = {};
@@ -406,6 +409,14 @@ export class Player {
     return entries[0]?.[0];
   }
 
+  addPet(monsterId) {
+    if (this.pets.includes(monsterId)) return false;
+    this.pets.push(monsterId);
+    if (!this.activePet) this.activePet = monsterId;
+    this.saveToStorage();
+    return true;
+  }
+
   // Save / Load
   saveToStorage() {
     const data = {
@@ -430,6 +441,8 @@ export class Player {
       costumes: this.costumes,
       unlockedCostumes: this.unlockedCostumes,
       collectedRelics: this.collectedRelics,
+      pets: this.pets,
+      activePet: this.activePet,
       questProgress: this.questProgress
     };
     try {
@@ -446,7 +459,7 @@ export class Player {
       if (raw) {
         const d = JSON.parse(raw);
         const keep = ['name', 'baseLevel', 'baseExp', 'statPoints', 'gold', 'gachaTokens', 'inventory',
-          'costumes', 'unlockedCostumes', 'collectedRelics', 'questProgress', 'hpPotionSlot', 'spPotionSlot', 'learnedSkills', 'skillBooks', 'autoBattle'];
+          'costumes', 'unlockedCostumes', 'collectedRelics', 'pets', 'activePet', 'questProgress', 'hpPotionSlot', 'spPotionSlot', 'learnedSkills', 'skillBooks', 'autoBattle'];
         keep.forEach(k => { if (d[k] !== undefined) this[k] = d[k]; });
         if (d.stats) STAT_KEYS.forEach(k => { if (typeof d.stats[k] === 'number') this.stats[k] = d.stats[k]; });
         if (d.auto) {

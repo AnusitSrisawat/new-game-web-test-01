@@ -219,21 +219,39 @@
           list[i].itemId = e.target.value; setDrops(id, list); draw();
         } }, ...itemIds.map(iid => h('option', { value: iid, selected: iid === d.itemId }, state.itemsInfo[iid].name)));
         const pct = h('input', { type: 'number', min: 0.1, max: 100, step: 0.1, value: Math.round(d.chance * 1000) / 10, onchange: (e) => {
-          const v = Math.min(100, Math.max(0.1, Number(e.target.value) || 0.1));
-          e.target.value = v; list[i].chance = Math.round(v * 10) / 1000; setDrops(id, list);
+          const others = list.reduce((a, x, j) => a + (j === i ? 0 : x.chance), 0);
+          const room = Math.max(0.1, Math.round((1 - others) * 1000) / 10);
+          let v = Math.min(100, Math.max(0.1, Number(e.target.value) || 0.1));
+          if (v > room) { v = room; toast(`รวมต้องไม่เกิน 100% — ใส่ได้สูงสุด ${room}%`, true); }
+          e.target.value = v; list[i].chance = Math.round(v * 10) / 1000; setDrops(id, list); draw();
         } });
         return h('div', { class: 'droprow' }, holder, sel, h('span', { class: 'pct' }, pct, '%'),
           h('button', { class: 'btn small danger', title: 'ลบออกจากรายการ', onclick: () => { list.splice(i, 1); setDrops(id, list); draw(); } }, '✕'));
       });
       const isOv = ov.drops?.[id] !== undefined;
+      const total = Math.round(list.reduce((a, x) => a + x.chance, 0) * 1000) / 10;
+      const nothing = Math.max(0, Math.round((100 - total) * 10) / 10);
+      const sepRow = (key, label) => {
+        const inp = h('input', { type: 'number', min: 0, max: 100, step: 0.01, value: Math.round(Number(valueOf('monsters', id, key) ?? 0) * 10000) / 100, onchange: (e) => {
+          const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+          e.target.value = v; setValue('monsters', id, key, Math.round(v * 100) / 10000);
+        } });
+        return h('div', { class: 'droprow' }, h('span', { class: 'pichold' }, label.split(' ')[0]), h('span', {}, label.slice(label.indexOf(' ') + 1)), h('span', { class: 'pct' }, inp, '%'));
+      };
       host.replaceChildren(
+        h('div', { class: 'group-title' }, 'ไอเทมปกติ (สุ่มครั้งเดียว รวมกันเต็ม 100%)'),
         ...(rows.length ? rows : [h('div', { class: 'empty small' }, 'ไม่มีไอเทมดรอป')]),
+        h('div', { class: 'droprow' }, h('span', { class: 'pichold' }, '🚫'), h('span', {}, 'ไม่ดรอปอะไร (ส่วนที่เหลือ)'), h('span', { class: 'pct' }, `${nothing}%`)),
+        h('div', { class: 'hint' }, `รวมไอเทม ${total}% + ไม่ดรอป ${nothing}% = 100%`),
+        h('div', { class: 'group-title' }, 'สุ่มแยก (สุ่มเพิ่มอีกครั้งต่างหาก ไม่เกี่ยวกับตารางด้านบน)'),
+        sepRow('petChance', '🐾 Pet หน้าตาเหมือนมอนสเตอร์'),
+        sepRow('relicChance', '💎 Relic พิเศษประจำมอนสเตอร์'),
         h('div', { class: 'dropbtns' },
-          h('button', { class: 'btn small', disabled: list.length >= MAX_DROPS, onclick: () => {
+          h('button', { class: 'btn small', disabled: list.length >= MAX_DROPS || nothing < 0.1, onclick: () => {
             const used = new Set(list.map(x => x.itemId));
             const next = itemIds.find(iid => !used.has(iid));
             if (!next) return;
-            list.push({ itemId: next, chance: 0.1 }); setDrops(id, list); draw();
+            list.push({ itemId: next, chance: Math.min(0.1, Math.round(nothing * 10) / 1000) }); setDrops(id, list); draw();
           } }, '+ เพิ่มไอเทมดรอป'),
           isOv ? h('button', { class: 'btn small', onclick: () => { setDrops(id, state.defaults.drops?.[id] ?? []); draw(); } }, '↺ คืนค่าเดิม') : null));
     };
