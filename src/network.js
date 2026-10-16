@@ -57,10 +57,19 @@ export class NetworkManager {
         if (msg.monsters && msg.monsters.length > 0) {
           this.game.syncMonstersFromServer(msg.monsters);
         }
+        if (msg.buffs) this.game.serverBuffs = msg.buffs;
         // Initialize other connected players
         if (msg.otherPlayers) {
           msg.otherPlayers.forEach(p => this.otherPlayers.set(p.id, p));
         }
+        break;
+
+      case 'server_buffs':
+        this.game.serverBuffs = msg.buffs;
+        break;
+
+      case 'monsters_reset':
+        this.game.syncMonstersFromServer(msg.monsters || []);
         break;
 
       case 'player_joined':

@@ -185,16 +185,82 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Enter once opens the chat box for typing; Enter again sends and gives the keys back to the game
   const stopMoving = () => { Object.keys(game.keys).forEach(k => { game.keys[k] = false; }); };
   if (chatSendBtn) chatSendBtn.addEventListener('click', () => { handleSendChat(); chatInput.blur(); });
+  // ---- Slash-command suggestions: type "/" to see them, arrows / Tab / click to pick ----
+  // insert = text put in the box; done = full command (Enter then sends it)
+  const CMD_LIST = [
+    { insert: '/help', done: true, label: '/help', desc: 'แสดงรายการคำสั่ง' },
+    { insert: '/gm ', label: '/gm <รหัส>', desc: 'เข้าโหมด GM' },
+    { insert: '/buffserver', done: true, label: '/buffserver', desc: 'ดูบัฟเซิร์ฟเวอร์ตอนนี้ (GM)' },
+    { insert: '/buffserver exp ', label: '/buffserver exp <ตัวคูณ>', desc: 'EXP ทั้งเซิร์ฟเวอร์ (GM)' },
+    { insert: '/buffserver drop ', label: '/buffserver drop <ตัวคูณ>', desc: 'ของดรอปทั้งเซิร์ฟเวอร์ (GM)' },
+    { insert: '/buffserver monster ', label: '/buffserver monster <ตัวคูณ>', desc: 'จำนวนมอนสเตอร์ทั้งเซิร์ฟเวอร์ (GM)' },
+    ...['exp', 'drop', 'monster'].flatMap(k => (k === 'monster' ? [2, 3, 5] : [2, 5, 10]).map(x => ({
+      insert: `/buffserver ${k} ${x}`, done: true, label: `/buffserver ${k} ${x}`, desc: `${k} x${x}`
+    }))),
+    { insert: '/buffserver reset', done: true, label: '/buffserver reset', desc: 'รีเซ็ตบัฟทั้งหมดเป็น x1 (GM)' }
+  ];
+  const sugBox = document.createElement('div');
+  sugBox.className = 'cmd-suggest';
+  sugBox.hidden = true;
+  document.body.appendChild(sugBox);
+  let sugItems = [];
+  let sugIdx = 0;
+  const hideSug = () => { sugBox.hidden = true; sugItems = []; };
+  const pickSug = (it) => {
+    chatInput.value = it.insert;
+    chatInput.focus();
+    updateSug();
+  };
+  const renderSug = () => {
+    sugBox.innerHTML = '';
+    sugItems.forEach((it, i) => {
+      const row = document.createElement('div');
+      row.className = 'cmd-suggest-row' + (i === sugIdx ? ' active' : '');
+      row.innerHTML = `<span class="cmd-name">${esc(it.label)}</span><span class="cmd-desc">${esc(it.desc)}</span>`;
+      row.addEventListener('mousedown', (e) => { e.preventDefault(); pickSug(it); });
+      sugBox.appendChild(row);
+    });
+    const r = chatPanel.getBoundingClientRect();
+    sugBox.style.left = r.left + 'px';
+    sugBox.style.width = r.width + 'px';
+    sugBox.style.bottom = (window.innerHeight - r.bottom + 30) + 'px';
+    sugBox.querySelector('.active')?.scrollIntoView({ block: 'nearest' });
+  };
+  const updateSug = () => {
+    const v = chatInput.value.toLowerCase();
+    if (!v.startsWith('/') || v.includes('  ')) { hideSug(); return; }
+    sugItems = CMD_LIST.filter(c => c.insert.startsWith(v) || c.label.toLowerCase().startsWith(v));
+    if (!sugItems.length || (sugItems.length === 1 && sugItems[0].insert === v && sugItems[0].done)) { hideSug(); return; }
+    sugIdx = Math.min(sugIdx, sugItems.length - 1);
+    sugBox.hidden = false;
+    renderSug();
+  };
   if (chatInput) {
-    chatInput.placeholder = 'กด Enter เพื่อพิมพ์แชท...';
+    chatInput.placeholder = 'กด Enter เพื่อพิมพ์แชท... (พิมพ์ / เพื่อดูคำสั่ง)';
     chatInput.addEventListener('focus', stopMoving);
+    chatInput.addEventListener('input', () => { sugIdx = 0; updateSug(); });
+    chatInput.addEventListener('blur', () => setTimeout(hideSug, 120));
     chatInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
+      const open = !sugBox.hidden && sugItems.length > 0;
+      if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         e.preventDefault();
-        handleSendChat();
-        chatInput.blur();
+        sugIdx = (sugIdx + (e.key === 'ArrowDown' ? 1 : -1) + sugItems.length) % sugItems.length;
+        renderSug();
+      } else if (open && e.key === 'Tab') {
+        e.preventDefault();
+        pickSug(sugItems[sugIdx]);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const it = open ? sugItems[sugIdx] : null;
+        if (it && chatInput.value.trim().toLowerCase() !== it.insert.trim()) {
+          pickSug(it); // first Enter completes the command, next Enter sends
+        } else {
+          handleSendChat();
+          chatInput.blur();
+          hideSug();
+        }
       } else if (e.key === 'Escape') {
-        chatInput.blur();
+        if (open) hideSug(); else chatInput.blur();
       }
       e.stopPropagation();
     });

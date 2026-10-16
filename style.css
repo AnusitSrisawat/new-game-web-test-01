@@ -1434,3 +1434,15 @@ body, html {
 
 /* Map button under the minimap matches the minimap width */
 .minimap-card#btn-open-zones:hover { border-color: #fff; }
+
+/* Slash-command suggestions above the chat box */
+.cmd-suggest {
+  position: fixed; z-index: 60; max-height: 180px; overflow-y: auto;
+  background: rgba(10, 15, 30, 0.97); border: 1px solid rgba(96, 165, 250, 0.5);
+  border-radius: 8px; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.8);
+}
+.cmd-suggest[hidden] { display: none; }
+.cmd-suggest-row { display: flex; justify-content: space-between; gap: 10px; padding: 5px 10px; font-size: 0.75rem; cursor: pointer; }
+.cmd-suggest-row.active, .cmd-suggest-row:hover { background: rgba(37, 99, 235, 0.45); }
+.cmd-name { color: #fbbf24; font-weight: 700; }
+.cmd-desc { color: #94a3b8; text-align: right; }

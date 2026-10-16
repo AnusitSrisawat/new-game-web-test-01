@@ -82,6 +82,7 @@ export class GameEngine {
     this.vfxList = [];
     this.particles = [];
     this.floatingTexts = [];
+    this.serverBuffs = { exp: 1, drop: 1, monster: 1 }; // set by the server (GM /buffserver)
     this.lootOrbs = []; // Dropped gold / EXP / items that pop out, wait, then fly into the player
     this.attackEffects = [];
     this.afterimages = [];
@@ -314,7 +315,11 @@ export class GameEngine {
           }
         });
 
-        // Drop handling: roll drops, then let them pop out and fly into the player
+        // Drop handling: roll drops, then let them pop out and fly into the player.
+        // Server drop buff (xN): N whole rolls plus a fractional chance of one more.
+        const dm = this.serverBuffs.drop || 1;
+        const dropRolls = Math.floor(dm) + (Math.random() < dm - Math.floor(dm) ? 1 : 0);
+        for (let ri = 0; ri < dropRolls; ri++) {
         // 1) normal drop table: ONE roll. chances are shares of 100% (the remainder = nothing drops)
         if (m.drops) {
           const r = Math.random();
@@ -335,6 +340,7 @@ export class GameEngine {
         const relic = Object.values(RELICS).find(rl => rl.monsterId === m.templateId);
         if (relic && Math.random() < (m.relicChance || 0)) {
           this.spawnLootOrb(m.x, m.y, 'item', { itemId: relic.id, icon: relic.icon, isRelic: true });
+        }
         }
       }
     }
