@@ -260,6 +260,10 @@ export class NetworkManager {
     });
   }
 
+  sendPetState(x, y, carry) {
+    this.send({ type: 'pet_state', x: Math.round(x), y: Math.round(y), carry: carry || null });
+  }
+
   sendPickupLoot(id, viaPet = false) {
     this.send({ type: 'pickup_loot', id, pet: viaPet });
   }

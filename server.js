@@ -790,6 +790,15 @@ wss.on('connection', (ws) => {
           break;
         }
 
+        case 'pet_state': { // where the player's pet is right now (it runs off to fetch loot), so others can see it
+          if (!p.pet) break;
+          const md = getMapDef(p.currentMap);
+          p.petX = Math.round(Math.min(md.width, Math.max(0, num(data.x, p.x))));
+          p.petY = Math.round(Math.min(md.height, Math.max(0, num(data.y, p.y))));
+          p.petCarry = typeof data.carry === 'string' ? cleanText(data.carry, 8) || null : null;
+          break;
+        }
+
         case 'move': {
           const md = getMapDef(p.currentMap);
           p.x = Math.min(md.width, Math.max(0, num(data.x, p.x)));
