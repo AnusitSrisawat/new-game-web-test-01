@@ -205,8 +205,8 @@ export function relicIconHtml(id, emoji, px = 28) {
 // HTML for an item's icon: its picture when it has one, otherwise the emoji
 export function itemIconHtml(id, emoji, px = 28) {
   // player gear pictures: whole-look outfits, shields, mounts
-  const gearImg = id && (id.startsWith('outfit_') ? `assets/sprites/player/costume_${id.slice(7)}.png`
-    : id.startsWith('shield_') ? `assets/sprites/player/parts/${id}.png`
+  const PART_OF = { outfit_royal: 'outfit_knight' };
+  const gearImg = id && (/^(hat|head|outfit|shield)_/.test(id) ? `assets/sprites/player/parts/${PART_OF[id] || id}.png`
     : id.startsWith('mount_') ? `assets/sprites/mounts/${id}.png` : null);
   if (gearImg) return `<img src="/${gearImg}" alt="" style="max-width:${px}px;max-height:${px}px;object-fit:contain;vertical-align:middle;">`;
   if (id && id.startsWith('pet_')) {

@@ -185,11 +185,20 @@ export function installPlayerGear(ITEMS) {
       : it.type === 'shield' ? { scale: 0.8, offX: 0, offY: 3 } : { scale: 1, offX: 0, offY: 0 };
     ITEMS[it.id] = { reqLevel: 1, price: 0, ...look, ...it };
   };
-  add({ id: 'outfit_knight', name: 'Knight Set (ชุดอัศวิน)', type: 'outfit', costume: 'knight', icon: '🛡️', def: 8, hp: 40, price: 400, desc: 'หมวกเกราะปีก + เกราะอัศวินน้ำเงินเงิน + ผ้าคลุมแดง' });
-  add({ id: 'outfit_ranger', name: 'Ranger Set (ชุดนายพราน)', type: 'outfit', costume: 'ranger', icon: '🏹', def: 5, hp: 30, price: 400, desc: 'เสื้อหนังเขียวมรกต + ที่คาดผมหูแมว + ปีกผีเสื้อภูต' });
-  add({ id: 'outfit_sorcerer', name: 'Sorcerer Set (ชุดจอมเวท)', type: 'outfit', costume: 'sorcerer', icon: '🔮', def: 4, hp: 25, price: 400, desc: 'หมวกพ่อมดแหลม + ชุดคลุมเวทสีแดงเข้ม' });
-  add({ id: 'outfit_assassin', name: 'Shadow Set (ชุดนักฆ่าเงา)', type: 'outfit', costume: 'assassin', icon: '🗡️', def: 6, hp: 30, price: 400, desc: 'เสื้อคลุมดำ + ปีกมังกรค้างคาวม่วง' });
-  add({ id: 'outfit_royal', name: 'Royal Angel Set (ชุดราชันย์นางฟ้า)', type: 'outfit', costume: 'royal', icon: '👑', def: 10, hp: 60, price: 900, desc: 'มงกุฎทอง + เกราะอัศวิน + ปีกนางฟ้าขนนกสีขาว' });
+  // hat + head + outfit are separate pieces (paper-doll, src/player_look.js); wings / cape come with the outfit
+  add({ id: 'hat_helm', name: 'Knight Winged Visor Helm', type: 'hat', hat: 'hat_helm', icon: '🪖', def: 5, hp: 20, price: 250, desc: 'หมวกเกราะอัศวินติดปีกเงิน (ปิดหน้า)' });
+  add({ id: 'hat_wizard', name: 'Wizard Pointed Wide-Brim Hat', type: 'hat', hat: 'hat_wizard', icon: '🧙', def: 2, hp: 15, price: 250, desc: 'หมวกพ่อมดปีกกว้างประดับดาวและขนนก' });
+  add({ id: 'hat_cat', name: 'Cozy Cat Ears Headband', type: 'hat', hat: 'hat_cat', icon: '🐱', def: 1, hp: 10, price: 250, desc: 'ที่คาดผมหูแมวผูกโบว์ชมพู' });
+  add({ id: 'hat_crown', name: 'Royal Crown', type: 'hat', hat: 'hat_crown', icon: '👑', def: 3, hp: 40, price: 600, desc: 'มงกุฎทองประดับอัญมณี' });
+  add({ id: 'head_0', name: 'Round Head (หัวกลม)', type: 'head', head: 'head_0', icon: '🙂', price: 0, desc: 'ทรงหัวเริ่มต้น' });
+  add({ id: 'head_1', name: 'Cheerful Head (หัวร่าเริง)', type: 'head', head: 'head_1', icon: '😊', price: 100, desc: 'ทรงหัวและหน้าแบบที่ 2' });
+  add({ id: 'head_2', name: 'Calm Head (หัวนิ่งสงบ)', type: 'head', head: 'head_2', icon: '😌', price: 100, desc: 'ทรงหัวและหน้าแบบที่ 3' });
+  add({ id: 'head_3', name: 'Sweet Head (หัวใจดี)', type: 'head', head: 'head_3', icon: '🥰', price: 100, desc: 'ทรงหัวและหน้าแบบที่ 4' });
+  add({ id: 'outfit_knight', name: 'Knight Plate + Red Cape (ชุดอัศวิน)', type: 'outfit', outfit: 'outfit_knight', back: 'cape_red', icon: '🛡️', def: 8, hp: 40, price: 400, desc: 'เกราะอัศวินน้ำเงินเงิน + ผ้าคลุมแดง (ไม่รวมหมวก)' });
+  add({ id: 'outfit_ranger', name: 'Emerald Ranger Tunic (ชุดนายพราน)', type: 'outfit', outfit: 'outfit_ranger', back: 'wings_fairy', icon: '🏹', def: 5, hp: 30, price: 400, desc: 'เสื้อหนังเขียวมรกต + ปีกผีเสื้อภูต' });
+  add({ id: 'outfit_sorcerer', name: 'Crimson Sorcerer Robe (ชุดจอมเวท)', type: 'outfit', outfit: 'outfit_sorcerer', back: null, icon: '🔮', def: 4, hp: 25, price: 400, desc: 'ชุดคลุมเวทสีแดงเข้ม' });
+  add({ id: 'outfit_assassin', name: 'Black Shadow Assassin Coat (ชุดนักฆ่าเงา)', type: 'outfit', outfit: 'outfit_assassin', back: 'wings_dragon', icon: '🗡️', def: 6, hp: 30, price: 400, desc: 'เสื้อคลุมดำ + ปีกมังกรค้างคาวม่วง' });
+  add({ id: 'outfit_royal', name: 'Royal Angel Plate (ชุดราชันย์นางฟ้า)', type: 'outfit', outfit: 'outfit_knight', back: 'wings_angel', icon: '👼', def: 10, hp: 60, price: 900, desc: 'เกราะอัศวิน + ปีกนางฟ้าขนนกสีขาว' });
   add({ id: 'shield_lion', name: 'Golden Lion Crest Shield', type: 'shield', icon: '🛡️', def: 6, hp: 20, price: 300, desc: 'โล่ตราสิงโตทอง (มือซ้าย)' });
   add({ id: 'shield_rune', name: 'Magic Rune Buckler', type: 'shield', icon: '🔵', def: 4, hp: 35, price: 300, desc: 'โล่กลมอักษรรูนเรืองแสง (มือซ้าย)' });
   add({ id: 'mount_runner', name: 'Yellow Feathered Runner', type: 'mount', icon: '🐤', speedPct: 40, price: 1200, desc: 'นกวิ่งขนฟูสีทอง สัตว์ขี่ — ความเร็วเดิน +40% (กด R ขึ้นขี่/ลง)' });

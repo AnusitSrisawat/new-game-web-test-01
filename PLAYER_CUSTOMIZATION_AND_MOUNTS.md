@@ -159,9 +159,9 @@
 
 ## 6. สถานะการทำจริงในเกม (Implemented)
 
-- ช่องสวมใส่เหลือ 5 ช่อง: **ชุด** (`outfit`), **มือขวา** (`weapon`), **มือซ้าย** (`offhand` = โล่), **สัตว์เลี้ยง** (`pet`), **สัตว์ขี่** (`mount`) — เก็บใน `player.equipment`
-- ชุด = ตัวละครทั้งตัว (ตัว + เสื้อผ้า + หมวก + ปีก/ผ้าคลุม) รวมเป็นรูปเดียว สร้างด้วย `python3 tools/player_parts_cutout.py && python3 tools/player_costumes.py` (ตัดชิ้นส่วนจาก `player_parts_sheet.jpg` / `mounts_riding_sheet.jpg` → `assets/sprites/player/`, `assets/sprites/mounts/`, ขนาด/จุดยึดอยู่ใน `src/player_sprites.js`)
-- ไอเทมอยู่ใน `installPlayerGear()` (`src/catalog.js`): 5 ชุด (`outfit_*`), 2 โล่ (`shield_*`), 4 สัตว์ขี่ (`mount_*`, +40/50/55/60% ความเร็วเดิน) — ดับเบิลคลิกในกระเป๋า [I] เพื่อสวมใส่ · กด **R** ขึ้นขี่/ลง
+- ช่องสวมใส่ 7 ช่อง (`player.equipment`): **หมวก** (`hat`), **หัว** (`head`), **ชุด** (`outfit`), **มือขวา** (`weapon`), **มือซ้าย** (`offhand`=โล่), **สัตว์เลี้ยง** (`pet`), **สัตว์ขี่** (`mount`)
+- ตัวละครประกอบสดจากชิ้นส่วน (`src/player_look.js`): ปีก/ผ้าคลุม (มากับชุด) → ตัวไม่มีหัว → ชุด → หัว → หมวก ; ชิ้นส่วนตัดจาก `player_parts_sheet.jpg` ด้วย `python3 tools/player_parts_cutout.py && python3 tools/player_manifest.py`
+- ไอเทมอยู่ใน `installPlayerGear()` (`src/catalog.js`): 4 หมวก, 4 หัว, 5 ชุด, 2 โล่, 4 สัตว์ขี่ (+40/50/55/60% ความเร็วเดิน) — ดับเบิลคลิกในกระเป๋า [I] เพื่อสวมใส่ · กด **R** ขึ้นขี่/ลง
 - ตอนทดสอบ ไอเทมทั้งหมดอยู่ในกระเป๋า (`TEST_ALL_GEAR` ใน `src/player.js`)
-- Studio → ไอเทม: แก้ราคา/ค่าพลัง และ ขนาด/ตำแหน่งรูปบนตัวละคร (`scale`, `offX`, `offY`, จุดนั่ง `seatX/seatY` ของสัตว์ขี่) พร้อมภาพตัวอย่างสด
-- ผู้เล่นอื่นเห็นชุด/โล่/สัตว์ขี่ ผ่าน `update_profile`
+- Studio → ไอเทม: แก้ราคา/ค่าพลัง และ ขนาด/ตำแหน่งรูป (`scale`, `offX`, `offY`, จุดนั่ง `seatX/seatY` ของสัตว์ขี่) พร้อมภาพตัวอย่างสด
+- ผู้เล่นอื่นเห็นหมวก/หัว/ชุด/โล่/สัตว์ขี่ ผ่าน `update_profile`

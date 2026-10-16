@@ -265,7 +265,7 @@ function studioPayload() {
     }])),
     // every item a drop table can use
     itemsInfo: Object.fromEntries(Object.entries(ITEMS).map(([id, it]) => [id, {
-      name: it.name, icon: it.icon, type: it.type, costume: it.costume, sprite: itemSprite(id)
+      name: it.name, icon: it.icon, type: it.type, hat: it.hat, head: it.head, outfit: it.outfit, back: it.back, sprite: itemSprite(id)
     }])),
     zoneNames: Object.fromEntries(ZONES.map(z => [z.id, DEFAULTS.zones[z.id].name])),
     objectTypes: OBJECT_TYPES,
@@ -795,7 +795,10 @@ wss.on('connection', (ws) => {
           if (data.maxHp !== undefined) p.maxHp = clampInt(data.maxHp, 1, 500000, p.maxHp);
           if (data.hp !== undefined) p.hp = clampInt(data.hp, 0, p.maxHp, p.hp);
           p.hp = Math.min(p.hp, p.maxHp);
-          if (data.costume !== undefined) p.costume = typeof data.costume === 'string' && /^[a-z]{1,16}$/.test(data.costume) ? data.costume : 'none';
+          const ofType = (v, t) => (typeof v === 'string' && ITEMS[v]?.type === t ? v : null);
+          if (data.hat !== undefined) p.hat = ofType(data.hat, 'hat');
+          if (data.head !== undefined) p.head = ofType(data.head, 'head') || 'head_0';
+          if (data.outfit !== undefined) p.outfit = ofType(data.outfit, 'outfit');
           if (data.shield !== undefined) p.shield = typeof data.shield === 'string' && ITEMS[data.shield]?.type === 'shield' ? data.shield : null;
           if (data.mount !== undefined) p.mount = typeof data.mount === 'string' && ITEMS[data.mount]?.type === 'mount' ? data.mount : null;
           if (data.riding !== undefined) p.riding = data.riding === true && !!p.mount;

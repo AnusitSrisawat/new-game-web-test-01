@@ -6,6 +6,7 @@ import { weaponMatches } from './player.js';
 import { soundEngine } from './audio.js';
 import { CHAR_SCALE } from './uitheme.js';
 import { PLAYER_SPRITES } from './player_sprites.js';
+import { drawLook, PLAYER_BODY_PX } from './player_look.js';
 const PLAYER_BODY_H = 58; // player picture height in world units (feet to head top of the bare body)
 import { monsterSprite, itemSprite, weaponSprite, dropSprite, splitDropPieces, particleSprite, PARTICLE_SPRITES } from './sprites.js';
 
@@ -2462,13 +2463,14 @@ export class GameEngine {
     const handPos = (arm) => [SHOULDER_NEAR[0] + FOREARM * Math.sin(arm), SHOULDER_NEAR[1] - FOREARM * Math.cos(arm)];
 
     // ---- the look: mount (when riding) -> body + outfit + hat + wings (one baked picture) -> left-hand shield ----
+    const eq = isLocal ? this.player.equipment : (remoteProfile || {});
     const look = isLocal ? {
-      costume: (ITEMS[this.player.equipment.outfit] || {}).costume || 'none',
+      hat: ITEMS[eq.hat], head: ITEMS[eq.head], outfit: ITEMS[eq.outfit],
       shield: this.player.equipment.offhand,
       mount: this.player.equipment.mount,
       riding: this.player.riding
     } : {
-      costume: (remoteProfile && remoteProfile.costume) || 'none',
+      hat: ITEMS[eq.hat], head: ITEMS[eq.head], outfit: ITEMS[eq.outfit],
       shield: remoteProfile && remoteProfile.shield,
       mount: remoteProfile && remoteProfile.mount,
       riding: !!(remoteProfile && remoteProfile.riding && remoteProfile.mount)
@@ -2497,24 +2499,20 @@ export class GameEngine {
         ctx.translate(sx, seatY - 24 + 12);
       }
     }
-    const cost = PLAYER_SPRITES.costumes[look.costume] || PLAYER_SPRITES.costumes.none;
-    const cimg = this.getSheet(`assets/sprites/player/costume_${PLAYER_SPRITES.costumes[look.costume] ? look.costume : 'none'}.png`);
-    if (cimg) {
-      const kb = (PLAYER_BODY_H * (look.riding ? 0.95 : 1)) / PLAYER_SPRITES.bodyHeight;
+    {
+      const kb = (PLAYER_BODY_H * (look.riding ? 0.95 : 1)) / PLAYER_BODY_PX;
       const bob = look.riding ? 0 : Math.abs(legOffset) * 0.22;
       ctx.save();
       ctx.translate(0, -bob);
       ctx.rotate(pose.lean * 0.6);
       if (look.riding && seatY) { ctx.beginPath(); ctx.rect(-80, -120, 160, 120 + 24 - 12 - 3); ctx.clip(); } // legs hidden by the saddle
-      const oi = ITEMS[this.player.equipment.outfit], os = isLocal ? ((oi && oi.scale) || 1) : 1;
-      ctx.translate(isLocal && oi ? (oi.offX || 0) : 0, isLocal && oi ? (oi.offY || 0) : 0);
-      ctx.drawImage(cimg, -cost.fx * kb * os, 24 - cost.fy * kb * os, cost.w * kb * os, cost.h * kb * os);
+      drawLook(ctx, (src) => this.getSheet(src), look, kb);
       ctx.restore();
     }
     const sh = look.shield && ITEMS[look.shield];
     const simg = sh && this.getSheet(`assets/sprites/player/parts/${look.shield}.png`);
     if (simg) {
-      const sm = PLAYER_SPRITES.shields[look.shield];
+      const sm = PLAYER_SPRITES.parts[look.shield];
       const sw = 20 * (sh.scale ?? 1), shh = sw * sm.h / sm.w;
       ctx.drawImage(simg, 5 + (sh.offX || 0) - sw / 2, 3 + (sh.offY || 0) - shh / 2, sw, shh);
     }
