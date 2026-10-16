@@ -181,24 +181,30 @@ export function installPlayerGear(ITEMS) {
   const SEAT = { mount_runner: [0.5, 0.4], mount_wolf: [0.52, 0.3], mount_unicorn: [0.43, 0.3], mount_drake: [0.58, 0.5] };
   // scale / offX / offY / seatX / seatY: how the picture sits on the player (tune them in Studio -> items)
   const add = (it) => {
-    const look = it.type === 'mount' ? { scale: 1, offX: 0, offY: 0, seatX: SEAT[it.id][0], seatY: SEAT[it.id][1] }
+    const look = it.partW ? {} : it.type === 'mount' ? { scale: 1, offX: 0, offY: 0, seatX: SEAT[it.id][0], seatY: SEAT[it.id][1] }
       : it.type === 'shield' ? { scale: 0.8, offX: 0, offY: 3 } : { scale: 1, offX: 0, offY: 0 };
     ITEMS[it.id] = { reqLevel: 1, price: 0, ...look, ...it };
   };
-  // hat + head + outfit are separate pieces (paper-doll, src/player_look.js); wings / cape come with the outfit
-  add({ id: 'hat_helm', name: 'Knight Winged Visor Helm', type: 'hat', hat: 'hat_helm', icon: '🪖', def: 5, hp: 20, price: 250, desc: 'หมวกเกราะอัศวินติดปีกเงิน (ปิดหน้า)' });
-  add({ id: 'hat_wizard', name: 'Wizard Pointed Wide-Brim Hat', type: 'hat', hat: 'hat_wizard', icon: '🧙', def: 2, hp: 15, price: 250, desc: 'หมวกพ่อมดปีกกว้างประดับดาวและขนนก' });
-  add({ id: 'hat_cat', name: 'Cozy Cat Ears Headband', type: 'hat', hat: 'hat_cat', icon: '🐱', def: 1, hp: 10, price: 250, desc: 'ที่คาดผมหูแมวผูกโบว์ชมพู' });
-  add({ id: 'hat_crown', name: 'Royal Crown', type: 'hat', hat: 'hat_crown', icon: '👑', def: 3, hp: 40, price: 600, desc: 'มงกุฎทองประดับอัญมณี' });
-  add({ id: 'head_0', name: 'Round Head (หัวกลม)', type: 'head', head: 'head_0', icon: '🙂', price: 0, desc: 'ทรงหัวเริ่มต้น' });
-  add({ id: 'head_1', name: 'Cheerful Head (หัวร่าเริง)', type: 'head', head: 'head_1', icon: '😊', price: 100, desc: 'ทรงหัวและหน้าแบบที่ 2' });
-  add({ id: 'head_2', name: 'Calm Head (หัวนิ่งสงบ)', type: 'head', head: 'head_2', icon: '😌', price: 100, desc: 'ทรงหัวและหน้าแบบที่ 3' });
-  add({ id: 'head_3', name: 'Sweet Head (หัวใจดี)', type: 'head', head: 'head_3', icon: '🥰', price: 100, desc: 'ทรงหัวและหน้าแบบที่ 4' });
-  add({ id: 'outfit_knight', name: 'Knight Plate + Red Cape (ชุดอัศวิน)', type: 'outfit', outfit: 'outfit_knight', back: 'cape_red', icon: '🛡️', def: 8, hp: 40, price: 400, desc: 'เกราะอัศวินน้ำเงินเงิน + ผ้าคลุมแดง (ไม่รวมหมวก)' });
-  add({ id: 'outfit_ranger', name: 'Emerald Ranger Tunic (ชุดนายพราน)', type: 'outfit', outfit: 'outfit_ranger', back: 'wings_fairy', icon: '🏹', def: 5, hp: 30, price: 400, desc: 'เสื้อหนังเขียวมรกต + ปีกผีเสื้อภูต' });
-  add({ id: 'outfit_sorcerer', name: 'Crimson Sorcerer Robe (ชุดจอมเวท)', type: 'outfit', outfit: 'outfit_sorcerer', back: null, icon: '🔮', def: 4, hp: 25, price: 400, desc: 'ชุดคลุมเวทสีแดงเข้ม' });
-  add({ id: 'outfit_assassin', name: 'Black Shadow Assassin Coat (ชุดนักฆ่าเงา)', type: 'outfit', outfit: 'outfit_assassin', back: 'wings_dragon', icon: '🗡️', def: 6, hp: 30, price: 400, desc: 'เสื้อคลุมดำ + ปีกมังกรค้างคาวม่วง' });
-  add({ id: 'outfit_royal', name: 'Royal Angel Plate (ชุดราชันย์นางฟ้า)', type: 'outfit', outfit: 'outfit_knight', back: 'wings_angel', icon: '👼', def: 10, hp: 60, price: 900, desc: 'เกราะอัศวิน + ปีกนางฟ้าขนนกสีขาว' });
+  // The pieces of the player (paper-doll, src/player_look.js). Each hangs on the base model (135 x 301 px) by
+  //   partW (width) / partX (shift from centre) / partY (hat: bottom edge, head: chin, outfit: bottom, back: centre height)
+  // Tune them per item in Studio -> items (live preview with a ruler).
+  const piece = (type, id, part, name, icon, partW, partY, extra = {}) => add({ id, name, type, part, icon, partW, partX: 0, partY, ...extra });
+  piece('hat', 'hat_helm', 'hat_helm', 'Knight Winged Visor Helm', '🪖', 150, 128, { def: 5, hp: 20, price: 250, desc: 'หมวกเกราะอัศวินติดปีกเงิน (ปิดหน้า)' });
+  piece('hat', 'hat_wizard', 'hat_wizard', 'Wizard Pointed Wide-Brim Hat', '🧙', 200, 70, { def: 2, hp: 15, price: 250, desc: 'หมวกพ่อมดปีกกว้างประดับดาวและขนนก' });
+  piece('hat', 'hat_cat', 'hat_cat', 'Cozy Cat Ears Headband', '🐱', 135, 52, { def: 1, hp: 10, price: 250, desc: 'ที่คาดผมหูแมวผูกโบว์ชมพู' });
+  piece('hat', 'hat_crown', 'hat_crown', 'Royal Crown', '👑', 105, 36, { def: 3, hp: 40, price: 600, desc: 'มงกุฎทองประดับอัญมณี' });
+  piece('head', 'head_0', 'head_0', 'Round Head (หัวกลม)', '🙂', 131, 134, { price: 0, desc: 'ทรงหัวเริ่มต้น' });
+  piece('head', 'head_1', 'head_1', 'Cheerful Head (หัวร่าเริง)', '😊', 131, 134, { price: 100, desc: 'ทรงหัวและหน้าแบบที่ 2' });
+  piece('head', 'head_2', 'head_2', 'Calm Head (หัวนิ่งสงบ)', '😌', 131, 134, { price: 100, desc: 'ทรงหัวและหน้าแบบที่ 3' });
+  piece('head', 'head_3', 'head_3', 'Sweet Head (หัวใจดี)', '🥰', 131, 134, { price: 100, desc: 'ทรงหัวและหน้าแบบที่ 4' });
+  piece('outfit', 'outfit_knight', 'outfit_knight', 'Knight Plate (ชุดอัศวิน)', '🛡️', 128, 303, { def: 8, hp: 40, price: 400, desc: 'เกราะอัศวินน้ำเงินเงิน' });
+  piece('outfit', 'outfit_ranger', 'outfit_ranger', 'Emerald Ranger Tunic (ชุดนายพราน)', '🏹', 134, 303, { def: 5, hp: 30, price: 400, desc: 'เสื้อหนังเขียวมรกต' });
+  piece('outfit', 'outfit_sorcerer', 'outfit_sorcerer', 'Crimson Sorcerer Robe (ชุดจอมเวท)', '🔮', 133, 303, { def: 4, hp: 25, price: 400, desc: 'ชุดคลุมเวทสีแดงเข้ม' });
+  piece('outfit', 'outfit_assassin', 'outfit_assassin', 'Black Shadow Assassin Coat (ชุดนักฆ่าเงา)', '🗡️', 135, 303, { def: 6, hp: 30, price: 400, desc: 'เสื้อคลุมดำของนักฆ่าเงา' });
+  piece('back', 'back_angel', 'wings_angel', 'Radiant White Angel Wings', '🪽', 225, 165, { def: 2, hp: 30, price: 700, desc: 'ปีกนางฟ้าขนนกสีขาว' });
+  piece('back', 'back_dragon', 'wings_dragon', 'Purple Dragon Bat Wings', '🦇', 270, 150, { atk: 3, price: 700, desc: 'ปีกมังกรค้างคาวสีม่วง' });
+  piece('back', 'back_fairy', 'wings_fairy', 'Green Butterfly Fairy Wings', '🦋', 200, 160, { def: 1, hp: 20, price: 700, desc: 'ปีกผีเสื้อภูตสีเขียว' });
+  piece('back', 'back_cape', 'cape_red', 'Flowing Red Knight Cape', '🧣', 150, 215, { def: 3, price: 500, desc: 'ผ้าคลุมอัศวินสีแดง' });
   add({ id: 'shield_lion', name: 'Golden Lion Crest Shield', type: 'shield', icon: '🛡️', def: 6, hp: 20, price: 300, desc: 'โล่ตราสิงโตทอง (มือซ้าย)' });
   add({ id: 'shield_rune', name: 'Magic Rune Buckler', type: 'shield', icon: '🔵', def: 4, hp: 35, price: 300, desc: 'โล่กลมอักษรรูนเรืองแสง (มือซ้าย)' });
   add({ id: 'mount_runner', name: 'Yellow Feathered Runner', type: 'mount', icon: '🐤', speedPct: 40, price: 1200, desc: 'นกวิ่งขนฟูสีทอง สัตว์ขี่ — ความเร็วเดิน +40% (กด R ขึ้นขี่/ลง)' });

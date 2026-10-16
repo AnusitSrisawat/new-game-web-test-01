@@ -11,8 +11,8 @@ function monsterIconHtml(mid, emoji, px) {
   return sp ? `<span style="${spriteStyle(sp, px)}"></span>` : (emoji || '🐾');
 }
 
-const GEAR_TYPES = ['weapon', 'hat', 'head', 'outfit', 'armor', 'shield', 'mount', 'pet'];
-const SLOT_OF_TYPE = { weapon: 'weapon', hat: 'hat', head: 'head', outfit: 'outfit', armor: 'outfit', shield: 'offhand', mount: 'mount', pet: 'pet' };
+const GEAR_TYPES = ['weapon', 'hat', 'head', 'outfit', 'back', 'armor', 'shield', 'mount', 'pet'];
+const SLOT_OF_TYPE = { weapon: 'weapon', hat: 'hat', head: 'head', outfit: 'outfit', back: 'back', armor: 'outfit', shield: 'offhand', mount: 'mount', pet: 'pet' };
 
 const SKILL_ICONS = {
   power_strike: '💥', whirlwind: '🌀', double_shot: '🏹', arrow_rain: '🌧️', fire_bolt: '🔥', frost_nova: '❄️', meteor_fall: '☄️',
@@ -1128,6 +1128,7 @@ export class UIController {
       ${gearRow('🎩 หมวก', ITEMS[this.player.equipment.hat], 'hat')}
       ${gearRow('🙂 หัว', ITEMS[this.player.equipment.head])}
       ${gearRow('🥋 ชุด', ITEMS[this.player.equipment.outfit], 'outfit')}
+      ${gearRow('🪽 ปีก / ผ้าคลุม', ITEMS[this.player.equipment.back], 'back')}
       ${gearRow('✋ มือขวา (อาวุธ)', weapon)}
       ${gearRow('🛡️ มือซ้าย (โล่)', ITEMS[this.player.equipment.offhand], 'offhand')}
       ${gearRow('🐾 สัตว์เลี้ยง', ITEMS[this.player.equipment.pet], 'pet')}
@@ -1166,7 +1167,7 @@ export class UIController {
         }
         return row(label, f === 'lootSpeed' ? `x${v}` : f === 'speedPct' ? `+${v}%` : `+${v}`, extra);
       }).join('');
-      const typeLabel = { weapon: 'อาวุธ (มือขวา)', hat: 'หมวก', head: 'หัว', outfit: 'ชุด', shield: 'โล่ (มือซ้าย)', mount: 'สัตว์ขี่', pet: 'สัตว์เลี้ยง (Pet)', consumable: 'ของใช้', material: 'วัสดุ' }[item.type] || '';
+      const typeLabel = { weapon: 'อาวุธ (มือขวา)', hat: 'หมวก', head: 'หัว', outfit: 'ชุด', back: 'ปีก / ผ้าคลุม', shield: 'โล่ (มือซ้าย)', mount: 'สัตว์ขี่', pet: 'สัตว์เลี้ยง (Pet)', consumable: 'ของใช้', material: 'วัสดุ' }[item.type] || '';
       const lv = item.reqLevel > 1 ? row('เลเวลที่ต้องการ', `Lv.${item.reqLevel}`, '') .replace('<span style="text-align:right; font-weight:600;">', `<span style="text-align:right; font-weight:600; color:${this.player.baseLevel >= item.reqLevel ? '#e2e8f0' : '#ef4444'};">`) : '';
       const hint = isGear ? (curId === k ? '<div style="color:#4ade80; margin-top:4px;">สวมอยู่</div>' : '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อสวมใส่</div>')
         : (item.type === 'consumable' ? '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อใช้</div>' : '');

@@ -535,25 +535,43 @@
   function gearPreview(id) {
     const info = state.itemsInfo?.[id];
     const type = info?.type;
-    if (!['hat', 'head', 'outfit', 'shield', 'mount'].includes(type)) return null;
-    const cv = h('canvas', { width: 260, height: 190, class: 'gearprev' });
+    if (!['hat', 'head', 'outfit', 'back', 'shield', 'mount'].includes(type)) return null;
+    const isPiece = ['hat', 'head', 'outfit', 'back'].includes(type);
+    const cv = h('canvas', { width: isPiece ? 300 : 260, height: isPiece ? 400 : 190, class: 'gearprev' });
     const v = (k, d) => { const x = Number(valueOf('items', id, k)); return Number.isFinite(x) ? x : d; };
     // this item with the values being edited (not saved yet) + its fixed part ids from the server
     const live = (iid) => {
       const base = state.itemsInfo[iid] || {};
       const o = { ...base };
-      for (const k of ['scale', 'offX', 'offY', 'seatX', 'seatY']) { const x = Number(valueOf('items', iid, k)); if (Number.isFinite(x)) o[k] = x; }
+      for (const k of ['scale', 'offX', 'offY', 'seatX', 'seatY', 'partW', 'partX', 'partY']) { const x = Number(valueOf('items', iid, k)); if (Number.isFinite(x)) o[k] = x; }
       return o;
     };
     const draw = async () => {
       const PS = (await import('/src/player_sprites.js')).PLAYER_SPRITES;
       const { drawLook } = await import('/src/player_look.js');
-      const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, 260, 190);
-      ctx.fillStyle = '#7fb069'; ctx.fillRect(0, 0, 260, 190);
+      const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.fillStyle = '#7fb069'; ctx.fillRect(0, 0, cv.width, cv.height);
+      if (isPiece) {
+        // base model + this piece, with a ruler in base-model pixels (y = 0 is the top of the head, 301 = the feet)
+        const S = 0.95, cx = 150, feetY = 385, yOf = (by) => feetY + (by - 301) * S;
+        ctx.font = '10px sans-serif'; ctx.textBaseline = 'middle';
+        for (let by = -100; by <= 300; by += 50) {
+          ctx.strokeStyle = by === 0 || by === 134 || by === 301 ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.28)';
+          ctx.beginPath(); ctx.moveTo(26, yOf(by)); ctx.lineTo(cv.width, yOf(by)); ctx.stroke();
+          ctx.fillStyle = '#fff'; ctx.fillText(String(by), 2, yOf(by));
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.fillText('คาง=134', 215, yOf(134) - 7); ctx.fillText('เท้า=301', 215, yOf(301) - 7);
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, cv.height); ctx.stroke(); ctx.setLineDash([]);
+        const me = live(id);
+        const look = { back: type === 'back' ? me : null, outfit: type === 'outfit' ? me : null, head: type === 'head' ? me : null, hat: type === 'hat' ? me : null };
+        ctx.save(); ctx.translate(cx + 1, feetY - 24 * S); ctx.scale(S, S);
+        drawLook(ctx, (src) => { const im = loadImg('/' + src); return im.complete && im.naturalWidth ? im : null; }, look, 1);
+        ctx.restore();
+        return;
+      }
       const U = 2.4, cx = 130, gy = 150, kb = 58 / 301 * U;     // world unit -> px
-      const look = { hat: null, head: { head: 'head_0' }, outfit: { outfit: 'outfit_knight', back: 'cape_red' } };
-      const me = live(id);
-      if (type === 'hat') look.hat = me; else if (type === 'head') look.head = me; else if (type === 'outfit') look.outfit = me;
+      const look = { hat: null, head: null, back: null, outfit: { part: 'outfit_knight', partW: 128, partY: 303 } };
       let rx = cx, ry = gy;
       if (type === 'mount') {
         const ms = PS.mounts[id], img = loadImg(`/assets/sprites/mounts/${id}.png`);
@@ -588,7 +606,7 @@
         h('h3', {}, valueOf('items', id, 'name'), h('small', {}, id)),
         prev ? h('div', { class: 'hint' }, 'ตัวอย่างบนตัวละคร (ปรับค่าแล้วภาพขยับตามทันที)') : null,
         prev ? prev.cv : null,
-        h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'heal', 'reqLevel', 'lootSpeed', 'speedPct', 'scale', 'offX', 'offY', 'seatX', 'seatY', 'desc']))
+        h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'heal', 'reqLevel', 'lootSpeed', 'speedPct', 'partW', 'partX', 'partY', 'scale', 'offX', 'offY', 'seatX', 'seatY', 'desc']))
       );
       if (prev) { card.addEventListener('input', () => setTimeout(prev.redraw, 0)); card.addEventListener('change', () => setTimeout(prev.redraw, 0)); }
       return card;
