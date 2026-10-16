@@ -598,7 +598,12 @@ function handleCommand(ws, p, text) {
   const [cmdRaw, ...args] = text.slice(1).split(/\s+/);
   const cmd = (cmdRaw || '').toLowerCase();
   if (cmd === 'help') {
-    sysMsg(ws, '📖 คำสั่ง: /help • /gm <รหัส> • (GM) /buffserver [exp|gold|drop|monster] <ตัวคูณ> • /buffserver reset • /give gold|exp|item|book|pet … • /giveweapons [ประเภท] • /level <n> • /points <n> • /heal • /warp <แมพ> • /announce <ข้อความ>');
+    sysMsg(ws, '📖 คำสั่ง: /help • /reset (เริ่มใหม่ทั้งหมด) • /gm <รหัส> • (GM) /buffserver [exp|gold|drop|monster] <ตัวคูณ> • /buffserver reset • /give gold|exp|item|book|pet … • /giveweapons [ประเภท] • /level <n> • /points <n> • /heal • /warp <แมพ> • /announce <ข้อความ>');
+    return true;
+  }
+  if (cmd === 'reset') {
+    // Any player: wipe own item/level/stat progress and restart as a new character
+    safeSend(ws, { type: 'reset_player' });
     return true;
   }
   if (cmd === 'gm') {

@@ -189,6 +189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // insert = text put in the box; done = full command (Enter then sends it)
   const CMD_LIST = [
     { insert: '/help', done: true, label: '/help', desc: 'แสดงรายการคำสั่ง' },
+    { insert: '/reset', done: true, label: '/reset', desc: 'รีเซ็ตไอเท็ม เลเวล สเตตัส เริ่มใหม่ทั้งหมด' },
     { insert: '/gm ', label: '/gm <รหัส>', desc: 'เข้าโหมด GM' },
     { insert: '/buffserver', done: true, label: '/buffserver', desc: 'ดูบัฟเซิร์ฟเวอร์ตอนนี้ (GM)' },
     { insert: '/buffserver exp ', label: '/buffserver exp <ตัวคูณ>', desc: 'EXP ทั้งเซิร์ฟเวอร์ (GM)' },
