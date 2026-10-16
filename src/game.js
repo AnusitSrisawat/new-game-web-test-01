@@ -975,13 +975,14 @@ export class GameEngine {
         if (k >= 1) { o.state = 'wait'; o.t = 0; }
       } else if (o.state === 'wait') {
         o.t += dt;
-        if (o.t >= o.delay) o.state = 'fly';
+        if (o.t >= o.delay / this.player.petLootSpeed) o.state = 'fly';
       } else {
-        o.speed += 900 * dt;
+        const ls = this.player.petLootSpeed; // equipped pet: faster collecting
+        o.speed += 900 * ls * dt;
         const dx = pl.x - o.x;
         const dy = (pl.y - 12) - o.y;
         const d = Math.hypot(dx, dy);
-        const step = o.speed * dt;
+        const step = o.speed * ls * dt;
         if (d <= step + 8) {
           this.collectLootOrb(o);
           this.lootOrbs.splice(i, 1);

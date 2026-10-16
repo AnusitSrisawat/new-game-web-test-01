@@ -411,6 +411,12 @@ export class Player {
     return it ? it.monsterId : null;
   }
 
+  // Pet loot speed multiplier (1 = no pet): loot flies to you sooner and faster
+  get petLootSpeed() {
+    const it = this.equipment.pet && ITEMS[this.equipment.pet];
+    return it && it.lootSpeed > 1 ? it.lootSpeed : 1;
+  }
+
   unequip(slot) {
     if (slot === 'weapon' || !(slot in this.equipment)) return false;
     this.equipment[slot] = null;

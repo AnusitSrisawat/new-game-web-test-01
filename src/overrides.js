@@ -94,6 +94,7 @@ export const SCHEMA = {
       hp: num('HP', 0, 1000000),
       heal: num('ฟื้น HP', 0, 1000000),
       reqLevel: num('เลเวลที่ต้องการ', 1, 999),
+      lootSpeed: num('ความเร็วเก็บของของ Pet (x, 1 = ปกติ)', 1, 50, 0.01),
       desc: text('คำอธิบาย', 200)
     }
   },

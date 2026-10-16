@@ -143,6 +143,8 @@ export function applyFacing(MONSTERS) {
 //  - every monster gets a pet chance + a relic chance (rolled SEPARATELY from the normal drop table; default 0.1% each)
 //  - every monster gets a relic of its own (generated when data.js has none for it)
 //  - the normal table is one roll, so its chances may not add up to more than 100%
+// Pet loot speed (x): 1 = no pet. Level 1 monster = x1.06, level 10 = x1.6, level 40 = x3.4  (formula: 1 + 0.06 × level)
+export const petLootSpeed = (level) => Math.round((1 + 0.06 * level) * 100) / 100;
 export const DEFAULT_PET_CHANCE = 0.001;
 export const DEFAULT_RELIC_CHANCE = 0.001;
 export function finishDrops({ MONSTERS, RELICS, ITEMS }) {
@@ -153,7 +155,8 @@ export function finishDrops({ MONSTERS, RELICS, ITEMS }) {
     if (m.relicChance === undefined) m.relicChance = DEFAULT_RELIC_CHANCE;
     // a pet is an item (type 'pet', looks like the monster) that is worn in the pet slot
     ITEMS[`pet_${mid}`] = { id: `pet_${mid}`, name: `Pet: ${m.name}`, type: 'pet', monsterId: mid, price: 200 + m.level * 40, icon: m.emoji || '🐾',
-      desc: `สัตว์เลี้ยงหน้าตาเหมือน ${m.name} — สวมใส่ที่ช่อง Pet แล้วจะเดินตามผู้เล่น` };
+      lootSpeed: petLootSpeed(m.level), // loot-collecting speed: higher level monster = faster pet
+      desc: `สัตว์เลี้ยงหน้าตาเหมือน ${m.name} — สวมใส่ที่ช่อง Pet แล้วจะเดินตามผู้เล่นและช่วยเก็บของ (ยิ่งมอนสเตอร์เลเวลสูง ยิ่งเก็บเร็ว)` };
     if (!Object.values(RELICS).some(r => r.monsterId === mid)) {
       const stat = STAT_CYCLE[n++ % 3];
       const amount = stat === 'hp' ? m.level * 12 : Math.max(1, Math.ceil(m.level * (stat === 'atk' ? 0.8 : 0.6)));

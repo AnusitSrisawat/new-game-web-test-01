@@ -1072,7 +1072,7 @@ export class UIController {
         <div style="font-size:0.85rem;">
           <div style="color:#94a3b8; font-size:0.72rem;">${label}</div>
           <div style="font-weight:700;">${it ? it.name : 'ไม่มี'}</div>
-          ${it ? `<div style="color:#fde68a;">${it.atk ? `ATK +${it.atk}` : ''}${it.atk && it.def ? ' · ' : ''}${it.def ? `DEF +${it.def}` : ''}</div>` : ''}
+          ${it ? `<div style="color:#fde68a;">${it.atk ? `ATK +${it.atk}` : ''}${it.atk && it.def ? ' · ' : ''}${it.def ? `DEF +${it.def}` : ''}${it.lootSpeed ? `⚡ เก็บของ x${it.lootSpeed}` : ''}</div>` : ''}
           ${it && it.desc ? `<div style="color:#94a3b8; font-size:0.72rem;">${it.desc}</div>` : ''}
           ${it && slot ? `<button class="btn-unequip" data-slot="${slot}" style="margin-top:4px; padding:2px 10px; border:none; border-radius:4px; background:#64748b; color:#fff; cursor:pointer; font-size:0.72rem;">ถอด</button>` : ''}
         </div>
@@ -1101,7 +1101,7 @@ export class UIController {
       document.body.appendChild(tip);
     }
     tip.style.display = 'none';
-    const STAT_ROWS = [['atk', 'ATK'], ['def', 'DEF'], ['heal', 'HP ฟื้นฟู'], ['sp', 'SP ฟื้นฟู']];
+    const STAT_ROWS = [['atk', 'ATK'], ['def', 'DEF'], ['heal', 'HP ฟื้นฟู'], ['sp', 'SP ฟื้นฟู'], ['lootSpeed', 'เก็บของ']];
     const row = (label, val, extra = '') => `<div style="display:grid; grid-template-columns:78px 1fr; gap:6px; padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.06);"><span style="color:#94a3b8;">${label}</span><span style="text-align:right; font-weight:600;">${val}${extra}</span></div>`;
     const panel = (title, inner, border) => `<div style="min-width:170px; max-width:220px; padding:8px 10px; background:rgba(15,23,42,0.97); border:1px solid ${border}; border-radius:8px;">${title}${inner}</div>`;
     const tipHtml = (k) => {
@@ -1117,7 +1117,7 @@ export class UIController {
           const d = v - (other[f] || 0);
           if (d !== 0) extra = ` <span style="color:${d > 0 ? '#4ade80' : '#f87171'};">(${d > 0 ? '+' : ''}${d})</span>`;
         }
-        return row(label, `+${v}`, extra);
+        return row(label, f === 'lootSpeed' ? `x${v}` : `+${v}`, extra);
       }).join('');
       const typeLabel = { weapon: 'อาวุธ', armor: 'เกราะ', pet: 'สัตว์เลี้ยง (Pet)', consumable: 'ของใช้', material: 'วัสดุ' }[item.type] || '';
       const lv = item.reqLevel > 1 ? row('เลเวลที่ต้องการ', `Lv.${item.reqLevel}`, '') .replace('<span style="text-align:right; font-weight:600;">', `<span style="text-align:right; font-weight:600; color:${this.player.baseLevel >= item.reqLevel ? '#e2e8f0' : '#ef4444'};">`) : '';
@@ -1212,7 +1212,7 @@ export class UIController {
           ${drops || '<div style="color:#64748b;">ไม่มี</div>'}
           <div style="display:flex;gap:6px;"><span style="flex:1;color:#94a3b8;">🚫 ไม่ดรอป</span><b>${pct(Math.max(0, 1 - total))}</b></div>
           <div style="margin:6px 0 2px;color:#94a3b8;">✨ สุ่มแยก</div>
-          <div style="display:flex;gap:6px;"><span style="flex:1;">🐾 Pet ${esc(m.name)}</span><b style="color:#ec4899;">${pct(m.petChance || 0)}</b></div>
+          <div style="display:flex;gap:6px;"><span style="flex:1;">🐾 Pet ${esc(m.name)} <span style="color:#94a3b8;">(เก็บของ x${ITEMS['pet_' + id]?.lootSpeed || 1})</span></span><b style="color:#ec4899;">${pct(m.petChance || 0)}</b></div>
           ${relic ? `<div style="display:flex;gap:6px;"><span style="flex:1;">${relic.icon} ${esc(relic.name)} <span style="color:#94a3b8;">(${esc(relic.bonusText || '')})</span></span><b style="color:#a855f7;">${pct(m.relicChance || 0)}</b></div>` : ''}
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">🗺️ ${mapBtns}</div>
         </div></div>`;
