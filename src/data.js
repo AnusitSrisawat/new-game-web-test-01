@@ -267,7 +267,7 @@ export const RELICS = {
   relic_slime_heart: {
     id: 'relic_slime_heart',
     monsterId: 'slime',
-    name: '🫧 Royal Slime Heart Reliquary',
+    name: 'Royal Slime Heart Reliquary',
     desc: 'จอกแก้วทองคำบรรจุผลึกหัวใจสไลม์สีครามบริสุทธิ์ เปล่งประกายพลังชีวิตและความยืดหยุ่น',
     icon: '🫧',
     statBonus: { hp: 100 },
@@ -276,7 +276,7 @@ export const RELICS = {
   relic_amber_queen_brooch: {
     id: 'relic_amber_queen_brooch',
     monsterId: 'forest_hornet',
-    name: '🐝 Amber Queen Brooch',
+    name: 'Amber Queen Brooch',
     desc: 'เข็มกลัดอำพันโบราณล้อมลายปีกผึ้งทองคำ กักเก็บพลังแห่งความเร็วและการโจมตีที่แม่นยำ',
     icon: '🐝',
     statBonus: { atk: 10, aspd: 0.04 },
@@ -285,7 +285,7 @@ export const RELICS = {
   relic_carrot_charm: {
     id: 'relic_carrot_charm',
     monsterId: 'horned_rabbit',
-    name: '🌙 Lunar Rabbit Jade Talisman',
+    name: 'Lunar Rabbit Jade Talisman',
     desc: 'เครื่องรางหยกพระจันทร์เสี้ยวประดับใบโคลเวอร์สี่แฉกและผนึกกระต่าย เพิ่มโชคและความคล่องตัว',
     icon: '🐇',
     statBonus: { atk: 12, aspd: 0.05, critRate: 0.03 },
@@ -294,7 +294,7 @@ export const RELICS = {
   relic_golem_heart: {
     id: 'relic_golem_heart',
     monsterId: 'mossy_golem',
-    name: '🗿 Primordial Earth Titan Rune',
+    name: 'Primordial Earth Titan Rune',
     desc: 'แผ่นศิลาอักขระไททันปฐพีโบราณ รัดแถบสำริดสลักรูนเขียวเรืองแสง มอบความทนทานดั่งขุนเขา',
     icon: '🗿',
     statBonus: { def: 35, hp: 500 },
@@ -305,7 +305,7 @@ export const RELICS = {
   relic_alpha_eye: {
     id: 'relic_alpha_eye',
     monsterId: 'forest_wolf',
-    name: '🐺 Silver Moon Alpha Medallion',
+    name: 'Silver Moon Alpha Medallion',
     desc: 'เหรียญเงินจันทราเสี้ยวสลักรูปหมาป่าหอน ประดับอัญมณีดวงตาสีไพลินเรืองแสง มองทะลุจุดตายศัตรู',
     icon: '🐺',
     statBonus: { atk: 25, critRate: 0.06 },
@@ -314,7 +314,7 @@ export const RELICS = {
   relic_boar_crest: {
     id: 'relic_boar_crest',
     monsterId: 'wild_boar',
-    name: '🐗 Crest of the Primal Behemoth',
+    name: 'Crest of the Primal Behemoth',
     desc: 'ตราศึกสำริดประดับเขี้ยวหมูป่าทองคำและทับทิมโลหิต มอบพลังการบุกทะลวงและพลังกายดุดัน',
     icon: '🐗',
     statBonus: { atk: 18, def: 15, hp: 300 },
@@ -323,7 +323,7 @@ export const RELICS = {
   relic_ouroboros_viper: {
     id: 'relic_ouroboros_viper',
     monsterId: 'jungle_viper',
-    name: '🐍 Ouroboros Emerald Idol',
+    name: 'Ouroboros Emerald Idol',
     desc: 'เทวรูปทองคำรูปงูขดคาบหยดมรกตพิษบริสุทธิ์ เสริมพลังโจมตีรวดเร็วและอันตราย',
     icon: '🐍',
     statBonus: { atk: 32, aspd: 0.06 },
@@ -332,7 +332,7 @@ export const RELICS = {
   relic_ursa_totem: {
     id: 'relic_ursa_totem',
     monsterId: 'claw_bear',
-    name: '🐻 Ursa Major Star Totem',
+    name: 'Ursa Major Star Totem',
     desc: 'โทเทมไม้สักทองแกะสลักรูปพญาหมี ฝังอัญมณีประกายดาวฤกษ์ มอบพละกำลังอันมหาศาล',
     icon: '🐻',
     statBonus: { atk: 36, hp: 600 },
@@ -343,7 +343,7 @@ export const RELICS = {
   relic_shadow_cameo: {
     id: 'relic_shadow_cameo',
     monsterId: 'bandit_rogue',
-    name: '🥷 Phantom Cameo of the Shadow',
+    name: 'Phantom Cameo of the Shadow',
     desc: 'จี้เหรียญเงินรมดำแกะสลักหน้ากากเงาลึกลับ เรืองแสงไอเวทสีม่วง ช่วยหลบหลีกและจู่โจมจุดตาย',
     icon: '🥷',
     statBonus: { atk: 35, critRate: 0.07 },
@@ -352,7 +352,7 @@ export const RELICS = {
   relic_falcon_astrolabe: {
     id: 'relic_falcon_astrolabe',
     monsterId: 'bandit_archer',
-    name: '🏹 Falcon Eye Astrolabe',
+    name: 'Falcon Eye Astrolabe',
     desc: 'อุปกรณ์ดาราศาสตร์สำริดทองเหลืองเลนส์คริสตัล ประดับขนนกอินทรี เพิ่มระยะเล็งและความเร็วโจมตี',
     icon: '🏹',
     statBonus: { atk: 40, aspd: 0.07 },
@@ -361,7 +361,7 @@ export const RELICS = {
   relic_titan_knuckle_seal: {
     id: 'relic_titan_knuckle_seal',
     monsterId: 'bandit_brute',
-    name: '💪 Iron Titan Knuckle Seal',
+    name: 'Iron Titan Knuckle Seal',
     desc: 'แท่นหินเหล็กกล้าฝังหนามสลักอักขระรูนโลหิตสีแดง มอบพลังโจมตีทำลายล้างและการป้องกัน',
     icon: '💪',
     statBonus: { atk: 45, def: 30, hp: 500 },
@@ -370,7 +370,7 @@ export const RELICS = {
   relic_pirate_sovereign_brooch: {
     id: 'relic_pirate_sovereign_brooch',
     monsterId: 'bandit_leader',
-    name: '🏴‍☠️ Pirate Sovereign Brooch',
+    name: 'Pirate Sovereign Brooch',
     desc: 'เข็มกลัดทองคำแท้ลวดลายดาบไขว้หัวกะโหลกสวมมงกุฎทับทิม อภิมหาสมบัติของผู้นำกองโจร',
     icon: '🏴‍☠️',
     statBonus: { atk: 55, critRate: 0.05, hp: 750 },
@@ -381,7 +381,7 @@ export const RELICS = {
   relic_goblin_badge: {
     id: 'relic_goblin_badge',
     monsterId: 'goblin_scout',
-    name: '🪙 Cunning Clockwork Goblin Idol',
+    name: 'Cunning Clockwork Goblin Idol',
     desc: 'หุ่นกลโบราณรูปก็อบลินถือเหรียญทองอัญมณีมรกต เพิ่มการหาเงินและพละกำลัง',
     icon: '🎖️',
     statBonus: { atk: 45, hp: 450, goldBonus: 0.15 },
@@ -390,7 +390,7 @@ export const RELICS = {
   relic_brimstone_censer: {
     id: 'relic_brimstone_censer',
     monsterId: 'fire_imp',
-    name: '😈 Brimstone Infernal Censer',
+    name: 'Brimstone Infernal Censer',
     desc: 'กระถางกำยานห้อยสายโซ่ทองคำ กักขังเปลวเพลิงเวทสีม่วงที่ไม่มีวันมอดดับ มอบพลังทำลายล้าง',
     icon: '😈',
     statBonus: { atk: 58, aspd: 0.06 },
@@ -399,7 +399,7 @@ export const RELICS = {
   relic_heart_of_forest: {
     id: 'relic_heart_of_forest',
     monsterId: 'treant',
-    name: '🌲 Golden Seed of Yggdrasil',
+    name: 'Golden Seed of Yggdrasil',
     desc: 'เมล็ดพันธุ์ทองคำเรืองแสงในอ้อมกอดของรากไม้เงินศักดิ์สิทธิ์ มอบพลังฟื้นฟูและความทนทาน',
     icon: '💚',
     statBonus: { def: 60, hp: 1200 },
@@ -408,7 +408,7 @@ export const RELICS = {
   relic_pandora_mimic_lock: {
     id: 'relic_pandora_mimic_lock',
     monsterId: 'chest_mimic',
-    name: '🧰 Pandora Gilded Mimic Lock',
+    name: 'Pandora Gilded Mimic Lock',
     desc: 'กล่องกลไกทองคำโบราณสลักลวดลายคมเขี้ยว ฝังดวงตาสีม่วงอมตะของมิมิค นำโชคลาภและการโจมตีคริติคอล',
     icon: '🧰',
     statBonus: { atk: 65, critRate: 0.08 },
@@ -419,7 +419,7 @@ export const RELICS = {
   relic_void_gazer_sphere: {
     id: 'relic_void_gazer_sphere',
     monsterId: 'floating_eye',
-    name: '👁️ Celestial Void Gazer Sphere',
+    name: 'Celestial Void Gazer Sphere',
     desc: 'วงแหวนไจโรสโคปทองคำกักขังทรงกลมเนตรจักรวาลและละอองเนบิวลา มองเห็นจุดอ่อนทุกมิติ',
     icon: '👁️',
     statBonus: { atk: 70, critRate: 0.08 },
@@ -428,7 +428,7 @@ export const RELICS = {
   relic_phantom_aegis: {
     id: 'relic_phantom_aegis',
     monsterId: 'spectral_armor',
-    name: '🛡️ Aegis of the Phantom Sovereign',
+    name: 'Aegis of the Phantom Sovereign',
     desc: 'โล่เงินสลักอักขระเวทโบราณล้อมปีกเทวา เรืองแสงเพลิงวิญญาณสีฟ้า ป้องกันการโจมตีรอบด้าน',
     icon: '🛡️',
     statBonus: { def: 80, hp: 1400 },
@@ -437,7 +437,7 @@ export const RELICS = {
   relic_mycelium_chalice: {
     id: 'relic_mycelium_chalice',
     monsterId: 'mushroom_sporeling',
-    name: '🍄 Chalice of the Fungal Goddess',
+    name: 'Chalice of the Fungal Goddess',
     desc: 'จอกศิลาแกะสลักโบราณที่เห็ดเรืองแสงสีฟ้าครามผลิบานตลอดกาล มอบพลังชีวิตอันมหาศาล',
     icon: '🍄',
     statBonus: { def: 50, hp: 1500 },
@@ -446,7 +446,7 @@ export const RELICS = {
   relic_solar_dragon_egg: {
     id: 'relic_solar_dragon_egg',
     monsterId: 'baby_fire_wyrm',
-    name: '🐲 Solar Hearth Dragon Egg',
+    name: 'Solar Hearth Dragon Egg',
     desc: 'ไข่มังกรทองคำฝังเกล็ดทับทิมล้อมรอบด้วยเปลวไฟศักดิ์สิทธิ์ ปลดปล่อยพลังโจมตีและชีวิต',
     icon: '🐲',
     statBonus: { atk: 90, hp: 1000 },
@@ -457,7 +457,7 @@ export const RELICS = {
   relic_vanguard_crest: {
     id: 'relic_vanguard_crest',
     monsterId: 'skeleton_warrior',
-    name: '💀 Crest of the Fallen Vanguard',
+    name: 'Crest of the Fallen Vanguard',
     desc: 'ตราศึกดาบคู่สลักหัวกะโหลกสวมมงกุฎ บ่งบอกถึงเกียรติยศและพลังโจมตีของผู้ไม่ยอมจำนน',
     icon: '💀',
     statBonus: { atk: 88, def: 65 },
@@ -466,7 +466,7 @@ export const RELICS = {
   relic_banshee_harp: {
     id: 'relic_banshee_harp',
     monsterId: 'skeleton_archer',
-    name: '🏹 Banshee Bone Harp',
+    name: 'Banshee Bone Harp',
     desc: 'พิณแกะสลักจากงาช้างโบราณ ขึงด้วยสายเพลิงวิญญาณสีเขียว บรรเลงเสียงแห่งความเร็วอันไร้เสียงสะท้อน',
     icon: '🏹',
     statBonus: { atk: 95, aspd: 0.08 },
@@ -475,7 +475,7 @@ export const RELICS = {
   relic_lich_archon_orb: {
     id: 'relic_lich_archon_orb',
     monsterId: 'skeleton_mage',
-    name: '🧙 Lich Archon Soul Sphere',
+    name: 'Lich Archon Soul Sphere',
     desc: 'หัวคทากระดูกโบราณโอบอุ้มลูกแก้ววิญญาณสีฟ้าคราม สลักอักขระต้องห้ามแห่งความตาย',
     icon: '🧙',
     statBonus: { atk: 110, critRate: 0.09 },
@@ -484,7 +484,7 @@ export const RELICS = {
   relic_death_knight_crown: {
     id: 'relic_death_knight_crown',
     monsterId: 'skeleton_knight',
-    name: '⚔️ Crown of the Dread Death Knight',
+    name: 'Crown of the Dread Death Knight',
     desc: 'มงกุฎเหล็กดำปลายแหลมฝังไพลินแห่งความมืด มอบพลังป้องกันและพลังกายสูงสุดของขุนศึกยมโลก',
     icon: '⚔️',
     statBonus: { atk: 70, def: 110, hp: 2000 },
@@ -627,7 +627,7 @@ export const CRAFTING_RECIPES = [
 export const GACHA_COSTUMES = [
   {
     id: 'costume_cat_ears',
-    name: '🐾 Cozy Cat Ears (หูแมวอบอุ่น)',
+    name: 'Cozy Cat Ears (หูแมวอบอุ่น)',
     slot: 'head',
     rarity: 'Rare',
     rate: 0.25,
@@ -637,7 +637,7 @@ export const GACHA_COSTUMES = [
   },
   {
     id: 'costume_straw_hat',
-    name: '👒 Farmer Straw Hat (หมวกฟางชิลๆ)',
+    name: 'Farmer Straw Hat (หมวกฟางชิลๆ)',
     slot: 'head',
     rarity: 'Common',
     rate: 0.35,
@@ -647,7 +647,7 @@ export const GACHA_COSTUMES = [
   },
   {
     id: 'costume_sakura_kimono',
-    name: '🌸 Blossom Haori (ฮาโอริซากุระ)',
+    name: 'Blossom Haori (ฮาโอริซากุระ)',
     slot: 'body',
     rarity: 'Epic',
     rate: 0.18,
@@ -657,7 +657,7 @@ export const GACHA_COSTUMES = [
   },
   {
     id: 'costume_angel_wings',
-    name: '🪽 Seraph Wings (ปีกเทวทูตเรืองรอง)',
+    name: 'Seraph Wings (ปีกเทวทูตเรืองรอง)',
     slot: 'back',
     rarity: 'Epic',
     rate: 0.14,
@@ -667,7 +667,7 @@ export const GACHA_COSTUMES = [
   },
   {
     id: 'costume_celestial_blade',
-    name: '🌌 Starlight Katana (คาตานะละอองดาว)',
+    name: 'Starlight Katana (คาตานะละอองดาว)',
     slot: 'weapon_skin',
     rarity: 'Legendary',
     rate: 0.08,
