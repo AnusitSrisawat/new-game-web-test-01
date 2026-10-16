@@ -65,12 +65,8 @@ export function installCatalog({ MONSTERS, ITEMS, MONSTER_AI }) {
     ITEMS[id] = { id, name, price, icon, type: 'material', desc: extra.desc || `วัตถุดิบดรอปจากมอนสเตอร์ ขายหรือเก็บไว้คราฟต์ได้`, ...extra };
   };
 
-  // a relic that is also on the sheet keeps its own (rarer) chance instead of appearing twice
-  const dropsFor = (m, itemIds) => {
-    const relics = (m.drops || []).filter(d => d.isRelic);
-    return itemIds.filter(id => !relics.some(r => r.itemId === id)).map(id => ({ itemId: id, chance: CHANCES[itemIds.indexOf(id)] }))
-      .concat(relics);
-  };
+  // exactly 3 normal drops per monster (the 3 pictures on the item sheet)
+  const dropsFor = (m, itemIds) => itemIds.map((id, i) => ({ itemId: id, chance: CHANCES[i] }));
 
   for (const nm of NEW_MONSTERS) {
     const s = stats(nm.level);

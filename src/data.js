@@ -106,7 +106,7 @@ export const MONSTERS = {
     drops: [
       { itemId: 'sticky_mucus', chance: 0.8 },
       { itemId: 'apple', chance: 0.4 },
-      { itemId: 'relic_slime_core', chance: 0.05, isRelic: true } // 5% chance in demo
+      { itemId: 'relic_slime_heart', chance: 0.05, isRelic: true } // 5% chance in demo
     ]
   },
   horned_rabbit: {
@@ -121,7 +121,7 @@ export const MONSTERS = {
     drops: [
       { itemId: 'rabbit_fluff', chance: 0.7 },
       { itemId: 'small_horn', chance: 0.4 },
-      { itemId: 'relic_golden_carrot', chance: 0.04, isRelic: true }
+      { itemId: 'relic_carrot_charm', chance: 0.04, isRelic: true }
     ]
   },
   wild_boar: {
@@ -251,8 +251,8 @@ export const ITEMS = {
 
 // Rare Unique Relics (1 from each monster) - Collected in the Treasure Compendium for Permanent Stat Buffs
 export const RELICS = {
-  relic_slime_core: {
-    id: 'relic_slime_core',
+  relic_slime_heart: {
+    id: 'relic_slime_heart',
     monsterId: 'slime',
     name: '🫧 Pure Slime Core',
     desc: 'แก่นหัวใจสไลม์บริสุทธิ์ ให้ความยืดหยุ่นแก่ร่างกาย',
@@ -260,8 +260,8 @@ export const RELICS = {
     statBonus: { hp: 80 },
     bonusText: '+80 Max HP ถาวร'
   },
-  relic_golden_carrot: {
-    id: 'relic_golden_carrot',
+  relic_carrot_charm: {
+    id: 'relic_carrot_charm',
     monsterId: 'horned_rabbit',
     name: '🥕 Horned Rabbit Lucky Charm',
     desc: 'เครื่องรางกระต่ายมีเขา เพิ่มความคล่องตัวและโชคชะตา',
@@ -305,8 +305,8 @@ export const RELICS = {
     statBonus: { goldBonus: 0.1, atk: 15 },
     bonusText: '+15 ATK, +10% Gold Drop ถาวร'
   },
-  relic_golem_core: {
-    id: 'relic_golem_core',
+  relic_golem_heart: {
+    id: 'relic_golem_heart',
     monsterId: 'mossy_golem',
     name: '🪨 Unbreakable Rune Core',
     desc: 'แกนกลางหินรูน ไร้ความเสียหายจากอาวุธทั่วไป',

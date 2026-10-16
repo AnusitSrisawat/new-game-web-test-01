@@ -461,6 +461,9 @@ export class Player {
         const keep = ['name', 'baseLevel', 'baseExp', 'statPoints', 'gold', 'gachaTokens', 'inventory',
           'costumes', 'unlockedCostumes', 'collectedRelics', 'pets', 'activePet', 'questProgress', 'hpPotionSlot', 'spPotionSlot', 'learnedSkills', 'skillBooks', 'autoBattle'];
         keep.forEach(k => { if (d[k] !== undefined) this[k] = d[k]; });
+        // relic ids that used to clash with item-sheet ids were renamed
+        const RELIC_RENAME = { relic_slime_core: 'relic_slime_heart', relic_golden_carrot: 'relic_carrot_charm', relic_golem_core: 'relic_golem_heart' };
+        if (Array.isArray(this.collectedRelics)) this.collectedRelics = this.collectedRelics.map(id => RELIC_RENAME[id] || id);
         if (d.stats) STAT_KEYS.forEach(k => { if (typeof d.stats[k] === 'number') this.stats[k] = d.stats[k]; });
         if (d.auto) {
           const a = d.auto;
