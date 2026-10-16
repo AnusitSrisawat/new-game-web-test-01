@@ -203,6 +203,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     { insert: '/give item ', label: '/give item <ไอดี> [จำนวน]', desc: 'รับไอเทม เช่น /give item hp_potion_s 10 (GM)' },
     { insert: '/give book ', label: '/give book <สกิล> [จำนวน]', desc: 'รับสมุดสกิล เช่น /give book fire_bolt (GM)' },
     { insert: '/give pet ', label: '/give pet <มอนสเตอร์>', desc: 'รับ Pet เช่น /give pet slime (GM)' },
+    { insert: '/giveweapons', done: true, label: '/giveweapons', desc: 'รับอาวุธทุกชิ้น (GM)' },
+    ...['sword', 'stick'].map(t => ({ insert: `/giveweapons ${t}`, done: true, label: `/giveweapons ${t}`, desc: `รับอาวุธประเภท ${t} (GM)` })),
     { insert: '/level ', label: '/level <เลเวล>', desc: 'ตั้งเลเวลตัวเอง (GM)' },
     { insert: '/points ', label: '/points <แต้ม>', desc: 'รับแต้มสเตตัส (GM)' },
     { insert: '/heal', done: true, label: '/heal', desc: 'ฟื้น HP/SP เต็ม (GM)' },
