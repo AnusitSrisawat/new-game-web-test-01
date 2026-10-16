@@ -936,10 +936,12 @@ export class UIController {
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
         <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
-          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-            <span style="font-weight:700;">📊 จัดสรรค่าสเตตัส</span>
-            <span style="color:#f59e0b; font-size:0.85rem;">แต้มคงเหลือ: <b>${pendLeft}</b>
-              <button id="btn-stat-reset" style="margin-left:8px; padding:2px 8px; background:#7f1d1d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">🔄 รีสเตตัส (ฟรี)</button></span>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span style="display:flex; align-items:center; gap:8px;">
+              <span style="font-weight:700;">จัดสรรค่าสเตตัส</span>
+              <button id="btn-stat-reset" style="padding:2px 8px; background:#7f1d1d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">รีสเตตัส (ฟรี)</button>
+            </span>
+            <span style="color:#f59e0b; font-size:0.85rem; text-align:right;">แต้มคงเหลือ: <b>${pendLeft}</b></span>
           </div>
           ${STAT_KEYS.map(k => {
             const bs = 'height:26px; border:none; border-radius:4px; color:#fff; cursor:pointer; font-size:0.72rem; font-weight:700; touch-action:none; padding:0 7px;';
