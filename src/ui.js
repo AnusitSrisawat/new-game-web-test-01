@@ -595,7 +595,7 @@ export class UIController {
             <span>ชนิดยา</span>
             <select id="auto-hp-item">
               <option value="">อัตโนมัติ (ตัวที่อ่อนที่สุด)</option>
-              ${['hp_potion_s', 'apple', 'hp_potion_m', 'boar_meat', 'hp_potion_l'].filter(id => ITEMS[id]).map(id =>
+              ${['hp_potion_s', 'hp_potion_m', 'hp_potion_l'].filter(id => ITEMS[id]).map(id =>
                 `<option value="${id}" ${a.hpPotion.itemId === id ? 'selected' : ''}>${ITEMS[id].name} (มี ${this.player.inventory[id] || 0})</option>`).join('')}
             </select>
           </div>
@@ -1193,7 +1193,7 @@ export class UIController {
           const res = this.player.equipItem(k);
           if (!res.ok) { this.gameEngine.onLog(`🚫 สวมใส่ ${item.name} ไม่ได้: ${res.reason}`, 'system'); return; }
           this.gameEngine.onLog(`🛡️ สวมใส่ ${item.name}`, 'system');
-        } else if (item.heal > 0 || item.sp > 0 || item.exp > 0) {
+        } else if (item.type !== 'material' && (item.heal > 0 || item.sp > 0 || item.exp > 0)) {
           const res = this.player.useItem(k);
           if (res) {
             const parts = [];
