@@ -544,6 +544,7 @@
       const base = state.itemsInfo[iid] || {};
       const o = { ...base };
       for (const k of ['scale', 'offX', 'offY', 'seatX', 'seatY', 'seatDrop', 'seatClip', 'partW', 'partX', 'partY']) { const x = Number(valueOf('items', iid, k)); if (Number.isFinite(x)) o[k] = x; }
+      for (const k of ['flip', 'layer']) { const x = valueOf('items', iid, k); if (x) o[k] = x; }
       return o;
     };
     const draw = async () => {
@@ -572,16 +573,27 @@
       }
       const U = 2.4, cx = 130, gy = 150, kb = 58 / 301 * U;     // world unit -> px
       const look = { hat: null, head: null, back: null, outfit: { part: 'outfit_knight', partW: 128, partY: 303 } };
-      let rx = cx, ry = gy;
+      let rx = cx, ry = gy, drawMountPrev = null;
       if (type === 'mount') {
         const ms = PS.mounts[id], img = loadImg(`/assets/sprites/mounts/${id}.png`);
         const H = { mount_runner: 50, mount_wolf: 40, mount_unicorn: 62, mount_drake: 44 }[id] || 50;
-        const k = H * v('scale', 1) * U / ms.h, w = ms.w * k, h2 = ms.h * k, left = id === 'mount_drake';
-        ctx.save(); ctx.translate(cx + v('offX', 0) * U, gy + v('offY', 0) * U); if (left) ctx.scale(-1, 1);
-        if (img.complete) ctx.drawImage(img, -w / 2, -h2, w, h2); ctx.restore();
+        const k = H * v('scale', 1) * U / ms.h, w = ms.w * k, h2 = ms.h * k, left = valueOf('items', id, 'flip') === 'yes';
+        drawMountPrev = () => { ctx.save(); ctx.translate(cx + v('offX', 0) * U, gy + v('offY', 0) * U); if (left) ctx.scale(-1, 1);
+          if (img.complete) ctx.drawImage(img, -w / 2, -h2, w, h2); ctx.restore(); };
+        if (valueOf('items', id, 'layer') !== 'front') drawMountPrev();
         const sx = v('seatX', 0.5), sy = v('seatY', 0.4);
         rx = cx + v('offX', 0) * U + ((left ? 1 - sx : sx) - 0.5) * w; ry = gy + v('offY', 0) * U - h2 + sy * h2 + v('seatDrop', 6) * U;
       }
+      const drawShieldPrev = () => {
+        if (type !== 'shield') return;
+        const sm = PS.parts[id], simg = loadImg(`/assets/sprites/player/parts/${id}.png`), sw = 20 * v('scale', 1) * U, sh = sw * sm.h / sm.w;
+        if (simg.complete) {
+          ctx.save(); ctx.translate(cx + (5 + v('offX', 0)) * U, gy + (-21 + v('offY', 0)) * U);
+          if (valueOf('items', id, 'flip') === 'yes') ctx.scale(-1, 1);
+          ctx.drawImage(simg, -sw / 2, -sh / 2, sw, sh); ctx.restore();
+        }
+      };
+      if (valueOf('items', id, 'layer') === 'behind') drawShieldPrev();
       ctx.save();
       ctx.translate(rx, ry - 24 * U);
       if (type === 'mount' && v('seatClip', 0) > 0) { ctx.beginPath(); ctx.rect(-130, -190, 260, 190 + 24 * U - v('seatClip', 0) * U); ctx.clip(); }
@@ -589,10 +601,8 @@
       ctx.scale(U, U);
       drawLook(ctx, (src) => { const im = loadImg('/' + src); return im.complete && im.naturalWidth ? im : null; }, look, 58 / 301);
       ctx.restore();
-      if (type === 'shield') {
-        const sm = PS.parts[id], simg = loadImg(`/assets/sprites/player/parts/${id}.png`), sw = 20 * v('scale', 1) * U, sh = sw * sm.h / sm.w;
-        if (simg.complete) ctx.drawImage(simg, cx + (5 + v('offX', 0)) * U - sw / 2, gy + (-21 + v('offY', 0)) * U - sh / 2, sw, sh);
-      }
+      if (drawMountPrev && valueOf('items', id, 'layer') === 'front') drawMountPrev();
+      if (valueOf('items', id, 'layer') !== 'behind') drawShieldPrev();
     };
     const redraw = () => draw().catch(() => {});
     setTimeout(redraw, 50); setTimeout(redraw, 400); setTimeout(redraw, 1200); // images may still be loading
@@ -606,8 +616,14 @@
         h('h3', {}, valueOf('items', id, 'name'), h('small', {}, id)),
         prev ? h('div', { class: 'hint' }, 'ตัวอย่างบนตัวละคร (ปรับค่าแล้วภาพขยับตามทันที)') : null,
         prev ? prev.cv : null,
-        h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'heal', 'reqLevel', 'lootSpeed', 'speedPct', 'partW', 'partX', 'partY', 'scale', 'offX', 'offY', 'seatX', 'seatY', 'seatDrop', 'seatClip', 'desc']))
+        h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'heal', 'reqLevel', 'lootSpeed', 'speedPct', 'flip', 'layer', 'partW', 'partX', 'partY', 'scale', 'offX', 'offY', 'seatX', 'seatY', 'seatDrop', 'seatClip', 'desc']))
       );
+      if (prev) {
+        const tog = (key, a, b, label) => h('button', { class: 'btn small', onclick: () => { setValue('items', id, key, valueOf('items', id, key) === a ? b : a); renderList(); } }, label);
+        card.insertBefore(h('div', { class: 'dropbtns' },
+          tog('flip', 'yes', 'no', '↔ กลับด้านซ้าย-ขวา (flip)'),
+          tog('layer', 'behind', 'front', '⇅ สลับ ข้างหน้า / ข้างหลังโมเดล')), prev.cv);
+      }
       if (prev) { card.addEventListener('input', () => setTimeout(prev.redraw, 0)); card.addEventListener('change', () => setTimeout(prev.redraw, 0)); }
       return card;
     });

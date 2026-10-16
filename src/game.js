@@ -2476,30 +2476,46 @@ export class GameEngine {
       riding: !!(remoteProfile && remoteProfile.riding && remoteProfile.mount)
     };
     const moving = Math.abs(legOffset) > 0.5;
-    let seatY = 0, seatClip = 0;
+    let seatY = 0, seatClip = 0, mountFront = null;
     if (look.riding && ITEMS[look.mount]) {
       const mi = ITEMS[look.mount], ms = PLAYER_SPRITES.mounts[look.mount], img = ms && this.getSheet(`assets/sprites/mounts/${look.mount}.png`);
       if (img) {
         const MOUNT_H = { mount_runner: 50, mount_wolf: 40, mount_unicorn: 62, mount_drake: 44 };
         const SEAT = { mount_runner: [0.5, 0.4], mount_wolf: [0.52, 0.3], mount_unicorn: [0.43, 0.3], mount_drake: [0.58, 0.5] };
-        const NATIVE_LEFT = { mount_drake: true };
         const k = (MOUNT_H[look.mount] || 50) * (mi.scale || 1) / ms.h;
         const w = ms.w * k, h = ms.h * k;
         const bob = moving ? Math.abs(Math.sin(Date.now() / 90)) * 2.5 : 0;
-        const flip = NATIVE_LEFT[look.mount] ? -1 : 1;
+        const flip = mi.flip === 'yes' ? -1 : 1; // 'yes' = the original picture looks left
         const seat = [mi.seatX ?? SEAT[look.mount][0], mi.seatY ?? SEAT[look.mount][1]];
-        ctx.save();
-        ctx.translate((mi.offX || 0), 24 - bob + (mi.offY || 0));
-        ctx.scale(flip, 1);
-        ctx.drawImage(img, -w / 2, -h, w, h);
-        ctx.restore();
+        const drawMount = () => {
+          ctx.save();
+          ctx.translate((mi.offX || 0), 24 - bob + (mi.offY || 0));
+          ctx.scale(flip, 1);
+          ctx.drawImage(img, -w / 2, -h, w, h);
+          ctx.restore();
+        };
+        if (mi.layer !== 'front') drawMount();
         // the rider sits on the saddle: feet at the seat point (mount picture fractions)
         const sx = ((flip > 0 ? seat[0] : 1 - seat[0]) - 0.5) * w + (mi.offX || 0);
         seatY = 24 - bob + (mi.offY || 0) - h + seat[1] * h;
         ctx.translate(sx, seatY - 24 + (mi.seatDrop ?? 6));
         seatClip = mi.seatClip ?? 0;
+        if (mi.layer === 'front') mountFront = () => { ctx.save(); ctx.translate(-sx, -(seatY - 24 + (mi.seatDrop ?? 6))); drawMount(); ctx.restore(); };
       }
     }
+    const sh = look.shield && ITEMS[look.shield];
+    const simg = sh && this.getSheet(`assets/sprites/player/parts/${look.shield}.png`);
+    const drawShield = () => {
+      if (!simg) return;
+      const sm = PLAYER_SPRITES.parts[look.shield];
+      const sw = 20 * (sh.scale ?? 1), shh = sw * sm.h / sm.w;
+      ctx.save();
+      ctx.translate(5 + (sh.offX || 0), 3 + (sh.offY || 0));
+      if (sh.flip === 'yes') ctx.scale(-1, 1);
+      ctx.drawImage(simg, -sw / 2, -shh / 2, sw, shh);
+      ctx.restore();
+    };
+    if (sh && sh.layer === 'behind') drawShield();
     {
       const kb = (PLAYER_BODY_H * (look.riding ? 0.95 : 1)) / PLAYER_BODY_PX;
       const bob = look.riding ? 0 : Math.abs(legOffset) * 0.22;
@@ -2510,14 +2526,8 @@ export class GameEngine {
       drawLook(ctx, (src) => this.getSheet(src), look, kb);
       ctx.restore();
     }
-    const sh = look.shield && ITEMS[look.shield];
-    const simg = sh && this.getSheet(`assets/sprites/player/parts/${look.shield}.png`);
-    if (simg) {
-      const sm = PLAYER_SPRITES.parts[look.shield];
-      const sw = 20 * (sh.scale ?? 1), shh = sw * sm.h / sm.w;
-      ctx.drawImage(simg, 5 + (sh.offX || 0) - sw / 2, 3 + (sh.offY || 0) - shh / 2, sw, shh);
-    }
-
+    if (sh && sh.layer !== 'behind') drawShield();
+    if (mountFront) mountFront();
     // WEAPON RENDERING (by weapon type)
     if (wType === 'fist') {
       // bare hands: nothing held
