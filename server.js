@@ -265,7 +265,7 @@ function studioPayload() {
     }])),
     // every item a drop table can use
     itemsInfo: Object.fromEntries(Object.entries(ITEMS).map(([id, it]) => [id, {
-      name: it.name, icon: it.icon, type: it.type, hat: it.hat, head: it.head, outfit: it.outfit, back: it.back, sprite: itemSprite(id)
+      name: it.name, icon: it.icon, type: it.type, part: it.part, sprite: itemSprite(id)
     }])),
     zoneNames: Object.fromEntries(ZONES.map(z => [z.id, DEFAULTS.zones[z.id].name])),
     objectTypes: OBJECT_TYPES,
@@ -799,6 +799,7 @@ wss.on('connection', (ws) => {
           if (data.hat !== undefined) p.hat = ofType(data.hat, 'hat');
           if (data.head !== undefined) p.head = ofType(data.head, 'head') || 'head_0';
           if (data.outfit !== undefined) p.outfit = ofType(data.outfit, 'outfit');
+          if (data.back !== undefined) p.back = ofType(data.back, 'back');
           if (data.shield !== undefined) p.shield = typeof data.shield === 'string' && ITEMS[data.shield]?.type === 'shield' ? data.shield : null;
           if (data.mount !== undefined) p.mount = typeof data.mount === 'string' && ITEMS[data.mount]?.type === 'mount' ? data.mount : null;
           if (data.riding !== undefined) p.riding = data.riding === true && !!p.mount;

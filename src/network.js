@@ -281,6 +281,7 @@ export class NetworkManager {
       hat: this.player.equipment.hat || null,
       head: this.player.equipment.head || 'head_0',
       outfit: this.player.equipment.outfit || null,
+      back: this.player.equipment.back || null,
       shield: this.player.equipment.offhand || null,
       mount: this.player.equipment.mount || null,
       riding: this.player.riding,
