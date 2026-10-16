@@ -7,6 +7,7 @@
 //   monsters: { [monsterId]: { name, level, hp, atk, def, exp, size, facing } },   // facing: which way the picture looks: left | right | none (never flip)
 //   ai:       { [monsterId]: { speed, aggro, attackRange, attackCooldown, leash, wanderRadius } },
 //   items:    { [itemId]:    { name, price, atk, def, hp, heal, reqLevel, desc } },
+//   relics:   { [relicId]:   { name, icon, desc, hp, atk, def, aspd, critRate } },   // permanent bonuses of each monster's relic
 //   quests:   { [questId]:   { title, desc, requiredCount, rewardGold, rewardExp, rewardTokens } },
 //   sounds:   { [soundId]:   { wave, freq, freqEnd, dur, vol, tone, noise, noiseFreq, noiseFreqEnd, arp, pitchVar } }   // see sounds.js
 //   skills:   { [skillId]:   { name, desc } }   // free-form list, not wired into the game yet
@@ -105,6 +106,19 @@ export const SCHEMA = {
       rewardGold: num('รางวัล Gold', 0, 100000000),
       rewardExp: num('รางวัล EXP', 0, 100000000),
       rewardTokens: num('รางวัล Token', 0, 100000)
+    }
+  },
+  relics: {
+    label: 'Relic',
+    fields: {
+      name: text('ชื่อ Relic', 60),
+      icon: text('ไอคอน (emoji)', 8),
+      desc: text('คำอธิบาย', 200),
+      hp: num('Max HP +', 0, 1000000),
+      atk: num('ATK +', 0, 100000),
+      def: num('DEF +', 0, 100000),
+      aspd: num('ความเร็วโจมตี + (0.05 = 5%)', 0, 2, 0.01),
+      critRate: num('คริติคอล + (0.05 = 5%)', 0, 0.5, 0.01)
     }
   },
   ui: {
@@ -299,7 +313,7 @@ export function sanitizeOverrides(raw, known) {
 
 // Copy the editable fields of the current data so they can be restored / shown as "default".
 export function snapshotEditable(data) {
-  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {}, drops: {}, ui: { main: { ...UI_DEFAULTS } }, objects: {}, skills: {}, sounds: {} };
+  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {}, relics: {}, drops: {}, ui: { main: { ...UI_DEFAULTS } }, objects: {}, skills: {}, sounds: {} };
   const pick = (obj, fields) => {
     const o = {};
     for (const k of Object.keys(fields)) if (obj && obj[k] !== undefined) o[k] = obj[k];
@@ -316,6 +330,9 @@ export function snapshotEditable(data) {
     snap.drops[id] = (m.drops || []).map(d => ({ itemId: d.itemId, chance: d.chance }));
   }
   for (const [id, it] of Object.entries(data.ITEMS)) snap.items[id] = pick(it, SCHEMA.items.fields);
+  for (const [id, r] of Object.entries(data.RELICS || {})) {
+    snap.relics[id] = { name: r.name, icon: r.icon, desc: r.desc, hp: 0, atk: 0, def: 0, aspd: 0, critRate: 0, ...pick(r.statBonus || {}, { hp: 1, atk: 1, def: 1, aspd: 1, critRate: 1 }) };
+  }
   data.QUESTS.forEach(q => { snap.quests[q.id] = pick(q, SCHEMA.quests.fields); });
   for (const [id, sk] of Object.entries(data.SKILLS || {})) snap.skills[id] = pick(sk, SCHEMA.skills.fields);
   for (const [id, sd] of Object.entries(SOUND_DEFAULTS)) snap.sounds[id] = { ...sd };
@@ -352,6 +369,16 @@ export function applyOverrides(data, o) {
   }
   for (const [id, p] of Object.entries(o.items || {})) {
     if (data.ITEMS[id]) Object.assign(data.ITEMS[id], p);
+  }
+  const STAT_LABEL = { hp: 'Max HP', atk: 'ATK', def: 'DEF', aspd: 'ASPD', critRate: 'Crit' };
+  for (const [id, p] of Object.entries(o.relics || {})) {
+    const r = data.RELICS && data.RELICS[id];
+    if (!r) continue;
+    for (const k of ['name', 'icon', 'desc']) if (p[k] !== undefined) r[k] = p[k];
+    r.statBonus = r.statBonus || {};
+    for (const k of Object.keys(STAT_LABEL)) if (p[k] !== undefined) { if (p[k] > 0) r.statBonus[k] = p[k]; else delete r.statBonus[k]; }
+    r.bonusText = Object.entries(r.statBonus).filter(([, v]) => v > 0).map(([k, v]) =>
+      STAT_LABEL[k] ? `+${k === 'aspd' || k === 'critRate' ? Math.round(v * 100) + '%' : v} ${STAT_LABEL[k]}` : null).filter(Boolean).join(', ') + ' ถาวร';
   }
   for (const [id, p] of Object.entries(o.quests || {})) {
     const q = data.QUESTS.find(qq => qq.id === id);

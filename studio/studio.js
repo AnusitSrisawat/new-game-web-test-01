@@ -140,6 +140,7 @@
     { id: 'monsters', icon: '👾', label: 'มอนสเตอร์', sub: 'ค่าพลัง + พฤติกรรม' },
     { id: 'spawns', icon: '🌱', label: 'การเกิดของมอนสเตอร์', sub: 'จำนวน + เวลาเกิดใหม่' },
     { id: 'items', icon: '🎒', label: 'ไอเทม', sub: 'อาวุธ เกราะ ยา' },
+    { id: 'relics', icon: '💎', label: 'Relic', sub: 'ชื่อ ไอคอน โบนัสถาวรของ Relic แต่ละตัว' },
     { id: 'quests', icon: '📜', label: 'เควสต์', sub: 'ชื่อ เป้าหมาย รางวัล' },
     { id: 'sounds', icon: '🔊', label: 'เสียง', sub: 'ฟันมอนตาย โดนตี สกิล ฯลฯ + ลองฟัง' },
     { id: 'skills', icon: '✨', label: 'สกิล', sub: 'Active/Passive + สมุด/กาชา (ข้อมูลล่วงหน้า)' }
@@ -541,6 +542,20 @@
       (listHost = h('div'))
     ];
   }
+  function panelRelics() {
+    return [
+      h('h2', {}, 'Relic ประจำมอนสเตอร์'),
+      h('p', { class: 'hint' }, 'แก้ชื่อ ไอคอน และโบนัสสเตตัสถาวรของ Relic (ใส่ 0 = ไม่มีโบนัสนั้น) • % ที่ดรอปตั้งที่แท็บ "มอนสเตอร์" หัวข้อ "สุ่มแยก"'),
+      searchBar('ค้นหา Relic...'),
+      (listHost = h('div'))
+    ];
+  }
+  function buildRelics() {
+    return Object.keys(state.defaults.relics || {}).filter(id => !search || `${id} ${valueOf('relics', id, 'name')}`.toLowerCase().includes(search)).map(id => h('div', { class: 'card' },
+      h('h3', {}, `${valueOf('relics', id, 'icon') || ''} ${valueOf('relics', id, 'name')}`, h('small', {}, id)),
+      h('div', { class: 'fields' }, ...fieldsFor('relics', id, ['name', 'icon', 'desc', 'hp', 'atk', 'def', 'aspd', 'critRate']))
+    ));
+  }
   function buildQuests() {
     return Object.keys(state.defaults.quests).map(id => h('div', { class: 'card' },
       h('h3', {}, valueOf('quests', id, 'title'), h('small', {}, id)),
@@ -675,6 +690,7 @@
     monsters: [panelMonsters, buildMonsters],
     spawns: [panelSpawns, buildSpawns],
     items: [panelItems, buildItems],
+    relics: [panelRelics, buildRelics],
     quests: [panelQuests, buildQuests],
     sounds: [panelSounds, buildSounds],
     skills: [panelSkills, buildSkills]
