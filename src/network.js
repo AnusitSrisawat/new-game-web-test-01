@@ -1,3 +1,4 @@
+import { ITEMS } from './data.js';
 // WebSocket Multiplayer Client Manager with Multi-Zone, Party & Rich Animation Sync
 export class NetworkManager {
   constructor(gameEngine, player) {
@@ -277,6 +278,10 @@ export class NetworkManager {
     this.send({
       type: 'update_profile',
       pet: this.player.activePet || null,
+      costume: (ITEMS[this.player.equipment.outfit] || {}).costume || 'none',
+      shield: this.player.equipment.offhand || null,
+      mount: this.player.equipment.mount || null,
+      riding: this.player.riding,
       name: this.player.name,
       level: this.player.baseLevel,
       weaponType: this.player.weaponInfo.type,

@@ -173,3 +173,27 @@ export function finishDrops({ MONSTERS, RELICS, ITEMS }) {
     });
   }
 }
+
+// Player look + gear from assets/player/player_parts_sheet.jpg and assets/mounts/mounts_riding_sheet.jpg:
+//  - outfit (slot "ชุด"): a whole look = body + clothes + hat + wings baked together (tools/player_costumes.py)
+//  - shield (left hand) and mount (riding animal, + move speed). Pictures: see sprites.js
+export function installPlayerGear(ITEMS) {
+  const SEAT = { mount_runner: [0.5, 0.4], mount_wolf: [0.52, 0.3], mount_unicorn: [0.43, 0.3], mount_drake: [0.58, 0.5] };
+  // scale / offX / offY / seatX / seatY: how the picture sits on the player (tune them in Studio -> items)
+  const add = (it) => {
+    const look = it.type === 'mount' ? { scale: 1, offX: 0, offY: 0, seatX: SEAT[it.id][0], seatY: SEAT[it.id][1] }
+      : it.type === 'shield' ? { scale: 0.8, offX: 0, offY: 3 } : { scale: 1, offX: 0, offY: 0 };
+    ITEMS[it.id] = { reqLevel: 1, price: 0, ...look, ...it };
+  };
+  add({ id: 'outfit_knight', name: 'Knight Set (ชุดอัศวิน)', type: 'outfit', costume: 'knight', icon: '🛡️', def: 8, hp: 40, price: 400, desc: 'หมวกเกราะปีก + เกราะอัศวินน้ำเงินเงิน + ผ้าคลุมแดง' });
+  add({ id: 'outfit_ranger', name: 'Ranger Set (ชุดนายพราน)', type: 'outfit', costume: 'ranger', icon: '🏹', def: 5, hp: 30, price: 400, desc: 'เสื้อหนังเขียวมรกต + ที่คาดผมหูแมว + ปีกผีเสื้อภูต' });
+  add({ id: 'outfit_sorcerer', name: 'Sorcerer Set (ชุดจอมเวท)', type: 'outfit', costume: 'sorcerer', icon: '🔮', def: 4, hp: 25, price: 400, desc: 'หมวกพ่อมดแหลม + ชุดคลุมเวทสีแดงเข้ม' });
+  add({ id: 'outfit_assassin', name: 'Shadow Set (ชุดนักฆ่าเงา)', type: 'outfit', costume: 'assassin', icon: '🗡️', def: 6, hp: 30, price: 400, desc: 'เสื้อคลุมดำ + ปีกมังกรค้างคาวม่วง' });
+  add({ id: 'outfit_royal', name: 'Royal Angel Set (ชุดราชันย์นางฟ้า)', type: 'outfit', costume: 'royal', icon: '👑', def: 10, hp: 60, price: 900, desc: 'มงกุฎทอง + เกราะอัศวิน + ปีกนางฟ้าขนนกสีขาว' });
+  add({ id: 'shield_lion', name: 'Golden Lion Crest Shield', type: 'shield', icon: '🛡️', def: 6, hp: 20, price: 300, desc: 'โล่ตราสิงโตทอง (มือซ้าย)' });
+  add({ id: 'shield_rune', name: 'Magic Rune Buckler', type: 'shield', icon: '🔵', def: 4, hp: 35, price: 300, desc: 'โล่กลมอักษรรูนเรืองแสง (มือซ้าย)' });
+  add({ id: 'mount_runner', name: 'Yellow Feathered Runner', type: 'mount', icon: '🐤', speedPct: 40, price: 1200, desc: 'นกวิ่งขนฟูสีทอง สัตว์ขี่ — ความเร็วเดิน +40% (กด R ขึ้นขี่/ลง)' });
+  add({ id: 'mount_wolf', name: 'Armored Dire Wolf', type: 'mount', icon: '🐺', speedPct: 50, price: 1800, desc: 'หมาป่าเทาหุ้มเกราะ — ความเร็วเดิน +50% (กด R ขึ้นขี่/ลง)' });
+  add({ id: 'mount_unicorn', name: 'Royal White Unicorn', type: 'mount', icon: '🦄', speedPct: 55, price: 2400, desc: 'ยูนิคอร์นขาวแห่งราชวงศ์ — ความเร็วเดิน +55% (กด R ขึ้นขี่/ลง)' });
+  add({ id: 'mount_drake', name: 'Baby Red Drake', type: 'mount', icon: '🐉', speedPct: 60, price: 3000, desc: 'มังกรแดงตัวน้อย — ความเร็วเดิน +60% (กด R ขึ้นขี่/ลง)' });
+}
