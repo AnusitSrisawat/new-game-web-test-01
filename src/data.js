@@ -655,3 +655,6 @@ applyFacing(MONSTERS);
 
 // Skill data (draft; the game does not run skills yet). Edited in Studio, see docs/SKILLS.md
 export const SKILLS = JSON.parse(JSON.stringify(SKILL_DEFAULTS));
+
+// Sound effects (synth recipes). Edited in Studio, played by audio.js
+export { SOUNDS, SOUND_META } from './sounds.js';

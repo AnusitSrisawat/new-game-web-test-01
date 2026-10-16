@@ -141,6 +141,7 @@
     { id: 'spawns', icon: '🌱', label: 'การเกิดของมอนสเตอร์', sub: 'จำนวน + เวลาเกิดใหม่' },
     { id: 'items', icon: '🎒', label: 'ไอเทม', sub: 'อาวุธ เกราะ ยา' },
     { id: 'quests', icon: '📜', label: 'เควสต์', sub: 'ชื่อ เป้าหมาย รางวัล' },
+    { id: 'sounds', icon: '🔊', label: 'เสียง', sub: 'ฟันมอนตาย โดนตี สกิล ฯลฯ + ลองฟัง' },
     { id: 'skills', icon: '✨', label: 'สกิล', sub: 'Active/Passive + สมุด/กาชา (ข้อมูลล่วงหน้า)' }
   ];
 
@@ -583,6 +584,7 @@
       } else {
         body.push(h('div', { class: 'group-title' }, 'โบนัสถาวรเมื่อเรียนแล้ว'), F(bonuses));
       }
+      if (isActive) body.push(h('div', { class: 'group-title' }, 'เสียง'), F(['sound']));
       body.push(h('div', { class: 'group-title' }, 'สมุดสกิล / กาชา'), F(['bookSellPrice', 'gachaWeight']));
       return h('div', { class: 'card' },
         h('h3', {}, skillVal(id, 'name') || id, h('small', {}, id),
@@ -596,6 +598,52 @@
     return [summary, ...cards];
   }
 
+  // ---- sounds ----
+  let engine = null;
+  async function previewSound(id) {
+    try {
+      engine ||= (await import('/src/audio.js')).soundEngine;
+      engine.muted = false;
+      const p = {};
+      for (const k of Object.keys(state.schema.sounds.fields)) p[k] = valueOf('sounds', id, k);
+      engine.playParams(p);
+    } catch (e) { toast('เล่นเสียงไม่ได้: ' + e.message, true); }
+  }
+
+  function panelSounds() {
+    return [
+      h('h2', {}, 'เสียง'),
+      h('p', { class: 'hint' }, 'ปรับเสียงเอฟเฟกต์ของเกม (สังเคราะห์สด ไม่ต้องมีไฟล์) — กด ▶ ลองฟังค่าที่กำลังแก้ได้ทันทีก่อนบันทึก • เสียงของสกิลเลือกได้ที่แท็บ "สกิล" • ทดลองปรับ "ความถี่", "ส่วนเสียงซ่า", "ความยาว" เพื่อได้เสียงใหม่'),
+      searchBar('ค้นหาเสียง...'),
+      (listHost = h('div'))
+    ];
+  }
+
+  function buildSounds() {
+    const groups = [
+      ['⚔️ การต่อสู้', ['slash', 'critHit', 'monsterHit', 'monsterDie', 'playerHurt', 'bowShoot', 'arrowHit']],
+      ['✨ สกิล', ['powerStrike', 'whirlwind', 'ironGuard', 'berserk', 'dash', 'warCry', 'falconCry', 'dragonRoar', 'firstAid', 'townPortal']],
+      ['🎁 อื่นๆ', ['levelUp', 'coin', 'loot', 'potion']]
+    ];
+    const out = [];
+    for (const [title, ids] of groups) {
+      const cards = ids.filter(id => state.defaults.sounds?.[id]).map(id => {
+        const meta = state.soundMeta?.[id] || { label: id, when: '' };
+        if (search && !(`${id} ${meta.label} ${meta.when}`.toLowerCase().includes(search))) return null;
+        const fields = h('div', { class: 'fields' }, ...fieldsFor('sounds', id, Object.keys(state.schema.sounds.fields)));
+        return h('div', { class: 'card' },
+          h('h3', {}, meta.label, h('small', {}, `${id} • ${meta.when}`),
+            h('button', { class: 'btn small primary', onclick: () => previewSound(id) }, '▶ ลองฟัง'),
+            h('button', { class: 'btn small', onclick: () => {
+              if (ov.sounds?.[id]) { delete ov.sounds[id]; if (!Object.keys(ov.sounds).length) delete ov.sounds; setDirty(true); renderList(); }
+            } }, '↺ คืนค่าเดิม')),
+          fields);
+      }).filter(Boolean);
+      if (cards.length) out.push(h('h3', { class: 'group-title' }, title), ...cards);
+    }
+    return out.length ? out : [h('p', { class: 'hint' }, 'ไม่พบเสียง')];
+  }
+
   const PANELS = {
     maps: [panelMaps, buildMaps],
     objects: [panelObjects, buildObjects],
@@ -604,6 +652,7 @@
     spawns: [panelSpawns, buildSpawns],
     items: [panelItems, buildItems],
     quests: [panelQuests, buildQuests],
+    sounds: [panelSounds, buildSounds],
     skills: [panelSkills, buildSkills]
   };
 
