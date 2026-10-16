@@ -526,9 +526,31 @@
       h('h2', {}, 'ไอเทม'),
       h('p', { class: 'hint' }, 'แก้ชื่อ ราคา ค่าพลัง และเลเวลที่ต้องการ (ช่องที่ไอเทมนั้นไม่มีจะไม่แสดง)'),
       searchBar('ค้นหาไอเทม...'),
+      itemFilterBar(),
       (listHost = h('div'))
     ];
   }
+  // filter: all / normal items / wearable (paper-doll) items, wearable split by slot
+  const WEAR_TYPES = [['hat', '🎩 หมวก'], ['head', '🙂 หัว'], ['outfit', '👕 ชุด'], ['back', '🪽 ปีก/ผ้าคลุม'], ['shield', '🛡️ โล่'], ['mount', '🐎 สัตว์ขี่']];
+  let itemGroup = 'all', itemWear = 'all';
+  function itemFilterBar() {
+    const bar = h('div', { class: 'dropbtns' });
+    const draw = () => {
+      const btn = (label, on, fn) => h('button', { class: 'btn small' + (on ? ' primary' : ''), onclick: fn }, label);
+      const kids = [['all', 'ทั้งหมด'], ['normal', 'ไอเทมธรรมดา'], ['wear', 'สวมใส่']].map(([g, l]) => btn(l, itemGroup === g, () => { itemGroup = g; itemWear = 'all'; draw(); renderList(); }));
+      if (itemGroup === 'wear') kids.push(h('span', {}, ' | '), btn('ทุกชิ้น', itemWear === 'all', () => { itemWear = 'all'; draw(); renderList(); }),
+        ...WEAR_TYPES.map(([t, l]) => btn(l, itemWear === t, () => { itemWear = t; draw(); renderList(); })));
+      bar.replaceChildren(...kids);
+    };
+    draw();
+    return bar;
+  }
+  const itemPassesFilter = (id) => {
+    const t = state.itemsInfo?.[id]?.type, wear = WEAR_TYPES.some(([x]) => x === t);
+    if (itemGroup === 'normal') return !wear;
+    if (itemGroup === 'wear') return itemWear === 'all' ? wear : t === itemWear;
+    return true;
+  };
   // Live preview of a player-gear item (outfit / shield / mount) with the values being edited
   const IMG_CACHE = {};
   let previewZoom = 1.6; // preview magnification (kept across cards)
@@ -538,7 +560,7 @@
     const type = info?.type;
     if (!['hat', 'head', 'outfit', 'back', 'shield', 'mount'].includes(type)) return null;
     const isPiece = ['hat', 'head', 'outfit', 'back'].includes(type);
-    const BW = isPiece ? 300 : 260, BH = isPiece ? 400 : 190;
+    const BW = isPiece ? 300 : type === 'mount' ? 320 : 260, BH = isPiece ? 400 : type === 'mount' ? 280 : 190;
     const cv = h('canvas', { width: Math.round(BW * previewZoom), height: Math.round(BH * previewZoom), class: 'gearprev' });
     const v = (k, d) => { const x = Number(valueOf('items', id, k)); return Number.isFinite(x) ? x : d; };
     // this item with the values being edited (not saved yet) + its fixed part ids from the server
@@ -574,7 +596,7 @@
         ctx.restore();
         return;
       }
-      const U = 2.4, cx = 130, gy = 150, kb = 58 / 301 * U;     // world unit -> px
+      const U = type === 'mount' ? 1.7 : 2.4, cx = BW / 2, gy = type === 'mount' ? 235 : 150, kb = 58 / 301 * U;     // world unit -> px
       const look = { hat: null, head: null, back: null, outfit: { part: 'outfit_knight', partW: 128, partY: 303 } };
       let rx = cx, ry = gy, drawMountPrev = null;
       if (type === 'mount') {
@@ -613,7 +635,7 @@
   }
 
   function buildItems(q) {
-    return Object.keys(state.defaults.items).filter(id => matches(q, id, valueOf('items', id, 'name'))).map(id => {
+    return Object.keys(state.defaults.items).filter(id => itemPassesFilter(id) && matches(q, id, valueOf('items', id, 'name'))).map(id => {
       const prev = gearPreview(id);
       const card = h('div', { class: 'card' },
         h('h3', {}, valueOf('items', id, 'name'), h('small', {}, id)),
