@@ -5,6 +5,8 @@ import { ZONES, WEAPON_TYPES, MONSTERS, ITEMS, RELICS, QUESTS, SKILLS, SOUNDS } 
 import { weaponMatches } from './player.js';
 import { soundEngine } from './audio.js';
 import { CHAR_SCALE } from './uitheme.js';
+import { PLAYER_SPRITES } from './player_sprites.js';
+const PLAYER_BODY_H = 58; // player picture height in world units (feet to head top of the bare body)
 import { monsterSprite, itemSprite, weaponSprite, dropSprite, splitDropPieces, particleSprite, PARTICLE_SPRITES } from './sprites.js';
 
 // ---- Sword swing animation (prog 0..1: wind-up, snap strike, follow-through) ----
@@ -1552,6 +1554,16 @@ export class GameEngine {
     this.uiController?.refreshOpenWindows();
   }
 
+  // R: ride / get off the equipped mount
+  toggleMount() {
+    if (!this.player.mountItem) { this.onLog('🐎 ยังไม่มีสัตว์ขี่ — สวมใส่สัตว์ขี่ในช่อง "สัตว์ขี่" ที่กระเป๋า [I] ก่อน', 'system'); return; }
+    this.player.toggleMount();
+    const m = this.player.mountItem;
+    this.onLog(this.player.riding ? `🐎 ขึ้นขี่ ${m.name} (ความเร็วเดิน +${m.speedPct || 0}%)` : '🚶 ลงจากสัตว์ขี่', 'system');
+    soundEngine.play('loot');
+    this.uiController?.updateHUD();
+  }
+
   // Quick HP potion slot (button / Q): drinks the chosen potion, or the weakest owned
   usePotionSlot() {
     if (this.player.currentHp >= this.player.maxHp) {
@@ -2436,13 +2448,6 @@ export class GameEngine {
     ctx.ellipse(0, 24, 20, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Wings Costume (if equipped)
-    if (isLocal && this.player.costumes.back === 'costume_angel_wings') {
-      ctx.font = '34px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('🪽', -18, 0);
-    }
-
     // Sword pose (also drives the armor arms); other weapons just rest the arms
     const swordAttacking = wType !== 'fist' && wType !== 'bow' && wType !== 'stick' && wType !== 'staff' &&
       (isLocal ? (this.playerEntity && this.playerEntity.attackAnimTimer > 0) : (remoteProfile && remoteProfile.isAttacking));
@@ -2452,101 +2457,66 @@ export class GameEngine {
       swingCombo = isLocal ? this.playerEntity.attackCombo : Math.floor(Date.now() / 340) % 3;
     }
     const pose = swordAttacking ? swordPose(swingProg, swingCombo) : { ...SWORD_REST, bodyX: 0, lean: 0 };
-    const armor = this.getArmor();
+    const armor = true; // (the old armor-part rig is gone: the weapon floats at the hand point)
     const SHOULDER_NEAR = [7, -6], SHOULDER_FAR = [-7, -6], FOREARM = 16;
     const handPos = (arm) => [SHOULDER_NEAR[0] + FOREARM * Math.sin(arm), SHOULDER_NEAR[1] - FOREARM * Math.cos(arm)];
 
-    if (armor) {
-      ctx.translate(pose.bodyX, 0);
-      this.drawArmorArm(ctx, armor.arm_l, SHOULDER_FAR[0], SHOULDER_FAR[1], 2.85);
-      this.drawArmorBody(ctx, armor, legOffset, pose.lean);
-    } else {
-    // Legs & Boots (Animated stride cycle)
-    ctx.fillStyle = '#5c3a21';
-    ctx.fillRect(-9, 12, 6, 12 + legOffset);
-    ctx.fillRect(3, 12, 6, 12 - legOffset);
-    ctx.fillStyle = isArcher ? '#065f46' : '#4a3b32';
-    ctx.fillRect(-11, 4, 22, 12);
-
-    // Torso / Armor (Green/Emerald for Archer, Silver/Blue for Swordsman)
-    if (isArcher) {
-      // Hunter Tunic
-      ctx.fillStyle = '#059669';
-      ctx.beginPath();
-      ctx.moveTo(-10, -4);
-      ctx.lineTo(10, -4);
-      ctx.lineTo(8, 8);
-      ctx.lineTo(-8, 8);
-      ctx.closePath();
-      ctx.fill();
-
-      // Leather quiver strap across chest
-      ctx.strokeStyle = '#78350f';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(-9, -4);
-      ctx.lineTo(8, 8);
-      ctx.stroke();
-
-      // Quiver with arrows on back
-      ctx.fillStyle = '#92400e';
-      ctx.fillRect(-16, -16, 7, 24);
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(-15, -20, 5, 4); // Arrow fletching tips
-    } else {
-      // Silver/Blue Breastplate
-      ctx.fillStyle = '#94a3b8';
-      ctx.beginPath();
-      ctx.moveTo(-10, -4);
-      ctx.lineTo(10, -4);
-      ctx.lineTo(7, 8);
-      ctx.lineTo(-7, 8);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#cbd5e1';
-      ctx.beginPath();
-      ctx.moveTo(-6, -2);
-      ctx.lineTo(2, -2);
-      ctx.lineTo(0, 6);
-      ctx.lineTo(-4, 6);
-      ctx.closePath();
-      ctx.fill();
+    // ---- the look: mount (when riding) -> body + outfit + hat + wings (one baked picture) -> left-hand shield ----
+    const look = isLocal ? {
+      costume: (ITEMS[this.player.equipment.outfit] || {}).costume || 'none',
+      shield: this.player.equipment.offhand,
+      mount: this.player.equipment.mount,
+      riding: this.player.riding
+    } : {
+      costume: (remoteProfile && remoteProfile.costume) || 'none',
+      shield: remoteProfile && remoteProfile.shield,
+      mount: remoteProfile && remoteProfile.mount,
+      riding: !!(remoteProfile && remoteProfile.riding && remoteProfile.mount)
+    };
+    const moving = Math.abs(legOffset) > 0.5;
+    let seatY = 0;
+    if (look.riding && ITEMS[look.mount]) {
+      const mi = ITEMS[look.mount], ms = PLAYER_SPRITES.mounts[look.mount], img = ms && this.getSheet(`assets/sprites/mounts/${look.mount}.png`);
+      if (img) {
+        const MOUNT_H = { mount_runner: 50, mount_wolf: 40, mount_unicorn: 62, mount_drake: 44 };
+        const SEAT = { mount_runner: [0.5, 0.4], mount_wolf: [0.52, 0.3], mount_unicorn: [0.43, 0.3], mount_drake: [0.58, 0.5] };
+        const NATIVE_LEFT = { mount_drake: true };
+        const k = (MOUNT_H[look.mount] || 50) * (mi.scale || 1) / ms.h;
+        const w = ms.w * k, h = ms.h * k;
+        const bob = moving ? Math.abs(Math.sin(Date.now() / 90)) * 2.5 : 0;
+        const flip = NATIVE_LEFT[look.mount] ? -1 : 1;
+        const seat = [mi.seatX ?? SEAT[look.mount][0], mi.seatY ?? SEAT[look.mount][1]];
+        ctx.save();
+        ctx.translate((mi.offX || 0), 24 - bob + (mi.offY || 0));
+        ctx.scale(flip, 1);
+        ctx.drawImage(img, -w / 2, -h, w, h);
+        ctx.restore();
+        // the rider sits on the saddle: feet at the seat point (mount picture fractions)
+        const sx = ((flip > 0 ? seat[0] : 1 - seat[0]) - 0.5) * w + (mi.offX || 0);
+        seatY = 24 - bob + (mi.offY || 0) - h + seat[1] * h;
+        ctx.translate(sx, seatY - 24 + 12);
+      }
     }
-
-    // Belt
-    ctx.fillStyle = '#291e18';
-    ctx.fillRect(-11, 6, 22, 3);
-
-    // Head
-    ctx.fillStyle = '#fed7aa';
-    ctx.beginPath();
-    ctx.arc(0, -15, 13, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Eyes
-    ctx.fillStyle = '#451a03';
-    ctx.beginPath();
-    ctx.arc(4, -15, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Headband / Feather
-    if (isArcher) {
-      ctx.fillStyle = '#10b981';
-      ctx.fillRect(-13, -20, 26, 4);
-      ctx.font = '14px sans-serif';
-      ctx.fillText('🪶', -12, -22); // Hunter feather
-    } else {
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(-13, -20, 26, 5);
+    const cost = PLAYER_SPRITES.costumes[look.costume] || PLAYER_SPRITES.costumes.none;
+    const cimg = this.getSheet(`assets/sprites/player/costume_${PLAYER_SPRITES.costumes[look.costume] ? look.costume : 'none'}.png`);
+    if (cimg) {
+      const kb = (PLAYER_BODY_H * (look.riding ? 0.95 : 1)) / PLAYER_SPRITES.bodyHeight;
+      const bob = look.riding ? 0 : Math.abs(legOffset) * 0.22;
+      ctx.save();
+      ctx.translate(0, -bob);
+      ctx.rotate(pose.lean * 0.6);
+      if (look.riding && seatY) { ctx.beginPath(); ctx.rect(-80, -120, 160, 120 + 24 - 12 - 3); ctx.clip(); } // legs hidden by the saddle
+      const oi = ITEMS[this.player.equipment.outfit], os = isLocal ? ((oi && oi.scale) || 1) : 1;
+      ctx.translate(isLocal && oi ? (oi.offX || 0) : 0, isLocal && oi ? (oi.offY || 0) : 0);
+      ctx.drawImage(cimg, -cost.fx * kb * os, 24 - cost.fy * kb * os, cost.w * kb * os, cost.h * kb * os);
+      ctx.restore();
     }
-
-    // Hair
-    ctx.fillStyle = isArcher ? '#92400e' : '#6b462c';
-    ctx.beginPath();
-    ctx.arc(0, -21, 14, Math.PI * 0.9, Math.PI * 2.1);
-    ctx.fill();
-
+    const sh = look.shield && ITEMS[look.shield];
+    const simg = sh && this.getSheet(`assets/sprites/player/parts/${look.shield}.png`);
+    if (simg) {
+      const sm = PLAYER_SPRITES.shields[look.shield];
+      const sw = 20 * (sh.scale ?? 1), shh = sw * sm.h / sm.w;
+      ctx.drawImage(simg, 5 + (sh.offX || 0) - sw / 2, 3 + (sh.offY || 0) - shh / 2, sw, shh);
     }
 
     // WEAPON RENDERING (by weapon type)
@@ -2725,7 +2695,6 @@ export class GameEngine {
     }
 
     // Sword arm in front: the hand covers the grip
-    if (armor) this.drawArmorArm(ctx, armor.arm_r, SHOULDER_NEAR[0], SHOULDER_NEAR[1], wType === 'fist' ? 2.75 : pose.arm);
 
     ctx.restore();
   }

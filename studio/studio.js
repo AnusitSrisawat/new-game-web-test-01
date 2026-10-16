@@ -529,11 +529,59 @@
       (listHost = h('div'))
     ];
   }
+  // Live preview of a player-gear item (outfit / shield / mount) with the values being edited
+  const IMG_CACHE = {};
+  const loadImg = (src) => IMG_CACHE[src] || (IMG_CACHE[src] = Object.assign(new Image(), { src }));
+  function gearPreview(id) {
+    const type = state.itemsInfo?.[id]?.type;
+    if (!['outfit', 'shield', 'mount'].includes(type)) return null;
+    const cv = h('canvas', { width: 260, height: 190, class: 'gearprev' });
+    const v = (k, d) => { const x = Number(valueOf('items', id, k)); return Number.isFinite(x) ? x : d; };
+    const draw = async () => {
+      const m = await import('/src/player_sprites.js'); const PS = m.PLAYER_SPRITES;
+      const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, 260, 190);
+      ctx.fillStyle = '#7fb069'; ctx.fillRect(0, 0, 260, 190);
+      const U = 2.4, cx = 130, gy = 150;                       // world unit -> px, ground line
+      const costumeId = type === 'outfit' ? (state.itemsInfo[id]?.costume || id.slice(7)) : 'knight';
+      const cs = PS.costumes[costumeId] || PS.costumes.none, kb = 58 / PS.bodyHeight;
+      let rx = cx, ry = gy;
+      if (type === 'mount') {
+        const ms = PS.mounts[id], img = loadImg(`/assets/sprites/mounts/${id}.png`);
+        const H = { mount_runner: 50, mount_wolf: 40, mount_unicorn: 62, mount_drake: 44 }[id] || 50;
+        const k = H * v('scale', 1) * U / ms.h, w = ms.w * k, h2 = ms.h * k, left = id === 'mount_drake';
+        ctx.save(); ctx.translate(cx + v('offX', 0) * U, gy + v('offY', 0) * U); if (left) ctx.scale(-1, 1);
+        if (img.complete) ctx.drawImage(img, -w / 2, -h2, w, h2); ctx.restore();
+        const sx = v('seatX', 0.5), sy = v('seatY', 0.4);
+        rx = cx + v('offX', 0) * U + ((left ? 1 - sx : sx) - 0.5) * w; ry = gy + v('offY', 0) * U - h2 + sy * h2 + 12 * U;
+      }
+      const os = type === 'outfit' ? v('scale', 1) : 1;
+      const cimg = loadImg(`/assets/sprites/player/costume_${costumeId}.png`);
+      ctx.save();
+      if (type === 'mount') { ctx.beginPath(); ctx.rect(0, 0, 260, ry - 3 * U); ctx.clip(); }
+      if (cimg.complete) ctx.drawImage(cimg, rx - cs.fx * kb * U * os + (type === 'outfit' ? v('offX', 0) * U : 0), ry - cs.fy * kb * U * os + (type === 'outfit' ? v('offY', 0) * U : 0), cs.w * kb * U * os, cs.h * kb * U * os);
+      ctx.restore();
+      if (type === 'shield') {
+        const sm = PS.shields[id], simg = loadImg(`/assets/sprites/player/parts/${id}.png`), sw = 20 * v('scale', 1) * U, sh = sw * sm.h / sm.w;
+        if (simg.complete) ctx.drawImage(simg, cx + (5 + v('offX', 0)) * U - sw / 2, gy + (-21 + v('offY', 0)) * U - sh / 2, sw, sh);
+      }
+    };
+    const redraw = () => draw().catch(() => {});
+    setTimeout(redraw, 50); setTimeout(redraw, 400); // images may still be loading
+    return { cv, redraw };
+  }
+
   function buildItems(q) {
-    return Object.keys(state.defaults.items).filter(id => matches(q, id, valueOf('items', id, 'name'))).map(id => h('div', { class: 'card' },
-      h('h3', {}, valueOf('items', id, 'name'), h('small', {}, id)),
-      h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'heal', 'reqLevel', 'desc']))
-    ));
+    return Object.keys(state.defaults.items).filter(id => matches(q, id, valueOf('items', id, 'name'))).map(id => {
+      const prev = gearPreview(id);
+      const card = h('div', { class: 'card' },
+        h('h3', {}, valueOf('items', id, 'name'), h('small', {}, id)),
+        prev ? h('div', { class: 'hint' }, 'ตัวอย่างบนตัวละคร (ปรับค่าแล้วภาพขยับตามทันที)') : null,
+        prev ? prev.cv : null,
+        h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'heal', 'reqLevel', 'lootSpeed', 'speedPct', 'scale', 'offX', 'offY', 'seatX', 'seatY', 'desc']))
+      );
+      if (prev) { card.addEventListener('input', () => setTimeout(prev.redraw, 0)); card.addEventListener('change', () => setTimeout(prev.redraw, 0)); }
+      return card;
+    });
   }
 
   function panelQuests() {

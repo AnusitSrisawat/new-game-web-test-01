@@ -11,6 +11,9 @@ function monsterIconHtml(mid, emoji, px) {
   return sp ? `<span style="${spriteStyle(sp, px)}"></span>` : (emoji || '🐾');
 }
 
+const GEAR_TYPES = ['weapon', 'outfit', 'armor', 'shield', 'mount', 'pet'];
+const SLOT_OF_TYPE = { weapon: 'weapon', outfit: 'outfit', armor: 'outfit', shield: 'offhand', mount: 'mount', pet: 'pet' };
+
 const SKILL_ICONS = {
   power_strike: '💥', whirlwind: '🌀', double_shot: '🏹', arrow_rain: '🌧️', fire_bolt: '🔥', frost_nova: '❄️', meteor_fall: '☄️',
   heal_light: '💚', iron_guard: '🛡️', berserk: '😡', dash: '💨', sword_mastery: '⚔️', tough_body: '💪', swift_feet: '👟', mana_well: '🔷', eagle_eye: '🦅'
@@ -208,6 +211,7 @@ export class UIController {
       else if (key === 'm') this.toggleModal('modal-zones', () => this.renderZonesModal());
       else if (key === 'q') this.gameEngine.usePotionSlot();
       else if (key === 'e') this.gameEngine.useSpPotionSlot();
+      else if (key === 'r') this.gameEngine.toggleMount();
       else if (key === 'n') this.toggleModal('modal-info', () => this.renderInfoModal());
       else if (key === 'v') this.toggleModal('modal-skills', () => this.renderSkillsModal());
       else if (key === 'escape') {
@@ -894,7 +898,7 @@ export class UIController {
     const maxB = pl.maxBaseExp;
     const bPct = Math.min(100, (pl.baseExp / maxB) * 100);
     const w = ITEMS[pl.equipment.weapon];
-    const a = ITEMS[pl.equipment.armor];
+    const a = ITEMS[pl.equipment.outfit];
     const info = pl.weaponInfo;
     const wtName = WEAPON_TYPES[info.type] ? WEAPON_TYPES[info.type].name : info.type;
     const statHelp = {
@@ -1073,7 +1077,7 @@ export class UIController {
 
     const TABS = [
       { id: 'all', label: '🎒 ทั้งหมด', match: () => true },
-      { id: 'gear', label: '🛡️ ของสวมใส่', match: it => it.type === 'weapon' || it.type === 'armor' || it.type === 'pet' },
+      { id: 'gear', label: '🛡️ ของสวมใส่', match: it => GEAR_TYPES.includes(it.type) },
       { id: 'consumable', label: '🧪 ของใช้', match: it => it.type === 'consumable' },
       { id: 'material', label: '🦴 วัสดุจากมอนสเตอร์', match: it => it.type === 'material' }
     ];
@@ -1081,7 +1085,6 @@ export class UIController {
     const tab = TABS.find(t => t.id === this.invTab);
 
     const weapon = ITEMS[this.player.equipment.weapon];
-    const armor = ITEMS[this.player.equipment.armor];
     const owned = Object.keys(this.player.inventory).filter(k => ITEMS[k] && this.player.inventory[k] > 0);
     const countOf = t => owned.filter(k => t.match(ITEMS[k])).length;
     const shown = owned.filter(k => tab.match(ITEMS[k]));
@@ -1122,13 +1125,12 @@ export class UIController {
       </div>`;
 
     body.innerHTML = viewsHtml + (view === 'equip' ? `
-      ${gearRow('⚔️ อาวุธ', weapon)}
-      ${gearRow('🛡️ เกราะ', armor, 'armor')}
-      ${gearRow('🐾 สัตว์เลี้ยง (Pet)', ITEMS[this.player.equipment.pet], 'pet')}
-      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px; margin-top:4px;">
-        ${['🎩 หมวก', '🧤 ถุงมือ', '👢 รองเท้า', '🧥 ผ้าคลุม', '💍 เครื่องประดับ 1', '📿 เครื่องประดับ 2'].map(l => `<div style="text-align:center; padding:10px 4px; border:1px dashed rgba(255,255,255,0.15); border-radius:8px; color:#64748b; font-size:0.75rem;">${l}<div style="font-size:0.65rem;">เร็วๆ นี้</div></div>`).join('')}
-      </div>
-      <div style="margin-top:8px; font-size:0.78rem; color:#94a3b8;">ดับเบิลคลิกอุปกรณ์/Pet ในแท็บ Inventory เพื่อสวมใส่ · กด "ถอด" เพื่อเก็บ Pet/เกราะ</div>
+      ${gearRow('🥋 ชุด', ITEMS[this.player.equipment.outfit], 'outfit')}
+      ${gearRow('✋ มือขวา (อาวุธ)', weapon)}
+      ${gearRow('🛡️ มือซ้าย (โล่)', ITEMS[this.player.equipment.offhand], 'offhand')}
+      ${gearRow('🐾 สัตว์เลี้ยง', ITEMS[this.player.equipment.pet], 'pet')}
+      ${gearRow('🐎 สัตว์ขี่' + (this.player.riding ? ' (กำลังขี่)' : ''), ITEMS[this.player.equipment.mount], 'mount')}
+      <div style="margin-top:8px; font-size:0.78rem; color:#94a3b8;">ดับเบิลคลิกไอเทมในแท็บ Inventory เพื่อสวมใส่ · กด "ถอด" เพื่อเก็บ · กด <kbd>R</kbd> ขึ้นขี่/ลงจากสัตว์ขี่</div>
     ` : `
       <div style="display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,0.15);">${tabsHtml}</div>
       ${invHtml}
@@ -1144,13 +1146,13 @@ export class UIController {
       document.body.appendChild(tip);
     }
     tip.style.display = 'none';
-    const STAT_ROWS = [['atk', 'ATK'], ['def', 'DEF'], ['heal', 'HP ฟื้นฟู'], ['sp', 'SP ฟื้นฟู'], ['lootSpeed', 'เก็บของ']];
+    const STAT_ROWS = [['atk', 'ATK'], ['def', 'DEF'], ['hp', 'Max HP'], ['speedPct', 'ความเร็วเดิน'], ['heal', 'HP ฟื้นฟู'], ['sp', 'SP ฟื้นฟู'], ['lootSpeed', 'เก็บของ']];
     const row = (label, val, extra = '') => `<div style="display:grid; grid-template-columns:78px 1fr; gap:6px; padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.06);"><span style="color:#94a3b8;">${label}</span><span style="text-align:right; font-weight:600;">${val}${extra}</span></div>`;
     const panel = (title, inner, border) => `<div style="min-width:170px; max-width:220px; padding:8px 10px; background:rgba(15,23,42,0.97); border:1px solid ${border}; border-radius:8px;">${title}${inner}</div>`;
     const tipHtml = (k) => {
       const item = ITEMS[k];
-      const isGear = item.type === 'weapon' || item.type === 'armor' || item.type === 'pet';
-      const curId = isGear ? this.player.equipment[item.type] : null;
+      const isGear = GEAR_TYPES.includes(item.type);
+      const curId = isGear ? this.player.equipment[SLOT_OF_TYPE[item.type]] : null;
       const cur = (curId && curId !== k) ? ITEMS[curId] : null;
       const head = (it, tag, tagColor) => `<div style="font-weight:700; font-size:0.85rem;">${it.name}</div><div style="color:${tagColor}; font-size:0.7rem; margin-bottom:4px;">${tag}</div>`;
       const stats = (it, other) => STAT_ROWS.filter(([f]) => it[f] || (other && other[f])).map(([f, label]) => {
@@ -1160,9 +1162,9 @@ export class UIController {
           const d = v - (other[f] || 0);
           if (d !== 0) extra = ` <span style="color:${d > 0 ? '#4ade80' : '#f87171'};">(${d > 0 ? '+' : ''}${d})</span>`;
         }
-        return row(label, f === 'lootSpeed' ? `x${v}` : `+${v}`, extra);
+        return row(label, f === 'lootSpeed' ? `x${v}` : f === 'speedPct' ? `+${v}%` : `+${v}`, extra);
       }).join('');
-      const typeLabel = { weapon: 'อาวุธ', armor: 'เกราะ', pet: 'สัตว์เลี้ยง (Pet)', consumable: 'ของใช้', material: 'วัสดุ' }[item.type] || '';
+      const typeLabel = { weapon: 'อาวุธ (มือขวา)', outfit: 'ชุด', shield: 'โล่ (มือซ้าย)', mount: 'สัตว์ขี่', pet: 'สัตว์เลี้ยง (Pet)', consumable: 'ของใช้', material: 'วัสดุ' }[item.type] || '';
       const lv = item.reqLevel > 1 ? row('เลเวลที่ต้องการ', `Lv.${item.reqLevel}`, '') .replace('<span style="text-align:right; font-weight:600;">', `<span style="text-align:right; font-weight:600; color:${this.player.baseLevel >= item.reqLevel ? '#e2e8f0' : '#ef4444'};">`) : '';
       const hint = isGear ? (curId === k ? '<div style="color:#4ade80; margin-top:4px;">สวมอยู่</div>' : '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อสวมใส่</div>')
         : (item.type === 'consumable' ? '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อใช้</div>' : '');
@@ -1184,7 +1186,7 @@ export class UIController {
       el.addEventListener('dblclick', () => {
         tip.style.display = 'none';
         const item = ITEMS[k];
-        if (item.type === 'weapon' || item.type === 'armor' || item.type === 'pet') {
+        if (GEAR_TYPES.includes(item.type)) {
           const res = this.player.equipItem(k);
           if (!res.ok) { this.gameEngine.onLog(`🚫 สวมใส่ ${item.name} ไม่ได้: ${res.reason}`, 'system'); return; }
           this.gameEngine.onLog(`🛡️ สวมใส่ ${item.name}`, 'system');

@@ -1,4 +1,4 @@
-import { installCatalog, pruneItems, applyFacing, finishDrops } from './catalog.js';
+import { installCatalog, pruneItems, applyFacing, finishDrops, installPlayerGear } from './catalog.js';
 import { SKILL_DEFAULTS } from './skills.js';
 import { installWeapons } from './weapons_catalog.js';
 
@@ -830,6 +830,7 @@ pruneItems({ MONSTERS, ITEMS, CRAFTING_RECIPES });
 installWeapons(ITEMS); // all weapon types (sword/staff/bow/spear/gun/book); not sold or crafted yet
 applyFacing(MONSTERS);
 finishDrops({ MONSTERS, RELICS, ITEMS });
+installPlayerGear(ITEMS);
 
 // Skill data (draft; the game does not run skills yet). Edited in Studio, see docs/SKILLS.md
 export const SKILLS = JSON.parse(JSON.stringify(SKILL_DEFAULTS));

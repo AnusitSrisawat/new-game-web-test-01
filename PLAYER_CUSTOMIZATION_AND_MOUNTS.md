@@ -154,3 +154,14 @@
    - ตรวจสอบ `if (this.player.isMounted)` เพื่อวาดตัวสัตว์ขี่ Layer ล่างสุด
    - วาดชิ้นส่วนเรียงตาม Z-Index ลำดับที่ 0 ถึง 10
    - ปรับความเร็วเดิน `player.speed = this.player.isMounted ? BASE_SPEED * 1.5 : BASE_SPEED;`
+
+---
+
+## 6. สถานะการทำจริงในเกม (Implemented)
+
+- ช่องสวมใส่เหลือ 5 ช่อง: **ชุด** (`outfit`), **มือขวา** (`weapon`), **มือซ้าย** (`offhand` = โล่), **สัตว์เลี้ยง** (`pet`), **สัตว์ขี่** (`mount`) — เก็บใน `player.equipment`
+- ชุด = ตัวละครทั้งตัว (ตัว + เสื้อผ้า + หมวก + ปีก/ผ้าคลุม) รวมเป็นรูปเดียว สร้างด้วย `python3 tools/player_parts_cutout.py && python3 tools/player_costumes.py` (ตัดชิ้นส่วนจาก `player_parts_sheet.jpg` / `mounts_riding_sheet.jpg` → `assets/sprites/player/`, `assets/sprites/mounts/`, ขนาด/จุดยึดอยู่ใน `src/player_sprites.js`)
+- ไอเทมอยู่ใน `installPlayerGear()` (`src/catalog.js`): 5 ชุด (`outfit_*`), 2 โล่ (`shield_*`), 4 สัตว์ขี่ (`mount_*`, +40/50/55/60% ความเร็วเดิน) — ดับเบิลคลิกในกระเป๋า [I] เพื่อสวมใส่ · กด **R** ขึ้นขี่/ลง
+- ตอนทดสอบ ไอเทมทั้งหมดอยู่ในกระเป๋า (`TEST_ALL_GEAR` ใน `src/player.js`)
+- Studio → ไอเทม: แก้ราคา/ค่าพลัง และ ขนาด/ตำแหน่งรูปบนตัวละคร (`scale`, `offX`, `offY`, จุดนั่ง `seatX/seatY` ของสัตว์ขี่) พร้อมภาพตัวอย่างสด
+- ผู้เล่นอื่นเห็นชุด/โล่/สัตว์ขี่ ผ่าน `update_profile`

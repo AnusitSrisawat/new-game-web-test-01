@@ -29,6 +29,12 @@ export function randomName() {
 // TESTING: put every sword in the bag and let it be equipped at any level.
 // Set to false to go back to normal (level-gated, drops/crafting only).
 export const TEST_ALL_SWORDS = true;
+// TESTING: also put every outfit / shield / mount in the bag. Set to false for normal play.
+export const TEST_ALL_GEAR = true;
+
+// Equipment slots: weapon = right hand, offhand = left hand (shield), outfit = whole look, pet, mount
+export const EQUIP_SLOTS = ['weapon', 'offhand', 'outfit', 'pet', 'mount'];
+const SLOT_OF = { weapon: 'weapon', shield: 'offhand', outfit: 'outfit', armor: 'outfit', pet: 'pet', mount: 'mount' };
 
 export class Player {
   constructor() {
@@ -62,11 +68,13 @@ export class Player {
 
     // Equipment: item id or null
     this.equipment = {
-      weapon: 'wooden_stick',
-      armor: null,
-      pet: null
-      // more slots (head, accessories ...) are shown as "coming soon" in the equipment window
+      weapon: 'wooden_stick',   // right hand
+      offhand: null,            // left hand (shield)
+      outfit: 'outfit_knight',  // the whole look
+      pet: null,
+      mount: null
     };
+    this.isMounted = false;     // riding the equipped mount (toggle with R)
 
     // Hotbar slots 1-9: skill/item ids the player assigns (empty for now)
     this.hotbar = new Array(HOTBAR_SIZE).fill(null);
@@ -157,10 +165,31 @@ export class Player {
 
   get spRegen() { return 1 + this.stats.int * 0.1; }       // SP per second
 
+  // Sum of a stat over the worn outfit + left-hand item (the weapon is counted where it is used)
+  gearSum(key) {
+    let s = 0;
+    for (const slot of ['outfit', 'offhand']) {
+      const it = this.equipment[slot] && ITEMS[this.equipment[slot]];
+      if (it) s += it[key] || 0;
+    }
+    return s;
+  }
+
+  get mountItem() { return this.equipment.mount ? ITEMS[this.equipment.mount] || null : null; }
+  get riding() { return !!(this.isMounted && this.mountItem); }
+
+  // Mount up / get off (needs a mount in the mount slot)
+  toggleMount() {
+    if (!this.mountItem) return false;
+    this.isMounted = !this.isMounted;
+    this.saveToStorage();
+    return true;
+  }
+
   // Move speed: +0.3% per AGI (cap +40%) plus skill bonuses. AGI 5 => +1.5%, AGI 100 => +30%.
   get moveMul() {
     const agiBonus = Math.min(0.4, this.stats.agi * 0.003);
-    return 1 + agiBonus + this.skillBonus('bonusMovePct') / 100;
+    return 1 + agiBonus + this.skillBonus('bonusMovePct') / 100 + (this.riding ? (this.mountItem.speedPct || 0) / 100 : 0);
   }
 
   // Calculate Total Combined Stats
@@ -170,9 +199,7 @@ export class Player {
       const relic = RELICS[id];
       if (relic && relic.statBonus.hp) hp += relic.statBonus.hp;
     });
-    if (this.equipment.armor && ITEMS[this.equipment.armor]) {
-      hp += (ITEMS[this.equipment.armor].hp || 0);
-    }
+    hp += this.gearSum('hp');
     return Math.floor(hp * (1 + this.skillBonus('bonusHpPct') / 100));
   }
 
@@ -194,9 +221,7 @@ export class Player {
     if (withWeapon && this.equipment.weapon && ITEMS[this.equipment.weapon]) {
       atk += (ITEMS[this.equipment.weapon].atk || 0);
     }
-    if (this.equipment.armor && ITEMS[this.equipment.armor]) {
-      atk += (ITEMS[this.equipment.armor].atk || 0);
-    }
+    atk += this.gearSum('atk');
     this.collectedRelics.forEach(id => {
       const relic = RELICS[id];
       if (relic && relic.statBonus.atk) atk += relic.statBonus.atk;
@@ -210,9 +235,7 @@ export class Player {
     if (this.equipment.weapon && ITEMS[this.equipment.weapon]) {
       def += (ITEMS[this.equipment.weapon].def || 0);
     }
-    if (this.equipment.armor && ITEMS[this.equipment.armor]) {
-      def += (ITEMS[this.equipment.armor].def || 0);
-    }
+    def += this.gearSum('def');
     this.collectedRelics.forEach(id => {
       const relic = RELICS[id];
       if (relic && relic.statBonus.def) def += relic.statBonus.def;
@@ -319,11 +342,11 @@ export class Player {
   // Returns { ok, reason }. Rare gear needs a minimum character level.
   equipItem(itemId) {
     const item = ITEMS[itemId];
-    if (!item || !['weapon', 'armor', 'pet'].includes(item.type)) return { ok: false, reason: 'ไม่ใช่อุปกรณ์' };
+    if (!item || !SLOT_OF[item.type]) return { ok: false, reason: 'ไม่ใช่อุปกรณ์' };
     if (!TEST_ALL_SWORDS && item.reqLevel && this.baseLevel < item.reqLevel) {
       return { ok: false, reason: `ต้องการเลเวล ${item.reqLevel} ขึ้นไป (ตอนนี้ Lv.${this.baseLevel})` };
     }
-    this.equipment[item.type] = itemId;
+    this.equipment[SLOT_OF[item.type]] = itemId;
     this.saveToStorage();
     return { ok: true };
   }
@@ -440,6 +463,7 @@ export class Player {
   unequip(slot) {
     if (slot === 'weapon' || !(slot in this.equipment)) return false;
     this.equipment[slot] = null;
+    if (slot === 'mount') this.isMounted = false;
     this.saveToStorage();
     return true;
   }
@@ -457,6 +481,7 @@ export class Player {
       gachaTokens: this.gachaTokens,
       inventory: this.inventory,
       equipment: this.equipment,
+      isMounted: this.isMounted,
       hotbar: this.hotbar,
       auto: this.auto,
       hpPotionSlot: this.hpPotionSlot,
@@ -507,13 +532,19 @@ export class Player {
           if (a.hpPotion) Object.assign(this.auto.hpPotion, a.hpPotion);
           if (a.spPotion) Object.assign(this.auto.spPotion, a.spPotion);
         }
-        if (d.equipment) this.equipment = { weapon: d.equipment.weapon ?? null, armor: d.equipment.armor ?? null, pet: d.equipment.pet ?? null };
+        if (d.equipment) {
+          // old saves had weapon / armor / pet only: armor goes back to the bag, the knight outfit is worn
+          this.equipment = { weapon: d.equipment.weapon ?? null, offhand: d.equipment.offhand ?? null,
+            outfit: d.equipment.outfit ?? (('outfit' in d.equipment) ? null : 'outfit_knight'), pet: d.equipment.pet ?? null, mount: d.equipment.mount ?? null };
+          if (d.equipment.armor && ITEMS[d.equipment.armor]) this.inventory[d.equipment.armor] = (this.inventory[d.equipment.armor] || 0) + 1;
+        }
+        this.isMounted = !!d.isMounted;
         // old pet system: owned pets become items, the active one is worn
         if (Array.isArray(d.pets)) d.pets.forEach(mid => { if (ITEMS[`pet_${mid}`] && !this.inventory[`pet_${mid}`]) this.inventory[`pet_${mid}`] = 1; });
         if (d.activePet && ITEMS[`pet_${d.activePet}`] && !this.equipment.pet) this.equipment.pet = `pet_${d.activePet}`;
         if (Array.isArray(d.hotbar)) this.hotbar = d.hotbar.slice(0, HOTBAR_SIZE).concat(new Array(Math.max(0, HOTBAR_SIZE - d.hotbar.length)).fill(null));
         // Gear that no longer exists, or is above the player's level, goes back to the bag
-        ['weapon', 'armor', 'pet'].forEach(slot => {
+        EQUIP_SLOTS.forEach(slot => {
           const id = this.equipment[slot];
           const item = id && ITEMS[id];
           if (id && (!item || (!TEST_ALL_SWORDS && item.reqLevel && item.reqLevel > this.baseLevel))) {
@@ -522,6 +553,7 @@ export class Player {
           }
         });
         if (!this.equipment.weapon && !this.inventory.wooden_stick) this.inventory.wooden_stick = 1;
+        if (!this.mountItem) this.isMounted = false;
         if (Array.isArray(d.skillLoadout)) this.skillLoadout = Array.from({ length: SKILL_SLOTS }, (_, i) => d.skillLoadout[i] || null);
         // skills that no longer exist (or were never learned) leave the loadout / bag
         this.skillLoadout = this.skillLoadout.map(id => (id && SKILLS[id] && this.learnedSkills[id] ? id : null));
@@ -532,6 +564,11 @@ export class Player {
       }
       // Old saves carried the placeholder name; give those a random one too
       if (!this.name || this.name === 'Novice Adventurer') this.name = randomName();
+      if (TEST_ALL_GEAR) {
+        for (const it of Object.values(ITEMS)) {
+          if (['outfit', 'shield', 'mount'].includes(it.type) && !this.inventory[it.id] && this.equipment[SLOT_OF[it.type]] !== it.id) this.inventory[it.id] = 1;
+        }
+      }
       if (TEST_ALL_SWORDS) {
         for (const it of Object.values(ITEMS)) {
           if (it.type === 'weapon' && it.weaponType === 'sword' && !this.inventory[it.id] && this.equipment.weapon !== it.id) {
