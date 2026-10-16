@@ -1250,15 +1250,20 @@ body, html {
 }
 .btn-option:hover, .btn-option.open { background: rgba(245, 158, 11, 0.22); border-color: #fbbf24; }
 .option-menu {
-  position: absolute; top: 38px; right: 0; z-index: 30; min-width: 210px;
-  display: flex; flex-direction: column; gap: 4px; padding: 8px;
+  position: absolute; top: 38px; right: 0; z-index: 30; width: 252px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px;
   background: rgba(10, 15, 30, 0.96); border: 1px solid rgba(251, 191, 36, 0.45);
   border-radius: 10px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8);
 }
-.option-menu .btn-hud-icon { width: 100%; justify-content: flex-start; box-shadow: none; border-color: rgba(255, 255, 255, 0.08); }
+.option-menu .btn-hud-icon {
+  width: 100%; min-height: 64px; box-sizing: border-box;
+  flex-direction: column; justify-content: center; align-items: center; gap: 3px;
+  padding: 6px 2px; text-align: center; font-size: 0.7rem; line-height: 1.2;
+  box-shadow: none; border-color: rgba(255, 255, 255, 0.08);
+}
 .option-menu .btn-hud-icon kbd {
-  margin-left: auto; font-family: inherit; font-size: 0.66rem; color: #94a3b8;
-  border: 1px solid #475569; border-radius: 4px; padding: 0 5px;
+  margin-left: 0; font-family: inherit; font-size: 0.6rem; color: #94a3b8;
+  border: 1px solid #475569; border-radius: 4px; padding: 0 4px;
 }
 .minimap-card { margin-top: 0; }
 
