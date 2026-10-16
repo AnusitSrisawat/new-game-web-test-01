@@ -240,3 +240,15 @@ export function weaponSprite(id) {
   const wh = name && WEAPON_SPRITES[name];
   return wh ? { src: `assets/sprites/weapons/${name}.png`, w: wh[0], h: wh[1] } : null;
 }
+
+// Particle & Combat VFX Sprites (Gold, EXP, Blood, Damage Hit Impacts)
+export const PARTICLE_SPRITES = new Set([
+  'sparkle_gold', 'coin_particle', 'exp_bubble', 'sparkle_exp',
+  'blood_splat', 'blood_spray', 'blood_drop', 'blood_scratch',
+  'hit_spark', 'hit_slash', 'crit_burst', 'hit_deflect'
+]);
+
+export function particleSprite(id) {
+  if (!id || !PARTICLE_SPRITES.has(id)) return null;
+  return { src: `assets/sprites/particles/${id}.png`, sx: 0, sy: 0, sw: 128, sh: 128, iw: 128, ih: 128 };
+}

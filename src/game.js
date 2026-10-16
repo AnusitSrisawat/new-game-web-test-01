@@ -4,7 +4,7 @@ import { getMapDef, TILE_SIZE } from './maps.js';
 import { ZONES, WEAPON_TYPES, MONSTERS, ITEMS, RELICS, QUESTS, SKILLS, SOUNDS } from './data.js';
 import { weaponMatches } from './player.js';
 import { soundEngine } from './audio.js';
-import { monsterSprite, itemSprite, weaponSprite, dropSprite, splitDropPieces } from './sprites.js';
+import { monsterSprite, itemSprite, weaponSprite, dropSprite, splitDropPieces, particleSprite, PARTICLE_SPRITES } from './sprites.js';
 
 // ---- Sword swing animation (prog 0..1: wind-up, snap strike, follow-through) ----
 // Angles are the blade direction: 0 = straight up, positive = clockwise (towards the facing side).
@@ -93,6 +93,11 @@ export class GameEngine {
 
     // 4. Sprite sheets (monsters + item icons), loaded on first use and cached per file
     this.sheetImages = {};
+    // Preload particle VFX sprites
+    PARTICLE_SPRITES.forEach(id => {
+      const sp = particleSprite(id);
+      if (sp) this.getSheet(sp.src);
+    });
 
     // 5. Keyboard Controls State for WASD
     this.keys = {
@@ -270,7 +275,7 @@ export class GameEngine {
       m.flashTimer = 0.15;
       m.squashTimer = 0.18;
       this.addFloatingText(m.x, m.y - 20, `${damage}`, isCrit ? '#f59e0b' : '#ffffff', isCrit ? 22 : 16, isCrit);
-      this.addParticle(m.x, m.y, isCrit ? '#f59e0b' : '#ef4444', isCrit ? 12 : 6);
+      this.spawnHitVFX(m.x, m.y, isCrit, 1);
       if (this.selectedTarget && this.selectedTarget.id === monsterId) {
         this.updateTargetHUD(m);
       }
@@ -286,8 +291,8 @@ export class GameEngine {
       m.currentHp = 0;
       m.deathTimer = MONSTER_DEATH_TIME;
       m.spawnTimer = 0;
-      this.addParticle(m.x, m.y, '#f59e0b', 25);
-      this.addParticle(m.x, m.y + 10, '#e2e8f0', 10);
+      this.addParticle(m.x, m.y, '#f59e0b', 15);
+      this.spawnBloodVFX(m.x, m.y, 6, Math.random() > 0.5 ? 1 : -1);
       this.addShockwave(m.x, m.y, '#f59e0b', 50);
 
       if (this.selectedTarget && this.selectedTarget.id === monsterId) {
@@ -737,14 +742,14 @@ export class GameEngine {
       soundEngine.play('coin');
       this.player.saveToStorage();
       this.addFloatingText(pl.x, pl.y - 40, `+${o.amount} G`, '#fbbf24', 15);
-      this.addParticle(pl.x, pl.y - 10, '#fbbf24', 4);
+      this.spawnGoldPickupVFX(pl.x, pl.y - 12, o.amount);
     } else if (o.kind === 'exp') {
       const lv = this.player.baseLevel;
       this.player.gainExp(o.amount);
       soundEngine.play(this.player.baseLevel > lv ? 'levelUp' : 'coin');
       this.player.saveToStorage();
       this.addFloatingText(pl.x, pl.y - 52, `+${o.amount} EXP`, '#4ade80', 15);
-      this.addParticle(pl.x, pl.y - 10, '#4ade80', 4);
+      this.spawnExpPickupVFX(pl.x, pl.y - 12, o.amount);
     } else if (o.isPet) {
       const pid = `pet_${o.monsterId}`;
       const name = MONSTERS[o.monsterId]?.name || o.monsterId;
@@ -1079,18 +1084,279 @@ export class GameEngine {
     });
   }
 
-  addParticle(x, y, color = '#fbbf24', count = 5) {
+  addParticle(x, y, color = '#fbbf24', count = 5, opts = {}) {
     for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 25 + Math.random() * 85;
+      const angle = opts.angle !== undefined ? opts.angle + (Math.random() - 0.5) * (opts.spread || 0.6) : Math.random() * Math.PI * 2;
+      const speed = opts.speed !== undefined ? opts.speed * (0.6 + Math.random() * 0.8) : (25 + Math.random() * 85);
+      const life = opts.life !== undefined ? opts.life * (0.8 + Math.random() * 0.4) : (0.5 + Math.random() * 0.4);
       this.particles.push({
         x,
         y,
+        vx: opts.vx !== undefined ? opts.vx : Math.cos(angle) * speed,
+        vy: opts.vy !== undefined ? opts.vy : Math.sin(angle) * speed,
+        color,
+        size: opts.size !== undefined ? opts.size * (0.8 + Math.random() * 0.4) : (3 + Math.random() * 4),
+        scale: opts.scale || 1,
+        scaleEnd: opts.scaleEnd,
+        alpha: opts.alpha !== undefined ? opts.alpha : 1,
+        life,
+        maxLife: life,
+        gravity: opts.gravity || 0,
+        friction: opts.friction || 0.96,
+        rotation: opts.rotation !== undefined ? opts.rotation : Math.random() * Math.PI * 2,
+        vRot: opts.vRot !== undefined ? opts.vRot : (Math.random() - 0.5) * 4,
+        sprite: opts.sprite || null,
+        blend: opts.blend || null
+      });
+    }
+  }
+
+  // ---- Particle Emitters: Gold, EXP, Blood & Combat Hit Impacts ----
+
+  // 1. ได้รับเงิน: ประกายดาวสีทองวิบวับ + เหรียญทองกระเด็นหมุนลอย
+  spawnGoldPickupVFX(x, y, amount = 10) {
+    const isBig = amount >= 80;
+    const count = isBig ? 8 : 5;
+    this.addShockwave(x, y, '#fbbf24', isBig ? 45 : 30);
+
+    for (let i = 0; i < count; i++) {
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.6;
+      const speed = 40 + Math.random() * 90;
+      this.particles.push({
+        x: x + (Math.random() - 0.5) * 20,
+        y: y + (Math.random() - 0.5) * 16,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        color,
-        size: 3 + Math.random() * 4,
-        life: 0.5 + Math.random() * 0.4
+        sprite: 'sparkle_gold',
+        color: '#fbbf24',
+        size: 18 + Math.random() * 12,
+        scale: 0.6,
+        scaleEnd: 1.2,
+        life: 0.45 + Math.random() * 0.35,
+        maxLife: 0.65,
+        friction: 0.94,
+        gravity: -15,
+        rotation: Math.random() * Math.PI * 2,
+        vRot: (Math.random() - 0.5) * 6,
+        blend: 'lighter'
+      });
+    }
+
+    const coinCount = isBig ? 3 : 1;
+    for (let i = 0; i < coinCount; i++) {
+      this.particles.push({
+        x: x + (Math.random() - 0.5) * 12,
+        y: y - 4,
+        vx: (Math.random() - 0.5) * 70,
+        vy: -90 - Math.random() * 60,
+        sprite: 'coin_particle',
+        color: '#fbbf24',
+        size: 20 + Math.random() * 6,
+        scale: 1,
+        scaleEnd: 0.8,
+        life: 0.55 + Math.random() * 0.25,
+        maxLife: 0.7,
+        friction: 0.98,
+        gravity: 280,
+        rotation: Math.random() * Math.PI,
+        vRot: (Math.random() > 0.5 ? 1 : -1) * (8 + Math.random() * 6)
+      });
+    }
+  }
+
+  // 2. ได้รับ EXP: ฟองอากาศพลังงานสีเขียวมรกตลอยขึ้น + ประกายดาวเวทมนตร์ EXP
+  spawnExpPickupVFX(x, y, amount = 20) {
+    const isBig = amount >= 150;
+    const count = isBig ? 7 : 4;
+    this.addShockwave(x, y, '#4ade80', isBig ? 45 : 30);
+
+    for (let i = 0; i < count; i++) {
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+      const speed = 50 + Math.random() * 80;
+      this.particles.push({
+        x: x + (Math.random() - 0.5) * 24,
+        y: y + (Math.random() - 0.5) * 14,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        sprite: 'exp_bubble',
+        color: '#22c55e',
+        size: 20 + Math.random() * 10,
+        scale: 0.5,
+        scaleEnd: 1.3,
+        life: 0.5 + Math.random() * 0.35,
+        maxLife: 0.7,
+        friction: 0.95,
+        gravity: -30,
+        rotation: 0,
+        vRot: (Math.random() - 0.5) * 2,
+        blend: 'lighter'
+      });
+    }
+
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 35 + Math.random() * 70;
+      this.particles.push({
+        x,
+        y: y - 5,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        sprite: 'sparkle_exp',
+        color: '#4ade80',
+        size: 18 + Math.random() * 10,
+        scale: 0.8,
+        scaleEnd: 0.4,
+        life: 0.4 + Math.random() * 0.3,
+        maxLife: 0.55,
+        friction: 0.93,
+        gravity: 0,
+        rotation: Math.random() * Math.PI * 2,
+        vRot: (Math.random() - 0.5) * 8,
+        blend: 'lighter'
+      });
+    }
+  }
+
+  // 3. ทำดาเมจ (โจมตีมอนสเตอร์): ประกายฟันดาบ Hit Spark / Critical Burst + เลือดสาดกระจาย
+  spawnHitVFX(x, y, isCrit = false, facing = 1) {
+    const dir = facing || 1;
+
+    this.particles.push({
+      x: x + (Math.random() - 0.5) * 10,
+      y: y + (Math.random() - 0.5) * 10,
+      vx: dir * 15,
+      vy: -10,
+      sprite: isCrit ? 'crit_burst' : (Math.random() > 0.5 ? 'hit_spark' : 'hit_slash'),
+      color: isCrit ? '#f59e0b' : '#38bdf8',
+      size: isCrit ? 56 : 38,
+      scale: 0.7,
+      scaleEnd: 1.4,
+      life: isCrit ? 0.28 : 0.2,
+      maxLife: isCrit ? 0.28 : 0.2,
+      friction: 0.9,
+      rotation: Math.random() * Math.PI * 2,
+      vRot: (Math.random() - 0.5) * 4,
+      blend: 'lighter'
+    });
+
+    if (isCrit) {
+      this.particles.push({
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        sprite: 'crit_burst',
+        color: '#ef4444',
+        size: 72,
+        scale: 0.5,
+        scaleEnd: 1.5,
+        life: 0.32,
+        maxLife: 0.32,
+        rotation: Math.PI / 4,
+        vRot: 2,
+        blend: 'lighter'
+      });
+    }
+
+    this.spawnBloodVFX(x, y, isCrit ? 6 : 3, dir);
+  }
+
+  // Helper สำหรับพ่นเลือด (Blood spurt / splash)
+  spawnBloodVFX(x, y, count = 3, dirX = 1) {
+    this.particles.push({
+      x: x + (Math.random() - 0.5) * 8,
+      y: y + (Math.random() - 0.5) * 8,
+      vx: dirX * (10 + Math.random() * 20),
+      vy: -15 + Math.random() * 20,
+      sprite: Math.random() > 0.4 ? 'blood_splat' : 'blood_spray',
+      color: '#dc2626',
+      size: 26 + Math.random() * 14,
+      scale: 0.6,
+      scaleEnd: 1.2,
+      life: 0.28 + Math.random() * 0.16,
+      maxLife: 0.35,
+      friction: 0.92,
+      gravity: 50,
+      rotation: Math.random() * Math.PI * 2,
+      vRot: (Math.random() - 0.5) * 3
+    });
+
+    for (let i = 0; i < count; i++) {
+      const angle = (dirX > 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 1.4;
+      const speed = 50 + Math.random() * 110;
+      this.particles.push({
+        x: x + (Math.random() - 0.5) * 6,
+        y: y + (Math.random() - 0.5) * 6,
+        vx: Math.cos(angle) * speed,
+        vy: -40 - Math.random() * 80,
+        sprite: 'blood_drop',
+        color: '#b91c1c',
+        size: 14 + Math.random() * 10,
+        scale: 1,
+        scaleEnd: 0.5,
+        life: 0.35 + Math.random() * 0.25,
+        maxLife: 0.5,
+        friction: 0.97,
+        gravity: 340,
+        rotation: Math.atan2(Math.sin(angle), Math.cos(angle)) + Math.PI / 2,
+        vRot: 0
+      });
+    }
+  }
+
+  // 4. ได้รับดาเมจ (ตัวละครโดนโจมตี): รอยกรงเล็บ/บาดแผล เลือดสาดจากตัวผู้เล่น
+  spawnPlayerHurtVFX(x, y, damage = 10) {
+    this.particles.push({
+      x,
+      y: y - 8,
+      vx: 0,
+      vy: -5,
+      sprite: 'blood_scratch',
+      color: '#dc2626',
+      size: 46 + Math.random() * 8,
+      scale: 0.8,
+      scaleEnd: 1.15,
+      life: 0.35,
+      maxLife: 0.35,
+      friction: 0.95,
+      rotation: (Math.random() - 0.5) * 0.4,
+      vRot: 0
+    });
+
+    this.particles.push({
+      x: x + (Math.random() - 0.5) * 12,
+      y: y - 6,
+      vx: (Math.random() - 0.5) * 20,
+      vy: -10,
+      sprite: 'blood_splat',
+      color: '#ef4444',
+      size: 30 + Math.random() * 10,
+      scale: 0.7,
+      scaleEnd: 1.2,
+      life: 0.3,
+      maxLife: 0.3,
+      friction: 0.9,
+      rotation: Math.random() * Math.PI * 2
+    });
+
+    for (let i = 0; i < 4; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 40 + Math.random() * 90;
+      this.particles.push({
+        x,
+        y: y - 10,
+        vx: Math.cos(angle) * speed,
+        vy: -30 - Math.random() * 60,
+        sprite: 'blood_drop',
+        color: '#b91c1c',
+        size: 14 + Math.random() * 8,
+        scale: 1,
+        scaleEnd: 0.5,
+        life: 0.4 + Math.random() * 0.2,
+        maxLife: 0.5,
+        friction: 0.96,
+        gravity: 320,
+        rotation: 0
       });
     }
   }
@@ -1164,7 +1430,8 @@ export class GameEngine {
             dmg = Math.floor(dmg);
             m.flashTimer = 0.15;
             m.squashTimer = 0.18;
-            this.addParticle(m.x, m.y, color, 10);
+            this.addParticle(m.x, m.y, color, 8);
+            this.spawnHitVFX(m.x, m.y, crit, p.facing);
             this.addSlashEffect(m.x, m.y, p.facing, 'heavy');
             this.network?.sendMonsterHit(m.id, dmg, crit, id);
           }, h * 110);
@@ -1361,7 +1628,7 @@ export class GameEngine {
       monster.squashTimer = 0.18;
 
       this.addSlashEffect(monster.x, monster.y, p.facing, isCrit ? 'heavy' : 'normal');
-      this.addParticle(monster.x, monster.y, isCrit ? '#f59e0b' : '#f87171', isCrit ? 16 : 8);
+      this.spawnHitVFX(monster.x, monster.y, isCrit, p.facing);
 
       if (this.network) {
         this.network.sendAttackAction({
@@ -1376,7 +1643,7 @@ export class GameEngine {
   applyMonsterDamage(damage) {
     soundEngine.play('playerHurt');
     this.player.currentHp = Math.max(0, this.player.currentHp - damage);
-    this.addParticle(this.playerEntity.x, this.playerEntity.y, '#ef4444', 4);
+    this.spawnPlayerHurtVFX(this.playerEntity.x, this.playerEntity.y, damage);
     this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 25, `-${damage}`, '#f87171', 14);
 
     if (this.player.currentHp <= 0) {
@@ -1583,7 +1850,7 @@ export class GameEngine {
           if (dist < 35 || pr.life <= 0) {
             // Impact!
             soundEngine.playArrowHit();
-            this.addParticle(m.x, m.y, pr.isCrit ? '#f59e0b' : '#34d399', pr.isCrit ? 14 : 7);
+            this.spawnHitVFX(m.x, m.y, pr.isCrit, Math.sign(pr.vx) || 1);
             m.flashTimer = 0.15;
             m.squashTimer = 0.18;
             if (pr.damage > 0 && this.network && pr.ownerId === this.network.myPlayerId) {
@@ -1690,8 +1957,14 @@ export class GameEngine {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const pt = this.particles[i];
       pt.life -= dt;
+      if (pt.gravity) pt.vy += pt.gravity * dt;
+      if (pt.friction) {
+        pt.vx *= Math.pow(pt.friction, dt * 60);
+        pt.vy *= Math.pow(pt.friction, dt * 60);
+      }
       pt.x += pt.vx * dt;
       pt.y += pt.vy * dt;
+      if (pt.vRot) pt.rotation = (pt.rotation || 0) + pt.vRot * dt;
       if (pt.life <= 0) this.particles.splice(i, 1);
     }
 
@@ -1793,10 +2066,37 @@ export class GameEngine {
 
     // 12. Render Particles
     for (const pt of this.particles) {
-      ctx.fillStyle = pt.color;
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
-      ctx.fill();
+      const maxL = pt.maxLife || 0.5;
+      const lifeRatio = Math.max(0, pt.life / maxL);
+      const alpha = Math.min(1, lifeRatio * 1.6);
+      const scaleProg = 1 - lifeRatio;
+      const curScale = pt.scaleEnd !== undefined ? (pt.scale + (pt.scaleEnd - pt.scale) * scaleProg) : (pt.scale || 1);
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, (pt.alpha !== undefined ? pt.alpha : 1) * alpha));
+      if (pt.blend) ctx.globalCompositeOperation = pt.blend;
+      ctx.translate(pt.x, pt.y);
+      if (pt.rotation) ctx.rotate(pt.rotation);
+
+      if (pt.sprite) {
+        const sp = particleSprite(pt.sprite);
+        const img = sp ? this.getSheet(sp.src) : null;
+        if (img) {
+          const sz = (pt.size || 24) * curScale;
+          ctx.drawImage(img, sp.sx, sp.sy, sp.sw, sp.sh, -sz / 2, -sz / 2, sz, sz);
+        } else {
+          ctx.fillStyle = pt.color || '#fff';
+          ctx.beginPath();
+          ctx.arc(0, 0, (pt.size || 4) * curScale, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        ctx.fillStyle = pt.color || '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(0, 0, (pt.size || 4) * curScale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
     }
 
     this.drawGroundLoot(ctx);
