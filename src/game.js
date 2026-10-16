@@ -1077,13 +1077,11 @@ export class GameEngine {
     });
   }
 
-  // Ragnarok-style damage numbers: the newest hit sits right on the monster; every new hit pushes the older
-  // numbers one step away — up and away from the attacker (hit from the left -> up-right) — while they fade out.
+  // Ragnarok-style damage numbers: each hit appears on the monster, drifts away from the attacker while it
+  // rises a little, then droops down in an arc and fades. Fast hits simply overlap.
   addDamageText(m, damage, isCrit) {
     const dir = m.x >= this.playerEntity.x ? 1 : -1;
-    for (const ft of this.floatingTexts) if (ft.owner === m) ft.slot++;
     this.floatingTexts.push({
-      owner: m, slot: 0, dir, ax: m.x, ay: m.y,
       x: m.x, y: m.y - 30,
       text: `${damage}`,
       color: isCrit ? '#fde047' : '#ffffff',
@@ -1091,9 +1089,11 @@ export class GameEngine {
       fontSize: isCrit ? 30 : 21,
       isCrit,
       pop: true,
-      life: 1.5,
-      maxLife: 1.5,
-      vx: 0, vy: 0
+      life: 1.4,
+      maxLife: 1.4,
+      vx: dir * 48,
+      vy: -105,
+      gravity: 230
     });
   }
 
@@ -1974,16 +1974,9 @@ export class GameEngine {
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
       const ft = this.floatingTexts[i];
       ft.life -= dt;
-      if (ft.owner) { // slide to this number's slot: further from the monster = further up/away
-        const tx = ft.ax + ft.dir * ft.slot * 30;
-        const ty = ft.ay - 32 - ft.slot * 24;
-        const k = Math.min(1, dt * 14);
-        ft.x += (tx - ft.x) * k;
-        ft.y += (ty - ft.y) * k;
-      } else {
-        ft.x += ft.vx * dt;
-        ft.y += ft.vy * dt;
-      }
+      if (ft.gravity) ft.vy += ft.gravity * dt;
+      ft.x += ft.vx * dt;
+      ft.y += ft.vy * dt;
       if (ft.life <= 0) this.floatingTexts.splice(i, 1);
     }
 
@@ -2140,7 +2133,7 @@ export class GameEngine {
     for (const ft of this.floatingTexts) {
       ctx.save();
       const age = 1 - ft.life / ft.maxLife;
-      if (ft.pop) ctx.globalAlpha = Math.max(0, Math.min(1, (1 - age) * 1.8 - ft.slot * 0.12)); // older numbers fade away
+      if (ft.pop) ctx.globalAlpha = Math.max(0, Math.min(1, Math.min(1, (1 - age) * 2.2))); // solid at first, then fades away
       ctx.font = ft.isCrit || ft.pop ? `bold ${ft.fontSize}px sans-serif` : `${ft.fontSize}px sans-serif`;
       ctx.fillStyle = ft.color;
       ctx.textAlign = 'center';
