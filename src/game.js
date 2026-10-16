@@ -963,12 +963,12 @@ export class GameEngine {
     if (this.petState && this.petState.carry) { this.collectLootOrb(this.petState.carry); this.petState.carry = null; }
   }
 
-  // The pet runs out to a piece of loot, picks it up and brings it to the player (speed = 200 px/s x pet loot speed)
+  // The pet runs out to a piece of loot, picks it up and brings it to the player (speed = 320 px/s x pet loot speed)
   updatePet(dt) {
     const p = this.playerEntity;
     if (!this.player.activePet) { this.petState = null; return; }
     const pet = this.petState || (this.petState = { x: p.x - 40, y: p.y + 14, mode: 'follow', orb: null, moving: false });
-    const speed = 200 * this.player.petLootSpeed;
+    const speed = 320 * this.player.petLootSpeed;
     const go = (tx, ty, sp) => {
       const dx = tx - pet.x, dy = ty - pet.y, d = Math.hypot(dx, dy);
       pet.moving = d > 3;
@@ -987,7 +987,7 @@ export class GameEngine {
         if (d < bd) { bd = d; best = o; }
       }
       if (best) { best.state = 'claimed'; pet.orb = best; pet.mode = 'fetch'; }
-      else go(p.x - p.facing * 46, p.y + 14, 140 + 40 * Math.min(3, this.player.petLootSpeed));
+      else go(p.x - p.facing * 46, p.y + 14, 240 + 60 * Math.min(3, this.player.petLootSpeed));
     } else if (pet.mode === 'fetch') {
       if (!pet.orb || !this.lootOrbs.includes(pet.orb)) { pet.mode = 'follow'; pet.orb = null; }
       else if (go(pet.orb.x, pet.orb.y, speed)) { pet.orb.state = 'carried'; pet.mode = 'return'; }
