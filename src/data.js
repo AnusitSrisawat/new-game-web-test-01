@@ -652,7 +652,7 @@ export const MONSTER_AI = {
 installCatalog({ MONSTERS, ITEMS, MONSTER_AI });
 pruneItems({ MONSTERS, ITEMS, CRAFTING_RECIPES });
 applyFacing(MONSTERS);
-finishDrops({ MONSTERS, RELICS });
+finishDrops({ MONSTERS, RELICS, ITEMS });
 
 // Skill data (draft; the game does not run skills yet). Edited in Studio, see docs/SKILLS.md
 export const SKILLS = JSON.parse(JSON.stringify(SKILL_DEFAULTS));

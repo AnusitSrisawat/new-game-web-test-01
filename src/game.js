@@ -82,7 +82,7 @@ export class GameEngine {
     this.vfxList = [];
     this.particles = [];
     this.floatingTexts = [];
-    this.serverBuffs = { exp: 1, drop: 1, monster: 1 }; // set by the server (GM /buffserver)
+    this.serverBuffs = { exp: 1, gold: 1, drop: 1, monster: 1 }; // set by the server (GM /buffserver)
     this.lootOrbs = []; // Dropped gold / EXP / items that pop out, wait, then fly into the player
     this.attackEffects = [];
     this.afterimages = [];
@@ -754,11 +754,12 @@ export class GameEngine {
       this.addFloatingText(pl.x, pl.y - 52, `+${o.amount} EXP`, '#4ade80', 15);
       this.addParticle(pl.x, pl.y - 10, '#4ade80', 4);
     } else if (o.isPet) {
+      const pid = `pet_${o.monsterId}`;
       const name = MONSTERS[o.monsterId]?.name || o.monsterId;
-      const isNew = this.player.addPet(o.monsterId);
+      this.player.addItem(pid, 1);
       soundEngine.play('loot');
-      this.onLog(isNew ? `🐾 ได้รับสัตว์เลี้ยงใหม่: ${name}! ตั้งเป็นเพื่อนเดินทางได้ที่สมุดสมบัติ [T]` : `🐾 ได้ Pet ${name} ซ้ำ (มีอยู่แล้ว)`, 'relic');
-      if (isNew) this.addSkillBanner(`🐾 NEW PET: ${name}`, '#ec4899');
+      this.onLog(`🐾 ได้รับ Pet: ${name}! เปิดกระเป๋า [I] แล้วกด "สวมใส่" เพื่อให้เดินตาม`, 'relic');
+      this.addSkillBanner(`🐾 PET: ${name}`, '#ec4899');
     } else {
       const item = ITEMS[o.itemId] || RELICS[o.itemId];
       const res = this.player.addItem(o.itemId, 1);
@@ -1018,6 +1019,30 @@ export class GameEngine {
     } else {
       this.onLog('⚠️ ไม่มียา SP เหลือในกระเป๋า (ซื้อได้ที่ร้านค้า)', 'system');
     }
+  }
+
+  // GM commands the server approved (/give, /level, /heal, /warp ...)
+  onGmAction(msg) {
+    const pl = this.player;
+    const log = (t) => this.onLog(`🛡️ GM: ${t}`, 'system');
+    switch (msg.action) {
+      case 'heal': pl.currentHp = pl.maxHp; pl.currentSp = pl.maxSp; log('ฟื้น HP/SP เต็ม'); break;
+      case 'level':
+        pl.baseLevel = msg.value; pl.baseExp = 0; pl.currentHp = pl.maxHp; pl.currentSp = pl.maxSp;
+        log(`ตั้งเลเวลเป็น ${msg.value}`); break;
+      case 'points': pl.statPoints += msg.value; log(`ได้แต้มสเตตัส +${msg.value}`); break;
+      case 'warp': this.changeMap(msg.map); break;
+      case 'give':
+        if (msg.kind === 'gold') { pl.gold += msg.value; log(`ได้ Gold +${msg.value.toLocaleString()}`); }
+        else if (msg.kind === 'exp') { pl.gainExp(msg.value); log(`ได้ EXP +${msg.value.toLocaleString()}`); }
+        else if (msg.kind === 'item') { pl.addItem(msg.id, msg.value); log(`ได้ไอเทม ${ITEMS[msg.id]?.name || msg.id} x${msg.value}`); }
+        else if (msg.kind === 'book') { pl.addBook(msg.id, msg.value); log(`ได้สมุดสกิล ${SKILLS[msg.id]?.name || msg.id} x${msg.value}`); }
+        else if (msg.kind === 'pet') { pl.addItem(`pet_${msg.id}`, 1); log(`ได้ Pet ${MONSTERS[msg.id]?.name || msg.id}`); }
+        break;
+    }
+    pl.saveToStorage();
+    this.uiController?.updateHUD();
+    this.uiController?.refreshOpenWindows();
   }
 
   // Quick HP potion slot (button / Q): drinks the chosen potion, or the weakest owned

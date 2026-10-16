@@ -63,7 +63,9 @@ export class Player {
     // Equipment: item id or null
     this.equipment = {
       weapon: 'wooden_stick',
-      armor: null
+      armor: null,
+      pet: null
+      // more slots (head, accessories ...) are shown as "coming soon" in the equipment window
     };
 
     // Hotbar slots 1-9: skill/item ids the player assigns (empty for now)
@@ -80,9 +82,6 @@ export class Player {
 
     // Treasure Relics unlocked: array of relicIds
     this.collectedRelics = [];
-    // Pets: monster ids you own (a pet looks like that monster) + the one walking with you
-    this.pets = [];
-    this.activePet = null;
 
     // Quest Tracking: { [questId]: { progress: 0, completed: false, claimed: false } }
     this.questProgress = {};
@@ -308,15 +307,11 @@ export class Player {
   // Returns { ok, reason }. Rare gear needs a minimum character level.
   equipItem(itemId) {
     const item = ITEMS[itemId];
-    if (!item || (item.type !== 'weapon' && item.type !== 'armor')) return { ok: false, reason: 'ไม่ใช่อุปกรณ์' };
+    if (!item || !['weapon', 'armor', 'pet'].includes(item.type)) return { ok: false, reason: 'ไม่ใช่อุปกรณ์' };
     if (!TEST_ALL_SWORDS && item.reqLevel && this.baseLevel < item.reqLevel) {
       return { ok: false, reason: `ต้องการเลเวล ${item.reqLevel} ขึ้นไป (ตอนนี้ Lv.${this.baseLevel})` };
     }
-    if (item.type === 'weapon') {
-      this.equipment.weapon = itemId;
-    } else {
-      this.equipment.armor = itemId;
-    }
+    this.equipment[item.type] = itemId;
     this.saveToStorage();
     return { ok: true };
   }
@@ -409,10 +404,15 @@ export class Player {
     return entries[0]?.[0];
   }
 
-  addPet(monsterId) {
-    if (this.pets.includes(monsterId)) return false;
-    this.pets.push(monsterId);
-    if (!this.activePet) this.activePet = monsterId;
+  // The monster the worn pet looks like (null = no pet)
+  get activePet() {
+    const it = this.equipment.pet && ITEMS[this.equipment.pet];
+    return it ? it.monsterId : null;
+  }
+
+  unequip(slot) {
+    if (slot === 'weapon' || !(slot in this.equipment)) return false;
+    this.equipment[slot] = null;
     this.saveToStorage();
     return true;
   }
@@ -441,8 +441,6 @@ export class Player {
       costumes: this.costumes,
       unlockedCostumes: this.unlockedCostumes,
       collectedRelics: this.collectedRelics,
-      pets: this.pets,
-      activePet: this.activePet,
       questProgress: this.questProgress
     };
     try {
@@ -459,7 +457,7 @@ export class Player {
       if (raw) {
         const d = JSON.parse(raw);
         const keep = ['name', 'baseLevel', 'baseExp', 'statPoints', 'gold', 'gachaTokens', 'inventory',
-          'costumes', 'unlockedCostumes', 'collectedRelics', 'pets', 'activePet', 'questProgress', 'hpPotionSlot', 'spPotionSlot', 'learnedSkills', 'skillBooks', 'autoBattle'];
+          'costumes', 'unlockedCostumes', 'collectedRelics', 'questProgress', 'hpPotionSlot', 'spPotionSlot', 'learnedSkills', 'skillBooks', 'autoBattle'];
         keep.forEach(k => { if (d[k] !== undefined) this[k] = d[k]; });
         // relic ids that used to clash with item-sheet ids were renamed
         const RELIC_RENAME = { relic_slime_core: 'relic_slime_heart', relic_golden_carrot: 'relic_carrot_charm', relic_golem_core: 'relic_golem_heart' };
@@ -472,10 +470,13 @@ export class Player {
           if (a.hpPotion) Object.assign(this.auto.hpPotion, a.hpPotion);
           if (a.spPotion) Object.assign(this.auto.spPotion, a.spPotion);
         }
-        if (d.equipment) this.equipment = { weapon: d.equipment.weapon ?? null, armor: d.equipment.armor ?? null };
+        if (d.equipment) this.equipment = { weapon: d.equipment.weapon ?? null, armor: d.equipment.armor ?? null, pet: d.equipment.pet ?? null };
+        // old pet system: owned pets become items, the active one is worn
+        if (Array.isArray(d.pets)) d.pets.forEach(mid => { if (ITEMS[`pet_${mid}`] && !this.inventory[`pet_${mid}`]) this.inventory[`pet_${mid}`] = 1; });
+        if (d.activePet && ITEMS[`pet_${d.activePet}`] && !this.equipment.pet) this.equipment.pet = `pet_${d.activePet}`;
         if (Array.isArray(d.hotbar)) this.hotbar = d.hotbar.slice(0, HOTBAR_SIZE).concat(new Array(Math.max(0, HOTBAR_SIZE - d.hotbar.length)).fill(null));
         // Gear that no longer exists, or is above the player's level, goes back to the bag
-        ['weapon', 'armor'].forEach(slot => {
+        ['weapon', 'armor', 'pet'].forEach(slot => {
           const id = this.equipment[slot];
           const item = id && ITEMS[id];
           if (id && (!item || (!TEST_ALL_SWORDS && item.reqLevel && item.reqLevel > this.baseLevel))) {

@@ -194,9 +194,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     { insert: '/buffserver exp ', label: '/buffserver exp <ตัวคูณ>', desc: 'EXP ทั้งเซิร์ฟเวอร์ (GM)' },
     { insert: '/buffserver drop ', label: '/buffserver drop <ตัวคูณ>', desc: 'ของดรอปทั้งเซิร์ฟเวอร์ (GM)' },
     { insert: '/buffserver monster ', label: '/buffserver monster <ตัวคูณ>', desc: 'จำนวนมอนสเตอร์ทั้งเซิร์ฟเวอร์ (GM)' },
-    ...['exp', 'drop', 'monster'].flatMap(k => (k === 'monster' ? [2, 3, 5] : [2, 5, 10]).map(x => ({
+    ...['exp', 'gold', 'drop', 'monster'].flatMap(k => (k === 'monster' ? [2, 3, 5] : [2, 5, 10]).map(x => ({
       insert: `/buffserver ${k} ${x}`, done: true, label: `/buffserver ${k} ${x}`, desc: `${k} x${x}`
     }))),
+    { insert: '/buffserver gold ', label: '/buffserver gold <ตัวคูณ>', desc: 'Gold ทั้งเซิร์ฟเวอร์ (GM)' },
+    { insert: '/give gold ', label: '/give gold <จำนวน>', desc: 'รับ Gold (GM)' },
+    { insert: '/give exp ', label: '/give exp <จำนวน>', desc: 'รับ EXP (GM)' },
+    { insert: '/give item ', label: '/give item <ไอดี> [จำนวน]', desc: 'รับไอเทม เช่น /give item hp_potion_s 10 (GM)' },
+    { insert: '/give book ', label: '/give book <สกิล> [จำนวน]', desc: 'รับสมุดสกิล เช่น /give book fire_bolt (GM)' },
+    { insert: '/give pet ', label: '/give pet <มอนสเตอร์>', desc: 'รับ Pet เช่น /give pet slime (GM)' },
+    { insert: '/level ', label: '/level <เลเวล>', desc: 'ตั้งเลเวลตัวเอง (GM)' },
+    { insert: '/points ', label: '/points <แต้ม>', desc: 'รับแต้มสเตตัส (GM)' },
+    { insert: '/heal', done: true, label: '/heal', desc: 'ฟื้น HP/SP เต็ม (GM)' },
+    { insert: '/warp ', label: '/warp <แมพ>', desc: 'วาร์ปไปแมพ เช่น /warp town (GM)' },
+    { insert: '/announce ', label: '/announce <ข้อความ>', desc: 'ประกาศถึงทุกคน (GM)' },
     { insert: '/buffserver reset', done: true, label: '/buffserver reset', desc: 'รีเซ็ตบัฟทั้งหมดเป็น x1 (GM)' }
   ];
   const sugBox = document.createElement('div');

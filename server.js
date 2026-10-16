@@ -140,9 +140,9 @@ function layoutMonsters(list) {
 }
 
 // Server-wide buffs, set by a GM with /buffserver (reset on restart)
-const BUFF_KEYS = ['exp', 'drop', 'monster'];
-const BUFF_MAX = { exp: 100, drop: 100, monster: 5 };
-const serverBuffs = { exp: 1, drop: 1, monster: 1 };
+const BUFF_KEYS = ['exp', 'gold', 'drop', 'monster'];
+const BUFF_MAX = { exp: 100, gold: 100, drop: 100, monster: 5 };
+const serverBuffs = { exp: 1, gold: 1, drop: 1, monster: 1 };
 
 // Active monsters (rebuilt in place whenever the spawn table or monster data changes)
 const monsters = [];
@@ -514,7 +514,7 @@ const gmSockets = new WeakSet();
 
 const fmtMul = (v) => (Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100));
 function buffSummary() {
-  return `EXP x${fmtMul(serverBuffs.exp)} • ดรอป x${fmtMul(serverBuffs.drop)} • มอนสเตอร์ x${fmtMul(serverBuffs.monster)}`;
+  return `EXP x${fmtMul(serverBuffs.exp)} • Gold x${fmtMul(serverBuffs.gold)} • ดรอป x${fmtMul(serverBuffs.drop)} • มอนสเตอร์ x${fmtMul(serverBuffs.monster)}`;
 }
 function sysMsg(ws, text) { safeSend(ws, { type: 'chat', text, channel: 'system' }); }
 
@@ -523,7 +523,7 @@ function handleCommand(ws, p, text) {
   const [cmdRaw, ...args] = text.slice(1).split(/\s+/);
   const cmd = (cmdRaw || '').toLowerCase();
   if (cmd === 'help') {
-    sysMsg(ws, '📖 คำสั่ง: /help • /gm <รหัส> • (GM) /buffserver [exp|drop|monster] <ตัวคูณ> • /buffserver reset');
+    sysMsg(ws, '📖 คำสั่ง: /help • /gm <รหัส> • (GM) /buffserver [exp|gold|drop|monster] <ตัวคูณ> • /buffserver reset • /give gold|exp|item|book|pet … • /level <n> • /points <n> • /heal • /warp <แมพ> • /announce <ข้อความ>');
     return true;
   }
   if (cmd === 'gm') {
@@ -557,6 +557,41 @@ function handleCommand(ws, p, text) {
     const changedMonster = key === 'monster' && mul !== serverBuffs.monster;
     serverBuffs[key] = mul;
     afterBuffChange(p, changedMonster, `${key} x${fmtMul(mul)}`);
+    return true;
+  }
+  // ---- other GM commands: the server checks the GM, then tells that client to apply it ----
+  const GM_CMDS = ['give', 'level', 'points', 'heal', 'warp', 'announce'];
+  if (GM_CMDS.includes(cmd)) {
+    if (!gmSockets.has(ws)) { sysMsg(ws, '⚠️ คำสั่งนี้ใช้ได้เฉพาะ GM'); return true; }
+    const n = (v, lo, hi) => { const x = Math.floor(Number(v)); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : null; };
+    const act = (msg) => safeSend(ws, { type: 'gm_action', ...msg });
+    if (cmd === 'announce') {
+      const t = cleanText(args.join(' '), 150);
+      if (!t) { sysMsg(ws, '⚠️ ใช้: /announce <ข้อความ>'); return true; }
+      broadcast({ type: 'chat', text: `📢 [ประกาศ] ${t}`, channel: 'system' });
+    } else if (cmd === 'heal') act({ action: 'heal' });
+    else if (cmd === 'level') {
+      const v = n(args[0], 1, 999);
+      if (v === null) sysMsg(ws, '⚠️ ใช้: /level <1-999>'); else act({ action: 'level', value: v });
+    } else if (cmd === 'points') {
+      const v = n(args[0], 1, 10000);
+      if (v === null) sysMsg(ws, '⚠️ ใช้: /points <จำนวนแต้มสเตตัส>'); else act({ action: 'points', value: v });
+    } else if (cmd === 'warp') {
+      if (!args[0] || !MAP_DEFS[args[0]]) sysMsg(ws, `⚠️ ไม่มีแมพนี้ — แมพที่มี: ${Object.keys(MAP_DEFS).join(', ')}`);
+      else act({ action: 'warp', map: args[0] });
+    } else { // give
+      const kind = (args[0] || '').toLowerCase();
+      const usage = '⚠️ ใช้: /give gold <จำนวน> • /give exp <จำนวน> • /give item <ไอดี> [จำนวน] • /give book <สกิล> [จำนวน] • /give pet <มอนสเตอร์>';
+      if (kind === 'gold' || kind === 'exp') {
+        const v = n(args[1], 1, 1000000000);
+        if (v === null) sysMsg(ws, usage); else act({ action: 'give', kind, value: v });
+      } else if (kind === 'item' || kind === 'book' || kind === 'pet') {
+        const id = args[1];
+        const known = kind === 'item' ? ITEMS[id] : kind === 'book' ? SKILLS[id] : MONSTERS[id];
+        if (!id || !known) { sysMsg(ws, `⚠️ ไม่รู้จัก ${kind} "${id || ''}"`); return true; }
+        act({ action: 'give', kind, id, value: n(args[2] ?? 1, 1, 9999) ?? 1 });
+      } else sysMsg(ws, usage);
+    }
     return true;
   }
   sysMsg(ws, `⚠️ ไม่รู้จักคำสั่ง /${cmd} (พิมพ์ /help)`);
@@ -598,7 +633,7 @@ function rewardKill(killer, m) {
       monsterId: m.id,
       monsterName: m.name,
       exp: Math.max(1, Math.floor(exp * mult * serverBuffs.exp)),
-      gold: Math.floor(gold * mult),
+      gold: Math.floor(gold * mult * serverBuffs.gold),
       shared,
       shareCount: n,
       fromName: killer.name

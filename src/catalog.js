@@ -145,12 +145,15 @@ export function applyFacing(MONSTERS) {
 //  - the normal table is one roll, so its chances may not add up to more than 100%
 export const DEFAULT_PET_CHANCE = 0.001;
 export const DEFAULT_RELIC_CHANCE = 0.001;
-export function finishDrops({ MONSTERS, RELICS }) {
+export function finishDrops({ MONSTERS, RELICS, ITEMS }) {
   const STAT_CYCLE = ['atk', 'def', 'hp'];
   let n = 0;
   for (const [mid, m] of Object.entries(MONSTERS)) {
     if (m.petChance === undefined) m.petChance = DEFAULT_PET_CHANCE;
     if (m.relicChance === undefined) m.relicChance = DEFAULT_RELIC_CHANCE;
+    // a pet is an item (type 'pet', looks like the monster) that is worn in the pet slot
+    ITEMS[`pet_${mid}`] = { id: `pet_${mid}`, name: `Pet: ${m.name}`, type: 'pet', monsterId: mid, price: 200 + m.level * 40, icon: m.emoji || '🐾',
+      desc: `สัตว์เลี้ยงหน้าตาเหมือน ${m.name} — สวมใส่ที่ช่อง Pet แล้วจะเดินตามผู้เล่น` };
     if (!Object.values(RELICS).some(r => r.monsterId === mid)) {
       const stat = STAT_CYCLE[n++ % 3];
       const amount = stat === 'hp' ? m.level * 12 : Math.max(1, Math.ceil(m.level * (stat === 'atk' ? 0.8 : 0.6)));

@@ -1446,3 +1446,11 @@ body, html {
 .cmd-suggest-row.active, .cmd-suggest-row:hover { background: rgba(37, 99, 235, 0.45); }
 .cmd-name { color: #fbbf24; font-weight: 700; }
 .cmd-desc { color: #94a3b8; text-align: right; }
+
+/* buff / status icons to the right of the player card */
+.hud-buffs { position: absolute; left: 262px; top: 0; display: flex; flex-direction: row; gap: 6px; flex-wrap: wrap; width: 300px; align-content: flex-start; pointer-events: auto; }
+.hud-buffs:empty { display: none; }
+.buff-icon { position: relative; width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px;
+  background: rgba(15, 23, 42, 0.86); border: 1px solid rgba(251, 191, 36, 0.55); box-shadow: 0 4px 12px rgba(0,0,0,0.5); cursor: help; }
+.buff-icon.server { border-color: rgba(236, 72, 153, 0.8); }
+.buff-icon .bi-txt { position: absolute; right: 1px; bottom: -1px; font-size: 0.62rem; font-weight: 800; color: #fde68a; text-shadow: 0 0 3px #000, 0 0 3px #000; }
