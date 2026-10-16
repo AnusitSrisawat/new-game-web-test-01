@@ -274,7 +274,7 @@ export class GameEngine {
       soundEngine.play('monsterHit');
       m.flashTimer = 0.15;
       m.squashTimer = 0.18;
-      this.addFloatingText(m.x, m.y - 20, `${damage}`, isCrit ? '#f59e0b' : '#ffffff', isCrit ? 22 : 16, isCrit);
+      this.addDamageText(m, damage, isCrit);
       this.spawnHitVFX(m.x, m.y, isCrit, 1);
       if (damage <= 1) { // our attack barely scratched it (ATK <= its DEF): show the deflect flash
         this.particles.push({ x: m.x, y: m.y - 6, vx: 0, vy: -8, sprite: 'hit_deflect', color: '#67e8f9', size: 54, scale: 0.6, scaleEnd: 1.3,
@@ -289,7 +289,7 @@ export class GameEngine {
   onMonsterKilledFromServer(monsterId, killerId, killerName, damage, isCrit) {
     const m = this.monsters.find(item => item.id === monsterId);
     if (m) {
-      if (damage > 0) this.addFloatingText(m.x, m.y - 20, `${damage}`, isCrit ? '#f59e0b' : '#ffffff', isCrit ? 22 : 16, isCrit);
+      if (damage > 0) this.addDamageText(m, damage, isCrit);
       soundEngine.play('monsterDie');
       m.isDead = true;
       m.currentHp = 0;
@@ -1074,6 +1074,32 @@ export class GameEngine {
       maxLife: 1.1,
       vy: -32 - Math.random() * 20,
       vx: (Math.random() - 0.5) * 16
+    });
+  }
+
+  // Ragnarok-style damage numbers: consecutive hits on one monster line up away from the attacker
+  // (hit from the left -> numbers step to the right), each flies up in an arc, curves down and fades.
+  addDamageText(m, damage, isCrit) {
+    const now = performance.now();
+    if (!m.dmgSeqAt || now - m.dmgSeqAt > 900) m.dmgSeq = 0;
+    m.dmgSeqAt = now;
+    const i = m.dmgSeq % 8;
+    m.dmgSeq++;
+    const dir = m.x >= this.playerEntity.x ? 1 : -1;
+    this.floatingTexts.push({
+      x: m.x + dir * (i * 30 - 10),
+      y: m.y - 38 - i * 7,
+      text: `${damage}`,
+      color: isCrit ? '#fde047' : '#ffffff',
+      stroke: isCrit ? '#b45309' : '#1e293b',
+      fontSize: isCrit ? 30 : 21,
+      isCrit,
+      pop: true,
+      life: 1.25,
+      maxLife: 1.25,
+      vx: dir * 38,
+      vy: -85,
+      gravity: 190
     });
   }
 
@@ -1954,6 +1980,7 @@ export class GameEngine {
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
       const ft = this.floatingTexts[i];
       ft.life -= dt;
+      if (ft.gravity) ft.vy += ft.gravity * dt;
       ft.x += ft.vx * dt;
       ft.y += ft.vy * dt;
       if (ft.life <= 0) this.floatingTexts.splice(i, 1);
@@ -2111,12 +2138,22 @@ export class GameEngine {
     // 13. Render Floating Damage Numbers
     for (const ft of this.floatingTexts) {
       ctx.save();
-      ctx.font = ft.isCrit ? `bold ${ft.fontSize}px sans-serif` : `${ft.fontSize}px sans-serif`;
+      const age = 1 - ft.life / ft.maxLife;
+      if (ft.pop) ctx.globalAlpha = Math.max(0, Math.min(1, (1 - age) * 2.2)); // stays solid, then fades away
+      ctx.font = ft.isCrit || ft.pop ? `bold ${ft.fontSize}px sans-serif` : `${ft.fontSize}px sans-serif`;
       ctx.fillStyle = ft.color;
       ctx.textAlign = 'center';
-      ctx.shadowColor = 'rgba(0,0,0,0.85)';
-      ctx.shadowBlur = ft.isCrit ? 8 : 4;
-      ctx.fillText(ft.text, ft.x, ft.y);
+      if (ft.pop) {
+        const s = age < 0.12 ? 1.6 - age / 0.12 * 0.6 : 1; // quick pop-in
+        ctx.translate(ft.x, ft.y); ctx.scale(s, s);
+        ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = ft.stroke || '#000';
+        ctx.strokeText(ft.text, 0, 0);
+        ctx.fillText(ft.text, 0, 0);
+      } else {
+        ctx.shadowColor = 'rgba(0,0,0,0.85)';
+        ctx.shadowBlur = ft.isCrit ? 8 : 4;
+        ctx.fillText(ft.text, ft.x, ft.y);
+      }
       ctx.restore();
     }
 
