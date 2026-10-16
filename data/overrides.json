@@ -63,18 +63,26 @@
   },
   "items": {
     "hat_helm": {
+      "partW": 202,
+      "partY": 127,
       "scale": 1.65,
       "offY": -15
     },
     "hat_wizard": {
+      "partW": 253,
+      "partY": 88,
       "scale": 1.2,
       "offY": 1
     },
     "hat_cat": {
+      "partW": 196,
+      "partY": 100,
       "scale": 1.45,
       "offY": 4.5
     },
     "hat_crown": {
+      "partW": 106,
+      "partY": 40,
       "scale": 1.15,
       "offY": -0.5
     },
@@ -91,21 +99,37 @@
       "offY": 2
     },
     "outfit_knight": {
+      "partW": 130,
+      "partY": 295,
       "offX": 0.5,
       "offY": -1.5
     },
     "outfit_ranger": {
+      "partW": 140,
+      "partX": 5,
+      "partY": 295,
       "offX": 1,
       "offY": -2
     },
     "outfit_sorcerer": {
+      "partY": 295,
       "offY": -1.5
     },
     "outfit_assassin": {
+      "partY": 293,
       "offY": -2
     },
-    "outfit_royal": {
-      "offY": -1.5
+    "back_cape": {
+      "partW": 210,
+      "partX": 10,
+      "partY": 205
+    },
+    "shield_lion": {
+      "scale": 1,
+      "offX": -11
+    },
+    "shield_rune": {
+      "offX": -12
     }
   },
   "ui": {
