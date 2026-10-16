@@ -3,7 +3,7 @@
 //
 // overrides = {
 //   zones:    { [zoneId]:    { name, desc, reqLevel } },
-//   maps:     { [zoneId]:    { size, texture, floorImage, floor, wall } },   // floorImage: file name in assets/floors/ ('' = none)
+//   maps:     { [zoneId]:    { size, texture, floorImage, floor, wall } },   // floorImage: path under assets/, e.g. ground/map1/x.png ('' = none)
 //   monsters: { [monsterId]: { name, level, hp, atk, def, exp, size, facing } },   // facing: which way the picture looks: left | right | none (never flip)
 //   ai:       { [monsterId]: { speed, aggro, attackRange, attackCooldown, leash, wanderRadius } },
 //   items:    { [itemId]:    { name, price, atk, def, hp, heal, reqLevel, desc } },
@@ -46,7 +46,7 @@ export const SCHEMA = {
     fields: {
       size: num('ขนาด (px, จัตุรัส)', 1600, 9600, 32),
       texture: select('พื้นผิวพื้น (texture)', Object.entries(TEXTURES).map(([value, label]) => ({ value, label }))),
-      floorImage: select('รูปพื้น (ปูซ้ำทั้งแมพ — ใส่ไฟล์ใน assets/floors/)', [{ value: '', label: '(ไม่ใช้รูป — ใช้ texture ด้านบน)' }]), // options filled in by the server
+      floorImage: select('รูปพื้น (ปูซ้ำทั้งแมพ — ใส่ไฟล์ใน assets/ground/ หรือ assets/floors/)', [{ value: '', label: '(ไม่ใช้รูป — ใช้ texture ด้านบน)' }]), // options filled in by the server
       floor: color('สีพื้น (สีหลักของ texture)'),
       wall: color('สีกำแพง')
     }
