@@ -17,19 +17,23 @@ export const ANCHOR = { back: 'center', outfit: 'bottom', head: 'bottom', hat: '
 // Draws with the model's feet-centre at the context origin (0, 24); k = world units per base-model pixel.
 export function drawLook(ctx, getImg, look, k) {
   const P = PLAYER_SPRITES.parts;
-  const draw = (id, left, top, w, h) => {
+  const draw = (id, left, top, w, h, flip) => {
     const im = P[id] && getImg(`assets/sprites/player/parts/${id}.png`);
-    if (im) ctx.drawImage(im, (left - MODEL.cx) * k, 24 + (top - MODEL.feetY) * k, w * k, h * k);
+    if (!im) return;
+    const x = (left - MODEL.cx) * k, y = 24 + (top - MODEL.feetY) * k, wk = w * k, hk = h * k;
+    if (flip) { ctx.save(); ctx.translate(x + wk / 2, 0); ctx.scale(-1, 1); ctx.drawImage(im, -wk / 2, y, wk, hk); ctx.restore(); }
+    else ctx.drawImage(im, x, y, wk, hk);
   };
   const place = (slot, it) => {
     if (!it || !it.part || !P[it.part]) return;
     const w = it.partW || P[it.part].w, h = P[it.part].h * w / P[it.part].w;
     const y = it.partY ?? (slot === 'head' ? MODEL.chinY : MODEL.feetY);
-    draw(it.part, MODEL.cx + (it.partX || 0) - w / 2, ANCHOR[slot] === 'center' ? y - h / 2 : y - h, w, h);
+    draw(it.part, MODEL.cx + (it.partX || 0) - w / 2, ANCHOR[slot] === 'center' ? y - h / 2 : y - h, w, h, it.flip === 'yes');
   };
-  place('back', look.back);
+  // item.layer: 'behind' = drawn before (under) the body, 'front' = over it. Default: wings/cape behind, the rest in front.
+  const list = [['back', look.back], ['outfit', look.outfit], ['head', look.head || { part: 'head_0', partW: 131, partY: MODEL.chinY }], ['hat', look.hat]];
+  const behind = (slot, it) => (it.layer || (slot === 'back' ? 'behind' : 'front')) === 'behind';
+  for (const [slot, it] of list) if (it && behind(slot, it)) place(slot, it);
   draw('body_nohead', 0, 132, P.body_nohead.w, P.body_nohead.h);
-  place('outfit', look.outfit);
-  place('head', look.head || { part: 'head_0', partW: 131, partY: MODEL.chinY });
-  place('hat', look.hat);
+  for (const [slot, it] of list) if (it && !behind(slot, it)) place(slot, it);
 }

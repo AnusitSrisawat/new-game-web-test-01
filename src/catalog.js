@@ -181,9 +181,11 @@ export function installPlayerGear(ITEMS) {
   const SEAT = { mount_runner: [0.5, 0.4], mount_wolf: [0.52, 0.3], mount_unicorn: [0.43, 0.3], mount_drake: [0.58, 0.5] };
   // scale / offX / offY / seatX / seatY: how the picture sits on the player (tune them in Studio -> items)
   const add = (it) => {
-    const look = it.partW ? {} : it.type === 'mount' ? { scale: 1, offX: 0, offY: 0, seatX: SEAT[it.id][0], seatY: SEAT[it.id][1] }
+    const look = it.partW ? {} : it.type === 'mount' ? { scale: 1, offX: 0, offY: 0, seatX: SEAT[it.id][0], seatY: SEAT[it.id][1], seatDrop: 6, seatClip: 0 }
       : it.type === 'shield' ? { scale: 0.8, offX: 0, offY: 3 } : { scale: 1, offX: 0, offY: 0 };
-    ITEMS[it.id] = { reqLevel: 1, price: 0, ...look, ...it };
+    // flip: 'yes' mirrors the picture (the original looks the other way) · layer: 'front' / 'behind' the model
+    const layer = it.type === 'back' || it.type === 'mount' ? 'behind' : 'front';
+    ITEMS[it.id] = { reqLevel: 1, price: 0, ...look, flip: 'no', layer, ...it };
   };
   // The pieces of the player (paper-doll, src/player_look.js). Each hangs on the base model (135 x 301 px) by
   //   partW (width) / partX (shift from centre) / partY (hat: bottom edge, head: chin, outfit: bottom, back: centre height)
@@ -210,5 +212,5 @@ export function installPlayerGear(ITEMS) {
   add({ id: 'mount_runner', name: 'Yellow Feathered Runner', type: 'mount', icon: '🐤', speedPct: 40, price: 1200, desc: 'นกวิ่งขนฟูสีทอง สัตว์ขี่ — ความเร็วเดิน +40% (กด R ขึ้นขี่/ลง)' });
   add({ id: 'mount_wolf', name: 'Armored Dire Wolf', type: 'mount', icon: '🐺', speedPct: 50, price: 1800, desc: 'หมาป่าเทาหุ้มเกราะ — ความเร็วเดิน +50% (กด R ขึ้นขี่/ลง)' });
   add({ id: 'mount_unicorn', name: 'Royal White Unicorn', type: 'mount', icon: '🦄', speedPct: 55, price: 2400, desc: 'ยูนิคอร์นขาวแห่งราชวงศ์ — ความเร็วเดิน +55% (กด R ขึ้นขี่/ลง)' });
-  add({ id: 'mount_drake', name: 'Baby Red Drake', type: 'mount', icon: '🐉', speedPct: 60, price: 3000, desc: 'มังกรแดงตัวน้อย — ความเร็วเดิน +60% (กด R ขึ้นขี่/ลง)' });
+  add({ id: 'mount_drake', flip: 'yes', name: 'Baby Red Drake', type: 'mount', icon: '🐉', speedPct: 60, price: 3000, desc: 'มังกรแดงตัวน้อย — ความเร็วเดิน +60% (กด R ขึ้นขี่/ลง)' });
 }
