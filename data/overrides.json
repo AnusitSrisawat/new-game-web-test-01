@@ -136,7 +136,7 @@
     "mount_runner": {
       "scale": 1.25,
       "seatClip": 10.5,
-      "seatY": 0.51
+      "seatY": 0.5
     },
     "mount_wolf": {
       "scale": 1.25,
