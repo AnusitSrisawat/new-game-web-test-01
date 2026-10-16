@@ -538,7 +538,7 @@
     const type = info?.type;
     if (!['hat', 'head', 'outfit', 'back', 'shield', 'mount'].includes(type)) return null;
     const isPiece = ['hat', 'head', 'outfit', 'back'].includes(type);
-    const BW = isPiece ? 300 : 260, BH = isPiece ? 400 : 190;
+    const BW = isPiece ? 300 : type === 'mount' ? 320 : 260, BH = isPiece ? 400 : type === 'mount' ? 280 : 190;
     const cv = h('canvas', { width: Math.round(BW * previewZoom), height: Math.round(BH * previewZoom), class: 'gearprev' });
     const v = (k, d) => { const x = Number(valueOf('items', id, k)); return Number.isFinite(x) ? x : d; };
     // this item with the values being edited (not saved yet) + its fixed part ids from the server
@@ -574,7 +574,7 @@
         ctx.restore();
         return;
       }
-      const U = 2.4, cx = 130, gy = 150, kb = 58 / 301 * U;     // world unit -> px
+      const U = type === 'mount' ? 1.7 : 2.4, cx = BW / 2, gy = type === 'mount' ? 235 : 150, kb = 58 / 301 * U;     // world unit -> px
       const look = { hat: null, head: null, back: null, outfit: { part: 'outfit_knight', partW: 128, partY: 303 } };
       let rx = cx, ry = gy, drawMountPrev = null;
       if (type === 'mount') {
