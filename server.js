@@ -139,6 +139,11 @@ function layoutMonsters(list) {
   }
 }
 
+// Server-wide buffs, set by a GM with /buffserver (reset on restart)
+const BUFF_KEYS = ['exp', 'drop', 'monster'];
+const BUFF_MAX = { exp: 100, drop: 100, monster: 5 };
+const serverBuffs = { exp: 1, drop: 1, monster: 1 };
+
 // Active monsters (rebuilt in place whenever the spawn table or monster data changes)
 const monsters = [];
 function buildMonsters() {
@@ -147,7 +152,8 @@ function buildMonsters() {
   for (const sp of spawns) {
     const t = MONSTERS[sp.templateId];
     if (!t) continue;
-    for (let i = 0; i < sp.count; i++) {
+    const spawnCount = Math.round(sp.count * serverBuffs.monster);
+    for (let i = 0; i < spawnCount; i++) {
       const n = counters[sp.templateId] = (counters[sp.templateId] || 0) + 1;
       const id = `m_${sp.templateId}_${n}`;
       monsters.push({
@@ -300,6 +306,7 @@ async function handleApi(req, res, reqPath) {
       restoreDefaults(gameData, DEFAULTS);  // back to defaults...
       applyOverrides(gameData, overrides);  // ...then the new edits
       buildMonsters();
+      broadcast({ type: 'monsters_reset', monsters });
       for (const [ws, pl] of players.entries()) {
         const md = getMapDef(pl.currentMap);
         pl.x = Math.min(pl.x, md.width - 64);
@@ -501,6 +508,69 @@ function applySettings(party, raw = {}) {
 }
 
 // Server-side reward calculation and delivery
+const GM_TOKEN = process.env.GM_TOKEN || crypto.randomBytes(9).toString('base64url');
+const GM_TOKEN_FROM_ENV = !!process.env.GM_TOKEN;
+const gmSockets = new WeakSet();
+
+const fmtMul = (v) => (Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100));
+function buffSummary() {
+  return `EXP x${fmtMul(serverBuffs.exp)} • ดรอป x${fmtMul(serverBuffs.drop)} • มอนสเตอร์ x${fmtMul(serverBuffs.monster)}`;
+}
+function sysMsg(ws, text) { safeSend(ws, { type: 'chat', text, channel: 'system' }); }
+
+// Slash commands typed in chat. Returns true when the text was a command.
+function handleCommand(ws, p, text) {
+  const [cmdRaw, ...args] = text.slice(1).split(/\s+/);
+  const cmd = (cmdRaw || '').toLowerCase();
+  if (cmd === 'help') {
+    sysMsg(ws, '📖 คำสั่ง: /help • /gm <รหัส> • (GM) /buffserver [exp|drop|monster] <ตัวคูณ> • /buffserver reset');
+    return true;
+  }
+  if (cmd === 'gm') {
+    if (gmSockets.has(ws)) sysMsg(ws, '🛡️ คุณเป็น GM อยู่แล้ว');
+    else if (args[0] && args[0] === GM_TOKEN) {
+      gmSockets.add(ws);
+      safeSend(ws, { type: 'gm_status', isGm: true });
+      sysMsg(ws, '🛡️ เข้าสู่โหมด GM แล้ว');
+    } else sysMsg(ws, '⚠️ รหัส GM ไม่ถูกต้อง');
+    return true;
+  }
+  if (cmd === 'buffserver') {
+    if (!gmSockets.has(ws)) { sysMsg(ws, '⚠️ คำสั่งนี้ใช้ได้เฉพาะ GM'); return true; }
+    if (args.length === 0) { sysMsg(ws, `✨ บัฟเซิร์ฟเวอร์: ${buffSummary()}`); return true; }
+    const key = args[0].toLowerCase();
+    if (key === 'reset') {
+      const hadMonster = serverBuffs.monster !== 1;
+      BUFF_KEYS.forEach(k => { serverBuffs[k] = 1; });
+      afterBuffChange(p, hadMonster, 'รีเซ็ตบัฟทั้งหมด');
+      return true;
+    }
+    if (!BUFF_KEYS.includes(key)) { sysMsg(ws, '⚠️ ใช้: /buffserver <exp|drop|monster> <ตัวคูณ> หรือ /buffserver reset'); return true; }
+    // accepts "10", "*10", "x10", "* 10"
+    const valStr = args.slice(1).join('').replace(/^[*xX×]/, '');
+    const v = Number(valStr);
+    if (!valStr || !Number.isFinite(v) || v < 1 || v > BUFF_MAX[key]) {
+      sysMsg(ws, `⚠️ ตัวคูณของ ${key} ต้องอยู่ระหว่าง 1 – ${BUFF_MAX[key]}`);
+      return true;
+    }
+    const mul = key === 'monster' ? Math.round(v) : Math.round(v * 100) / 100;
+    const changedMonster = key === 'monster' && mul !== serverBuffs.monster;
+    serverBuffs[key] = mul;
+    afterBuffChange(p, changedMonster, `${key} x${fmtMul(mul)}`);
+    return true;
+  }
+  sysMsg(ws, `⚠️ ไม่รู้จักคำสั่ง /${cmd} (พิมพ์ /help)`);
+  return true;
+}
+function afterBuffChange(p, monsterChanged, what) {
+  if (monsterChanged) {
+    buildMonsters();
+    broadcast({ type: 'monsters_reset', monsters });
+  }
+  broadcast({ type: 'server_buffs', buffs: serverBuffs });
+  broadcast({ type: 'chat', text: `✨ GM [${p.name}] ตั้งบัฟเซิร์ฟเวอร์: ${what} → ${buffSummary()}`, channel: 'system' });
+}
+
 function rewardKill(killer, m) {
   const template = MONSTERS[m.templateId] || {};
   const exp = template.exp || 35;
@@ -527,7 +597,7 @@ function rewardKill(killer, m) {
       type: 'reward',
       monsterId: m.id,
       monsterName: m.name,
-      exp: Math.max(1, Math.floor(exp * mult)),
+      exp: Math.max(1, Math.floor(exp * mult * serverBuffs.exp)),
       gold: Math.floor(gold * mult),
       shared,
       shareCount: n,
@@ -568,6 +638,7 @@ wss.on('connection', (ws) => {
     playerId: playerId,
     you: playerState,
     monsters: monsters,
+    buffs: serverBuffs,
     otherPlayers: Array.from(players.values()).filter(p => p.id !== playerId)
   });
 
@@ -874,6 +945,7 @@ wss.on('connection', (ws) => {
         case 'chat': {
           const text = cleanText(data.text, 200);
           if (!text || !takeToken(limits.chat, now, CHAT_PER_SECOND, CHAT_BURST)) break;
+          if (text.startsWith('/')) { handleCommand(ws, p, text); break; }
           const line = `[${p.name}]: ${text}`;
           const ch = data.channel;
           if (ch === 'map') {
@@ -1037,6 +1109,7 @@ server.listen(PORT, () => {
   console.log(`⚔️ TRIPLE CROWN MMORPG Server Running!`);
   console.log(`🌐 HTTP & WebSocket: http://localhost:${PORT}`);
   console.log(`👥 Party System Active`);
+  console.log(`🛡️  GM: พิมพ์ในเกม  /gm ${GM_TOKEN}${GM_TOKEN_FROM_ENV ? ' (from GM_TOKEN)' : ' (random, set GM_TOKEN to keep it)'}`);
   console.log(`👥 Persistent Monster State & Multi-Zone Ready`);
   if (STUDIO_ENABLED) console.log(`🛠️  Studio: http://localhost:${PORT}/studio   token: ${STUDIO_TOKEN}${STUDIO_TOKEN_FROM_ENV ? ' (from STUDIO_TOKEN)' : ' (random, set STUDIO_TOKEN to keep it)'}`);
   console.log(`===============================================`);
