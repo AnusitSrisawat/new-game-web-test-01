@@ -9,6 +9,8 @@ import { monsterSprite, itemSprite, weaponSprite } from './sprites.js';
 // ---- Sword swing animation (prog 0..1: wind-up, snap strike, follow-through) ----
 // Angles are the blade direction: 0 = straight up, positive = clockwise (towards the facing side).
 const ATTACK_ANIM = 0.34;
+const MONSTER_DEATH_TIME = 0.7;  // seconds of the death animation
+const MONSTER_SPAWN_TIME = 0.6;  // seconds of the spawn animation
 const PLAYER_SCALE = 1.7;   // player ≈ 1.2x a default (92px) monster
 const PLAYER_TAG_UP = 40;   // extra height of the overhead tags at that scale
 const SWORD_REST = { blade: 0.5, arm: 2.6 };
@@ -274,7 +276,10 @@ export class GameEngine {
       if (damage > 0) this.addFloatingText(m.x, m.y - 20, `${damage}`, isCrit ? '#f59e0b' : '#ffffff', isCrit ? 22 : 16, isCrit);
       m.isDead = true;
       m.currentHp = 0;
+      m.deathTimer = MONSTER_DEATH_TIME;
+      m.spawnTimer = 0;
       this.addParticle(m.x, m.y, '#f59e0b', 25);
+      this.addParticle(m.x, m.y + 10, '#e2e8f0', 10);
       this.addShockwave(m.x, m.y, '#f59e0b', 50);
 
       if (this.selectedTarget && this.selectedTarget.id === monsterId) {
@@ -347,6 +352,8 @@ export class GameEngine {
     const m = this.monsters.find(item => item.id === monsterData.id);
     if (m) {
       m.isDead = false;
+      m.deathTimer = 0;
+      m.spawnTimer = MONSTER_SPAWN_TIME;
       m.currentHp = m.maxHp;
       m.x = m.tx = monsterData.spawnX || monsterData.x;
       m.y = m.ty = monsterData.spawnY || monsterData.y;
@@ -1286,6 +1293,8 @@ export class GameEngine {
 
     // Monsters: positions come from the server (smoothed here); only animation timers run locally
     for (const m of this.monsters) {
+      if (m.deathTimer > 0) m.deathTimer -= dt;
+      if (m.spawnTimer > 0) m.spawnTimer -= dt;
       if (m.isDead || m.map !== this.currentZone.id) continue;
       if (m.flashTimer > 0) m.flashTimer -= dt;
       if (m.squashTimer > 0) m.squashTimer -= dt;
@@ -1404,7 +1413,7 @@ export class GameEngine {
     }
 
     // 6. Render Active Monsters in Current Map
-    const currentMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
+    const currentMonsters = this.monsters.filter(m => (!m.isDead || m.deathTimer > 0) && m.map === this.currentZone.id);
     for (const m of currentMonsters) {
       if (m.x >= cam.x - 120 && m.x <= cam.x + cam.w + 120 && m.y >= cam.y - 120 && m.y <= cam.y + cam.h + 120) {
         this.drawMonster(ctx, m);
@@ -2016,27 +2025,54 @@ export class GameEngine {
     let x = m.x + (m.knockbackX || 0);
     let y = m.y + bob + (m.knockbackY || 0);
 
-    // Normal Monsters
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
-    ctx.beginPath();
-    ctx.ellipse(x, y + 26, 22, 9, 0, 0, Math.PI * 2);
-    ctx.fill();
-
+    // Death / spawn animation state
+    const dying = m.isDead;
+    let alpha = 1;
+    let bright = false;
     let scaleX = 1;
     let scaleY = 1;
-    if (m.squashTimer > 0) {
+    if (dying) {
+      // flash white, bulge sideways, melt flat into the ground and fade out
+      const p = Math.min(1, Math.max(0, 1 - m.deathTimer / MONSTER_DEATH_TIME));
+      y = m.y + (m.knockbackY || 0);
+      x = m.x + (m.knockbackX || 0);
+      bright = p < 0.3;
+      scaleX = 1 + 0.45 * Math.sin(Math.min(1, p * 1.6) * Math.PI / 2);
+      scaleY = Math.max(0.02, 1 - 0.98 * p * p);
+      alpha = Math.max(0, 1 - Math.pow(p, 1.6));
+    } else if (m.spawnTimer > 0) {
+      // pop up out of the ground with an overshoot, flashing as it appears
+      const p = Math.min(1, Math.max(0, 1 - m.spawnTimer / MONSTER_SPAWN_TIME));
+      const c1 = 1.9, c3 = c1 + 1;
+      const e = 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); // easeOutBack
+      scaleX = Math.max(0.01, 0.4 + 0.6 * e);
+      scaleY = Math.max(0.01, e);
+      alpha = Math.min(1, p * 3);
+      bright = p < 0.5;
+    }
+    if (!dying && m.squashTimer > 0) {
       const s = (m.squashTimer / 0.18) * 0.35;
-      scaleX = 1 + s;
-      scaleY = 1 - s;
+      scaleX *= 1 + s;
+      scaleY *= 1 - s;
     }
 
     ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Shadow (shrinks while the body does)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 26, 22 * Math.min(1, scaleX), 9 * Math.min(1, Math.max(scaleY, 0.3)), 0, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.translate(x, y);
     // The picture looks `facing` (left/right) in the sheet: mirror it when the monster walks the other way
     const mirror = m.facing === 'none' ? false : (m.facing === 'right' ? !m.faceRight : m.faceRight);
+    ctx.translate(0, 28);
     ctx.scale(scaleX * (mirror ? -1 : 1), scaleY);
+    ctx.translate(0, -28);
 
-    const isFlashing = m.flashTimer > 0;
+    const isFlashing = m.flashTimer > 0 || bright;
     const sp = monsterSprite(m.templateId);
     const sheet = sp ? this.getSheet(sp.src) : null;
     if (sheet) {
@@ -2061,6 +2097,7 @@ export class GameEngine {
     }
 
     ctx.restore();
+    if (dying) return; // no stars / name / HP bar while dying
 
     // Stunned spinning stars
     if (m.stunTimer > 0) {
@@ -2077,8 +2114,9 @@ export class GameEngine {
       ctx.restore();
     }
 
-    // Name & HP Bar
+    // Name & HP Bar (fade in with the spawn animation)
     ctx.save();
+    if (m.spawnTimer > 0) ctx.globalAlpha = Math.max(0, 1 - m.spawnTimer / MONSTER_SPAWN_TIME);
     ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffffff';
