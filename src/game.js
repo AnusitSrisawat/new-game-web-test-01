@@ -720,9 +720,9 @@ export class GameEngine {
       landY: y + Math.sin(ang) * dist * 0.6,
       t: 0,                                  // pop-out progress time
       popTime: 0.45,
-      delay: 0.5 + Math.random() * 0.3,      // pause on the ground before flying in
+      delay: 1.0 + Math.random() * 0.4,      // pause on the ground before flying in (a pet shortens it)
       state: 'pop',                          // pop -> wait -> fly
-      speed: 120,
+      speed: 40,
       bob: Math.random() * 6
     });
   }
@@ -975,14 +975,14 @@ export class GameEngine {
         if (k >= 1) { o.state = 'wait'; o.t = 0; }
       } else if (o.state === 'wait') {
         o.t += dt;
-        if (o.t >= o.delay / this.player.petLootSpeed) o.state = 'fly';
+        if (o.t >= o.delay / (this.player.petLootSpeed ** 1.5)) o.state = 'fly';
       } else {
         const ls = this.player.petLootSpeed; // equipped pet: faster collecting
-        o.speed += 900 * ls * dt;
+        o.speed += 300 * ls * ls * dt;
         const dx = pl.x - o.x;
         const dy = (pl.y - 12) - o.y;
         const d = Math.hypot(dx, dy);
-        const step = o.speed * ls * dt;
+        const step = o.speed * dt;
         if (d <= step + 8) {
           this.collectLootOrb(o);
           this.lootOrbs.splice(i, 1);
