@@ -955,8 +955,8 @@ export class UIController {
               <span class="stat-name" data-stat="${k}" style="font-weight:700; text-transform:uppercase; width:36px; cursor:help; text-decoration:underline dotted rgba(255,255,255,0.4); text-underline-offset:3px;">${k}</span>
               <b style="min-width:54px; font-size:1rem;">${pl.stats[k]}${pend[k] ? `<span style="color:#4ade80;"> +${pend[k]}</span>` : ''}</b>
               <span style="flex:1;"></span>
-              <button class="btn-stat-sub" data-stat="${k}" data-amt="all" ${dis(canSub)} style="${bs} background:#7f1d1d; ${dim(canSub)}">ล้าง</button>
-              <button class="btn-stat-sub" data-stat="${k}" data-amt="1" ${dis(canSub)} style="${bs} background:#475569; ${dim(canSub)}">−1</button>
+              ${canSub ? `<button class="btn-stat-sub" data-stat="${k}" data-amt="all" style="${bs} background:#7f1d1d;">ล้าง</button>` : ''}
+              ${canSub ? `<button class="btn-stat-sub" data-stat="${k}" data-amt="1" style="${bs} background:#475569;">−1</button>` : ''}
               <span style="width:1px; height:18px; background:rgba(255,255,255,0.2); margin:0 2px;"></span>
               ${addBtn(1, '+1', '#2563eb')}${addBtn(10, '+10', '#1d4ed8')}${addBtn('max', 'MAX', '#b45309')}
             </div>`;
