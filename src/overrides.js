@@ -346,6 +346,7 @@ export function sanitizeOverrides(raw, known) {
           sx: n(l.sx, 0, P.w, 0), sy: n(l.sy, 0, P.h, 0), sw: n(l.sw, 1, P.w, P.w), sh: n(l.sh, 1, P.h, P.h),   // crop of the source picture (px)
           partW: n(l.partW, 5, 600, P.w), partX: n(l.partX, -300, 300, 0), partY: n(l.partY, -200, 600, 150),     // centre of the piece on the base model
           flip: l.flip === 'yes' ? 'yes' : 'no',
+          ...(Array.isArray(l.poly) && l.poly.length >= 3 ? { poly: l.poly.slice(0, 300).map(pt => [n(pt && pt[0], 0, P.w, 0), n(pt && pt[1], 0, P.h, 0)]) } : {}),   // freehand cut-out outline (source px)
           z: LAYER_ZS.includes(l.z) ? l.z : 'over_outfit'
         });
       }
