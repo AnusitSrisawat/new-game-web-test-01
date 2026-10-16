@@ -12,7 +12,7 @@ const ATTACK_ANIM = 0.34;
 const PET_FETCH_RANGE = 750;     // px around the player in which a pet goes to fetch dropped items
 const MONSTER_DEATH_TIME = 0.7;  // seconds of the death animation
 const MONSTER_SPAWN_TIME = 0.6;  // seconds of the spawn animation
-const PLAYER_SCALE = 1.7;   // player ≈ 1.2x a default (92px) monster
+const PLAYER_SCALE = 3.4;   // player ≈ 2.4x a default (92px) monster
 const PLAYER_TAG_UP = 40;   // extra height of the overhead tags at that scale
 const SWORD_REST = { blade: 0.5, arm: 2.6 };
 const SWINGS = [
@@ -2377,7 +2377,7 @@ export class GameEngine {
     const sheet = sp ? this.getSheet(sp.src) : null;
     if (!sheet) return;
     const now = performance.now() / 1000;
-    const size = ((MONSTERS[mid] && MONSTERS[mid].size) || 92) * 0.42;
+    const size = ((MONSTERS[mid] && MONSTERS[mid].size) || 92) * 0.84;
     const dh = size * sp.sh / sp.sw;
     const hop = pet.moving ? Math.abs(Math.sin(now * 12)) * 5 : 0;
     ctx.save();
