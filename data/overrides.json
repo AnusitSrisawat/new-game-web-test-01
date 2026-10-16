@@ -63,20 +63,22 @@
   },
   "sounds": {
     "slash": {
-      "freq": 500,
-      "freqEnd": 90,
+      "wave": "sawtooth",
+      "freq": 700,
+      "freqEnd": 900,
       "dur": 1,
-      "vol": 60,
+      "vol": 70,
       "noiseFreq": 2000,
-      "noiseFreqEnd": 500,
-      "pitchVar": 20
+      "noiseFreqEnd": 2000,
+      "pitchVar": 15
     },
     "critHit": {
-      "dur": 1.5,
+      "dur": 0.7,
       "vol": 100,
-      "tone": 0,
+      "tone": 10,
       "noise": 100,
-      "pitchVar": 20
+      "noiseFreqEnd": 2500,
+      "pitchVar": 10
     },
     "coin": {
       "wave": "sine",
@@ -86,6 +88,16 @@
       "vol": 30,
       "tone": 20,
       "arp": "chord"
+    },
+    "monsterDie": {
+      "dur": 1,
+      "vol": 70,
+      "tone": 10,
+      "noiseFreqEnd": 300,
+      "pitchVar": 30
+    },
+    "playerHurt": {
+      "tone": 30
     }
   }
 }
