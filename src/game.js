@@ -1,7 +1,7 @@
 // 2D Canvas Game Engine with Large Tile World, Camera Follow, Real Sprites, Multiplayer Sync & High-Impact VFX
 import { WorldMap } from './map.js';
 import { getMapDef, TILE_SIZE } from './maps.js';
-import { ZONES, MONSTERS, ITEMS, RELICS, QUESTS, SKILLS, SOUNDS } from './data.js';
+import { ZONES, WEAPON_TYPES, MONSTERS, ITEMS, RELICS, QUESTS, SKILLS, SOUNDS } from './data.js';
 import { weaponMatches } from './player.js';
 import { soundEngine } from './audio.js';
 import { monsterSprite, itemSprite, weaponSprite } from './sprites.js';
@@ -402,8 +402,9 @@ export class GameEngine {
 
   // Handle Remote Player Attack Animations & VFX
   handleRemotePlayerAttack(msg) {
-    if (msg.weaponType === 'bow' || msg.weaponType === 'staff') {
-      const kind = msg.weaponType === 'staff' ? 'bolt' : 'arrow';
+    const remoteProjectile = WEAPON_TYPES[msg.weaponType] && WEAPON_TYPES[msg.weaponType].projectile;
+    if (remoteProjectile) {
+      const kind = remoteProjectile;
       soundEngine.playBowShoot();
       // Spawn arrow flying from other player to their target
       if (msg.targetX && msg.targetY) {
@@ -1612,6 +1613,22 @@ export class GameEngine {
         else ctx.lineTo(pt.x, pt.y);
       }
       ctx.stroke();
+
+      if (pr.kind === 'bullet') {
+        // Gun shot: short bright tracer
+        ctx.save();
+        ctx.translate(pr.x, pr.y);
+        ctx.rotate(pr.angle);
+        ctx.strokeStyle = pr.isCrit ? '#fde68a' : '#fef3c7';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-10, 0);
+        ctx.lineTo(6, 0);
+        ctx.stroke();
+        ctx.restore();
+        continue;
+      }
 
       if (pr.kind === 'bolt') {
         // Magic bolt: glowing orb

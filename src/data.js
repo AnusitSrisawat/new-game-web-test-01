@@ -1,5 +1,6 @@
 import { installCatalog, pruneItems, applyFacing, finishDrops } from './catalog.js';
 import { SKILL_DEFAULTS } from './skills.js';
+import { installWeapons } from './weapons_catalog.js';
 
 // Game Master Data & Configurations
 
@@ -10,7 +11,10 @@ export const WEAPON_TYPES = {
   stick: { id: 'stick', name: 'กิ่งไม้/ไม้',  range: 75,  projectile: null,    scalesWith: 'str' },
   sword: { id: 'sword', name: 'ดาบ',     range: 80,  projectile: null,    scalesWith: 'str' },
   bow:   { id: 'bow',   name: 'ธนู',     range: 260, projectile: 'arrow', scalesWith: 'dex' },
-  staff: { id: 'staff', name: 'คฑา',     range: 230, projectile: 'bolt',  scalesWith: 'int' }
+  staff: { id: 'staff', name: 'คฑา',     range: 230, projectile: 'bolt',  scalesWith: 'int' },
+  spear: { id: 'spear', name: 'หอก',     range: 135, projectile: null,    scalesWith: 'str' }, // melee, reaches further than a sword
+  gun:   { id: 'gun',   name: 'ปืน',     range: 190, projectile: 'bullet', scalesWith: 'dex' }, // mid range
+  book:  { id: 'book',  name: 'คัมภีร์',   range: 170, projectile: 'bolt',  scalesWith: 'int' }  // mid-range magic
 };
 
 // Base values every character starts from (replaces the old per-class numbers)
@@ -651,6 +655,7 @@ export const MONSTER_AI = {
 
 installCatalog({ MONSTERS, ITEMS, MONSTER_AI });
 pruneItems({ MONSTERS, ITEMS, CRAFTING_RECIPES });
+installWeapons(ITEMS); // all weapon types (sword/staff/bow/spear/gun/book); not sold or crafted yet
 applyFacing(MONSTERS);
 finishDrops({ MONSTERS, RELICS, ITEMS });
 
