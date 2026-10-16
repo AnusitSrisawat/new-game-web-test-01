@@ -38,7 +38,7 @@ export class WorldMap {
     // Floor
     ctx.fillStyle = def.floor;
     ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
-    const pattern = getFloorPattern(ctx, def.texture, def.floor);
+    const pattern = getFloorPattern(ctx, def.texture, def.floor, def.floorImage);
     if (pattern) {
       ctx.fillStyle = pattern;
       ctx.fillRect(minX, minY, maxX - minX, maxY - minY);

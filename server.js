@@ -87,6 +87,7 @@ const KNOWN = {
 function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf-8')); } catch { return fallback; }
 }
+refreshFloorImages();
 let overrides = sanitizeOverrides(readJson(OVERRIDES_FILE, {}), KNOWN);
 let spawns = validateSpawns(readJson(SPAWNS_FILE, []), KNOWN.maps, KNOWN.monsters);
 applyOverrides(gameData, overrides);
@@ -221,7 +222,18 @@ function writeJsonAtomic(file, value) {
   fs.renameSync(tmp, file);
 }
 
+// Picture files in assets/floors/ that a map can use as its tiled floor (re-scanned on every call)
+function refreshFloorImages() {
+  let files = [];
+  try { files = fs.readdirSync(path.join(__dirname, 'assets', 'floors')).filter(f => /^[\w.-]+\.(png|jpe?g|webp|gif)$/i.test(f)).sort(); } catch {}
+  SCHEMA.maps.fields.floorImage.options = [
+    { value: '', label: '(ไม่ใช้รูป — ใช้ texture ด้านบน)' },
+    ...files.map(f => ({ value: f, label: f }))
+  ];
+}
+
 function studioPayload() {
+  refreshFloorImages();
   return {
     schema: SCHEMA,
     defaults: DEFAULTS,
@@ -265,6 +277,7 @@ async function handleApi(req, res, reqPath) {
     }
     if (req.method === 'PUT' && reqPath === '/api/studio/save') {
       const body = JSON.parse(await readBody(req) || '{}');
+      refreshFloorImages();
       const newOverrides = sanitizeOverrides(body.overrides, KNOWN);
       const newSpawns = validateSpawns(body.spawns, KNOWN.maps, KNOWN.monsters);
       writeJsonAtomic(OVERRIDES_FILE, newOverrides);

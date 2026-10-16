@@ -63,7 +63,22 @@ function paint(kind, base) {
 }
 
 // Returns a CanvasPattern for the texture, or null for 'plain'.
-export function getFloorPattern(ctx, kind, floor) {
+// If `image` (a file name in assets/floors/) is set and loaded, that picture is tiled instead.
+// Images load async: until then this falls back to the procedural texture; `onLoad` fires once ready.
+const images = new Map();
+export function getFloorPattern(ctx, kind, floor, image, onLoad) {
+  if (image) {
+    let img = images.get(image);
+    if (!img) {
+      img = new Image();
+      img.onload = () => { img.ready = true; if (onLoad) onLoad(); };
+      img.src = `/assets/floors/${encodeURIComponent(image)}`;
+      images.set(image, img);
+    } else if (!img.ready && onLoad) {
+      img.addEventListener('load', onLoad, { once: true });
+    }
+    if (img.ready) return ctx.createPattern(img, 'repeat');
+  }
   if (!kind || kind === 'plain') return null;
   const key = `${kind}|${floor}`;
   let canvas = cache.get(key);

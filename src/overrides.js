@@ -3,7 +3,7 @@
 //
 // overrides = {
 //   zones:    { [zoneId]:    { name, desc, reqLevel } },
-//   maps:     { [zoneId]:    { size, floor, wall } },
+//   maps:     { [zoneId]:    { size, texture, floorImage, floor, wall } },   // floorImage: file name in assets/floors/ ('' = none)
 //   monsters: { [monsterId]: { name, level, hp, atk, def, exp, size, facing } },   // facing: which way the picture looks: left | right | none (never flip)
 //   ai:       { [monsterId]: { speed, aggro, attackRange, attackCooldown, leash, wanderRadius } },
 //   items:    { [itemId]:    { name, price, atk, def, hp, heal, reqLevel, desc } },
@@ -46,6 +46,7 @@ export const SCHEMA = {
     fields: {
       size: num('ขนาด (px, จัตุรัส)', 1600, 9600, 32),
       texture: select('พื้นผิวพื้น (texture)', Object.entries(TEXTURES).map(([value, label]) => ({ value, label }))),
+      floorImage: select('รูปพื้น (ปูซ้ำทั้งแมพ — ใส่ไฟล์ใน assets/floors/)', [{ value: '', label: '(ไม่ใช้รูป — ใช้ texture ด้านบน)' }]), // options filled in by the server
       floor: color('สีพื้น (สีหลักของ texture)'),
       wall: color('สีกำแพง')
     }
@@ -273,7 +274,7 @@ export function snapshotEditable(data) {
   };
   data.ZONES.forEach(z => { snap.zones[z.id] = pick(z, SCHEMA.zones.fields); });
   for (const [id, def] of Object.entries(data.MAP_DEFS)) {
-    snap.maps[id] = { size: def.width, texture: def.texture || 'plain', floor: def.floor, wall: def.wall };
+    snap.maps[id] = { size: def.width, texture: def.texture || 'plain', floorImage: def.floorImage || '', floor: def.floor, wall: def.wall };
     snap.objects[id] = (def.objects || []).map(o => ({ ...o }));
   }
   for (const [id, m] of Object.entries(data.MONSTERS)) {
@@ -302,6 +303,7 @@ export function applyOverrides(data, o) {
       def.spawn = { x: p.size / 2, y: p.size / 2 };
     }
     if (p.texture) def.texture = p.texture;
+    if (p.floorImage !== undefined) def.floorImage = p.floorImage;
     if (p.floor) def.floor = p.floor;
     if (p.wall) def.wall = p.wall;
   }
