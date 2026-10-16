@@ -10,7 +10,7 @@ export const GACHA_PACK = 4500;    // gold for 10 pulls
 // Does the held weapon satisfy a skill's weapon requirement?
 export function weaponMatches(req, weaponType) {
   if (!req || req === 'any') return true;
-  if (req === 'melee') return weaponType === 'fist' || weaponType === 'stick' || weaponType === 'sword';
+  if (req === 'melee') return weaponType === 'fist' || weaponType === 'stick' || weaponType === 'sword' || weaponType === 'spear';
   return req === weaponType;
 }
 
