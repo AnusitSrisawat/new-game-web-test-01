@@ -922,6 +922,7 @@ export class UIController {
     };
     const row = (l, v) => `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span>${l}</span> <b>${v}</b></div>`;
 
+    this.hideStatInfo();
     body.innerHTML = `
       <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(245,158,11,0.3); border-radius:8px; padding:10px 14px; margin-bottom:12px;">
         <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:3px;">
@@ -951,9 +952,8 @@ export class UIController {
             const addBtn = (n, label, bg) => `<button class="btn-stat-add" data-stat="${k}" data-amt="${n}" ${dis(canAdd)} style="${bs} background:${bg}; ${dim(canAdd)}">${label}</button>`;
             return `
             <div style="display:flex; align-items:center; gap:4px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-              <span style="font-weight:700; text-transform:uppercase; width:36px;">${k}</span>
+              <span class="stat-name" data-stat="${k}" style="font-weight:700; text-transform:uppercase; width:36px; cursor:help; text-decoration:underline dotted rgba(255,255,255,0.4); text-underline-offset:3px;">${k}</span>
               <b style="min-width:54px; font-size:1rem;">${pl.stats[k]}${pend[k] ? `<span style="color:#4ade80;"> +${pend[k]}</span>` : ''}</b>
-              <button class="btn-stat-info" data-stat="${k}" title="รายละเอียด" style="${bs} background:#334155; width:24px; padding:0; border-radius:50%;">i</button>
               <span style="flex:1;"></span>
               <button class="btn-stat-sub" data-stat="${k}" data-amt="all" ${dis(canSub)} style="${bs} background:#7f1d1d; ${dim(canSub)}">ล้าง</button>
               <button class="btn-stat-sub" data-stat="${k}" data-amt="1" ${dis(canSub)} style="${bs} background:#475569; ${dim(canSub)}">−1</button>
@@ -980,7 +980,11 @@ export class UIController {
       </div>
     `;
 
-    body.querySelectorAll('.btn-stat-info').forEach(b => b.addEventListener('click', () => this.showStatInfo(b.dataset.stat)));
+    body.querySelectorAll('.stat-name').forEach(el => {
+      el.addEventListener('mouseenter', () => this.showStatInfo(el.dataset.stat, el));
+      el.addEventListener('mouseleave', () => this.hideStatInfo());
+      el.addEventListener('click', () => this.showStatInfo(el.dataset.stat, el)); // touch devices
+    });
 
     const confirmBtn = body.querySelector('#btn-stat-confirm');
     if (confirmBtn) confirmBtn.addEventListener('click', () => {
@@ -1035,8 +1039,8 @@ export class UIController {
     }
   }
 
-  // Popup explaining what each point of a stat gives
-  showStatInfo(k) {
+  // Tooltip explaining what each point of a stat gives (hover the stat name)
+  showStatInfo(k, anchor) {
     const INFO = {
       str: ['STR (พลังกาย)', ['ATK +3 ต่อ 1 แต้ม เมื่อใช้อาวุธประชิด (มือเปล่า/กิ่งไม้/ดาบ)', 'ATK +1 ต่อ 1 แต้ม เมื่อใช้ธนู/คฑา', 'ดาเมจสกิลที่สเกลตาม STR']],
       agi: ['AGI (ความคล่องแคล่ว)', ['ASPD +0.015 ต่อ 1 แต้ม', 'Move Speed +0.3% ต่อ 1 แต้ม (สูงสุด +40%)', 'ดาเมจสกิลที่สเกลตาม AGI']],
@@ -1046,20 +1050,21 @@ export class UIController {
       luk: ['LUK (โชค)', ['Crit Rate +0.5% ต่อ 1 แต้ม (สูงสุด 75%)', 'ดาเมจสกิลที่สเกลตาม LUK']]
     };
     const [title, lines] = INFO[k] || [k.toUpperCase(), []];
-    document.getElementById('stat-info-overlay')?.remove();
-    const ov = document.createElement('div');
-    ov.id = 'stat-info-overlay';
-    ov.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:10000;';
-    ov.innerHTML = `
-      <div style="background:#0f172a; border:1px solid rgba(245,158,11,0.4); border-radius:10px; padding:16px 18px; width:min(340px, 90vw); color:#e2e8f0;">
-        <div style="font-weight:700; font-size:1.05rem; color:#f59e0b; margin-bottom:10px;">${title}</div>
-        <div style="font-size:0.78rem; color:#94a3b8; margin-bottom:6px;">ทุก 1 แต้มที่อัพ จะได้:</div>
-        <ul style="margin:0 0 14px 18px; padding:0; font-size:0.85rem; line-height:1.6;">${lines.map(l => `<li>${l}</li>`).join('')}</ul>
-        <button style="width:100%; padding:6px; background:#475569; color:#fff; border:none; border-radius:4px; cursor:pointer;">ปิด</button>
-      </div>`;
-    ov.addEventListener('click', (e) => { if (e.target === ov || e.target.tagName === 'BUTTON') ov.remove(); });
-    document.body.appendChild(ov);
+    this.hideStatInfo();
+    const tip = document.createElement('div');
+    tip.id = 'stat-info-tip';
+    tip.style.cssText = 'position:fixed; z-index:10000; width:min(300px, 86vw); background:#0f172a; border:1px solid rgba(245,158,11,0.5); border-radius:8px; padding:10px 14px; color:#e2e8f0; box-shadow:0 6px 20px rgba(0,0,0,0.5); pointer-events:none;';
+    tip.innerHTML = `
+      <div style="font-weight:700; color:#f59e0b; margin-bottom:6px;">${title}</div>
+      <div style="font-size:0.72rem; color:#94a3b8; margin-bottom:4px;">ทุก 1 แต้มที่อัพ จะได้:</div>
+      <ul style="margin:0 0 0 16px; padding:0; font-size:0.8rem; line-height:1.55;">${lines.map(l => `<li>${l}</li>`).join('')}</ul>`;
+    document.body.appendChild(tip);
+    const r = anchor.getBoundingClientRect(), t = tip.getBoundingClientRect();
+    tip.style.left = Math.max(8, Math.min(r.left, window.innerWidth - t.width - 8)) + 'px';
+    tip.style.top = (r.bottom + t.height + 12 > window.innerHeight ? Math.max(8, r.top - t.height - 6) : r.bottom + 6) + 'px';
   }
+
+  hideStatInfo() { document.getElementById('stat-info-tip')?.remove(); }
 
   // 2. Inventory Modal: items only, split into tabs (crafting lives in its own window)
   renderInventoryModal() {
