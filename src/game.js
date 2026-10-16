@@ -4,7 +4,7 @@ import { getMapDef, TILE_SIZE } from './maps.js';
 import { ZONES, WEAPON_TYPES, MONSTERS, ITEMS, RELICS, QUESTS, SKILLS, SOUNDS } from './data.js';
 import { weaponMatches } from './player.js';
 import { soundEngine } from './audio.js';
-import { monsterSprite, itemSprite, weaponSprite } from './sprites.js';
+import { monsterSprite, itemSprite, weaponSprite, dropSprite } from './sprites.js';
 
 // ---- Sword swing animation (prog 0..1: wind-up, snap strike, follow-through) ----
 // Angles are the blade direction: 0 = straight up, positive = clockwise (towards the facing side).
@@ -712,8 +712,10 @@ export class GameEngine {
   spawnLootOrb(x, y, kind, data = {}) {
     const ang = Math.random() * Math.PI * 2;
     const dist = 28 + Math.random() * 34;
+    const sprite = (kind === 'gold' || kind === 'exp') ? dropSprite(kind, data.amount || 0) : null;
     this.lootOrbs.push({
       kind, ...data,
+      sprite,
       x, y,
       startX: x, startY: y,
       landX: x + Math.cos(ang) * dist,
@@ -1021,21 +1023,32 @@ export class GameEngine {
         }
       } else {
         const gold = o.kind === 'gold';
-        ctx.shadowColor = gold ? '#fbbf24' : '#4ade80';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = gold ? '#fbbf24' : '#4ade80';
-        ctx.strokeStyle = gold ? '#b45309' : '#166534';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(x, y, gold ? 8 : 7, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = gold ? '#78350f' : '#052e16';
-        ctx.font = 'bold 9px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(gold ? 'G' : 'XP', x, y + 0.5);
+        const sp = o.sprite || dropSprite(o.kind, o.amount || 0);
+        const sheet = sp ? this.getSheet(sp.src) : null;
+        if (sheet) {
+          ctx.shadowColor = gold ? '#fbbf24' : '#4ade80';
+          ctx.shadowBlur = 12;
+          const sz = gold
+            ? (o.amount >= 500 ? 32 : o.amount >= 80 ? 26 : 22)
+            : (o.amount >= 1000 ? 34 : o.amount >= 150 ? 28 : 22);
+          ctx.drawImage(sheet, sp.sx, sp.sy, sp.sw, sp.sh, x - sz / 2, y - sz / 2, sz, sz);
+        } else {
+          ctx.shadowColor = gold ? '#fbbf24' : '#4ade80';
+          ctx.shadowBlur = 10;
+          ctx.fillStyle = gold ? '#fbbf24' : '#4ade80';
+          ctx.strokeStyle = gold ? '#b45309' : '#166534';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(x, y, gold ? 8 : 7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = gold ? '#78350f' : '#052e16';
+          ctx.font = 'bold 9px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(gold ? 'G' : 'XP', x, y + 0.5);
+        }
       }
       ctx.restore();
     }

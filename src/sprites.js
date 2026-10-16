@@ -107,6 +107,28 @@ export function potionSprite(id) {
   return { src: `assets/sprites/potions/${id}.png`, sx: 0, sy: 0, sw: 140, sh: 140, iw: 140, ih: 140 };
 }
 
+const DROP_SPRITES = new Set([
+  'gold_s', 'gold_m', 'gold_l',
+  'exp_s', 'exp_m', 'exp_l'
+]);
+export function dropSprite(kind, amountOrSize = 0) {
+  let size = 's';
+  if (typeof amountOrSize === 'string') {
+    size = amountOrSize.toLowerCase();
+  } else if (kind === 'gold') {
+    if (amountOrSize >= 500) size = 'l';
+    else if (amountOrSize >= 80) size = 'm';
+    else size = 's';
+  } else if (kind === 'exp') {
+    if (amountOrSize >= 1000) size = 'l';
+    else if (amountOrSize >= 150) size = 'm';
+    else size = 's';
+  }
+  const id = `${kind}_${size}`;
+  if (!DROP_SPRITES.has(id)) return null;
+  return { src: `assets/sprites/drops/${id}.png`, sx: 0, sy: 0, sw: 140, sh: 140, iw: 140, ih: 140 };
+}
+
 // -> { src, sx, sy, sw, sh } or null when the monster/item/relic has no picture yet
 export function monsterSprite(id) {
   const e = MONSTER_SPRITES[id];
