@@ -58,6 +58,7 @@ export class NetworkManager {
           this.game.syncMonstersFromServer(msg.monsters);
         }
         if (msg.buffs) this.game.serverBuffs = msg.buffs;
+        this.game.onLootSync(msg.loot || []);
         // Initialize other connected players
         if (msg.otherPlayers) {
           msg.otherPlayers.forEach(p => this.otherPlayers.set(p.id, p));
@@ -168,6 +169,26 @@ export class NetworkManager {
         this.game.onMonsterAttackFromServer(msg);
         break;
 
+      case 'loot_sync':
+        this.game.onLootSync(msg.items || []);
+        break;
+
+      case 'loot_spawn':
+        this.game.onLootSpawn(msg.items || []);
+        break;
+
+      case 'loot_removed':
+        this.game.onLootRemoved(msg.id);
+        break;
+
+      case 'loot_picked':
+        this.game.onLootPicked(msg);
+        break;
+
+      case 'loot_denied':
+        this.game.onLootDenied(msg);
+        break;
+
       case 'reward':
         this.game.onRewardFromServer(msg);
         break;
@@ -239,9 +260,14 @@ export class NetworkManager {
     });
   }
 
+  sendPickupLoot(id, viaPet = false) {
+    this.send({ type: 'pickup_loot', id, pet: viaPet });
+  }
+
   sendProfileUpdate() {
     this.send({
       type: 'update_profile',
+      hasPet: !!this.player.activePet,
       name: this.player.name,
       level: this.player.baseLevel,
       weaponType: this.player.weaponInfo.type,

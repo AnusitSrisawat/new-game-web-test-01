@@ -363,6 +363,81 @@ function monsterGold(template) {
   return 5 + (template.level || 1) * 2;
 }
 
+// ---------------------------------------------------------------------------
+// Ground loot: item drops (everything except EXP / gold) lie on the ground for the whole map to see.
+// The player who dealt the most damage owns them for LOOT_OWNER_LOCK seconds; after that anyone may pick up.
+// ---------------------------------------------------------------------------
+const LOOT_OWNER_LOCK = 180;    // seconds only the top damage dealer may pick the item up
+const LOOT_LIFETIME = 900;      // seconds an item stays on the ground before it disappears
+const LOOT_PICK_RANGE = 160;    // px between player and item for a pick-up
+const LOOT_PET_RANGE = 1100;    // px between player and item when the player's pet fetches it
+const LOOT_MAX_PER_MAP = 300;
+const groundLoot = new Map();   // id -> { id, map, x, y, fromX, fromY, itemId?, isPet?, monsterId?, isRelic?, ownerId, ownerName, unlockAt, expireAt }
+let nextLootId = 1;
+
+function lootView(l, now = Date.now()) {
+  return {
+    id: l.id, map: l.map, x: l.x, y: l.y, fromX: l.fromX, fromY: l.fromY,
+    itemId: l.itemId, isPet: l.isPet, monsterId: l.monsterId, isRelic: l.isRelic,
+    ownerId: l.ownerId, ownerName: l.ownerName,
+    lockLeft: Math.max(0, (l.unlockAt - now) / 1000)
+  };
+}
+function lootOnMap(mapId) {
+  const now = Date.now();
+  return Array.from(groundLoot.values()).filter(l => l.map === mapId).map(l => lootView(l, now));
+}
+function removeLoot(l) {
+  groundLoot.delete(l.id);
+  sendToMap(l.map, { type: 'loot_removed', id: l.id });
+}
+// Roll the monster's drops (server drop buff xN = N whole rolls + a fractional chance of one more)
+// and lay them on the ground around it, owned by whoever hit it the most.
+function spawnDrops(m, ownerId, ownerName) {
+  const dm = serverBuffs.drop || 1;
+  const rolls = Math.floor(dm) + (Math.random() < dm - Math.floor(dm) ? 1 : 0);
+  const made = [];
+  const add = (data) => {
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 28 + Math.random() * 34;
+    const md = getMapDef(m.map);
+    const now = Date.now();
+    const l = {
+      id: `loot_${nextLootId++}`, map: m.map,
+      x: Math.round(Math.min(md.width - 20, Math.max(20, m.x + Math.cos(ang) * dist))),
+      y: Math.round(Math.min(md.height - 20, Math.max(20, m.y + Math.sin(ang) * dist * 0.6))),
+      fromX: Math.round(m.x), fromY: Math.round(m.y),
+      ownerId, ownerName, unlockAt: now + LOOT_OWNER_LOCK * 1000, expireAt: now + LOOT_LIFETIME * 1000,
+      ...data
+    };
+    groundLoot.set(l.id, l);
+    made.push(l);
+  };
+  const template = MONSTERS[m.templateId] || {};
+  for (let ri = 0; ri < rolls; ri++) {
+    // 1) normal drop table: ONE roll, chances are shares of 100% (the remainder = nothing drops)
+    if (template.drops) {
+      const r = Math.random();
+      let acc = 0;
+      for (const drop of template.drops) {
+        acc += drop.chance;
+        if (r < acc) { if (ITEMS[drop.itemId]) add({ itemId: drop.itemId }); break; }
+      }
+    }
+    // 2) pet and 3) the monster's own relic: separate rolls
+    if (Math.random() < (template.petChance || 0)) add({ isPet: true, monsterId: m.templateId });
+    const relic = Object.values(RELICS).find(rl => rl.monsterId === m.templateId);
+    if (relic && Math.random() < (template.relicChance || 0)) add({ itemId: relic.id, isRelic: true });
+  }
+  // cap the pile per map: the oldest items go first
+  for (const mapId of new Set(made.map(l => l.map))) {
+    const onMap = Array.from(groundLoot.values()).filter(l => l.map === mapId);
+    for (let i = 0; i < onMap.length - LOOT_MAX_PER_MAP; i++) removeLoot(onMap[i]);
+  }
+  const alive = made.filter(l => groundLoot.has(l.id));
+  if (alive.length) sendToMap(m.map, { type: 'loot_spawn', items: alive.map(l => lootView(l)) });
+}
+
 // Connected Players: ws -> playerState
 const players = new Map();
 
@@ -681,6 +756,7 @@ wss.on('connection', (ws) => {
     you: playerState,
     monsters: monsters,
     buffs: serverBuffs,
+    loot: lootOnMap(playerState.currentMap),
     otherPlayers: Array.from(players.values()).filter(p => p.id !== playerId)
   });
 
@@ -707,6 +783,7 @@ wss.on('connection', (ws) => {
           if (data.maxHp !== undefined) p.maxHp = clampInt(data.maxHp, 1, 500000, p.maxHp);
           if (data.hp !== undefined) p.hp = clampInt(data.hp, 0, p.maxHp, p.hp);
           p.hp = Math.min(p.hp, p.maxHp);
+          if (typeof data.hasPet === 'boolean') p.hasPet = data.hasPet;
           if (ZONE_IDS.has(data.currentMap)) p.currentMap = data.currentMap;
           syncMember(p);
           broadcast({ type: 'player_profile_updated', player: p }, ws);
@@ -740,6 +817,23 @@ wss.on('connection', (ws) => {
             type: 'monsters_sync',
             list: monsters.filter(m => m.map === p.currentMap && !m.isDead).map(m => ({ id: m.id, x: Math.round(m.x), y: Math.round(m.y) }))
           });
+          safeSend(ws, { type: 'loot_sync', items: lootOnMap(p.currentMap) });
+          break;
+        }
+
+        case 'pickup_loot': {
+          const l = groundLoot.get(cleanText(data.id, 40));
+          if (!l || l.map !== p.currentMap) break;
+          const viaPet = data.pet === true && p.hasPet === true;
+          if (Math.hypot(l.x - p.x, l.y - p.y) > (viaPet ? LOOT_PET_RANGE : LOOT_PICK_RANGE)) break;
+          const now = Date.now();
+          const ownerHere = l.ownerId === p.id || !Array.from(players.values()).some(pl => pl.id === l.ownerId);
+          if (!ownerHere && now < l.unlockAt) {
+            safeSend(ws, { type: 'loot_denied', id: l.id, ownerName: l.ownerName, lockLeft: (l.unlockAt - now) / 1000 });
+            break;
+          }
+          removeLoot(l);
+          safeSend(ws, { type: 'loot_picked', id: l.id, itemId: l.itemId, isPet: l.isPet, monsterId: l.monsterId, isRelic: l.isRelic, viaPet });
           break;
         }
 
@@ -778,6 +872,8 @@ wss.on('connection', (ws) => {
 
           m.currentHp = Math.max(0, m.currentHp - damage);
           m.targetId = p.id; // whoever hit it last gets chased
+          if (!m.dmgBy) m.dmgBy = {};
+          m.dmgBy[p.id] = (m.dmgBy[p.id] || 0) + damage;
           if (m.currentHp <= 0) {
             m.isDead = true;
             m.targetId = null;
@@ -791,6 +887,14 @@ wss.on('connection', (ws) => {
               killerName: p.name
             });
             rewardKill(p, m);
+            // drops belong to whoever dealt the most damage (still connected), else the killer
+            let top = p, topDmg = -1;
+            for (const [, pl] of players.entries()) {
+              const dmg = m.dmgBy[pl.id] || 0;
+              if (dmg > topDmg) { top = pl; topDmg = dmg; }
+            }
+            m.dmgBy = {};
+            spawnDrops(m, top.id, top.name);
           } else {
             broadcast({ type: 'monster_damaged', monsterId: m.id, damage, currentHp: m.currentHp, isCrit });
           }
@@ -1043,10 +1147,15 @@ setInterval(() => {
         m.y = m.spawnY;
         m.targetId = null;
         m.wander = null;
+        m.dmgBy = {};
         broadcast({ type: 'monster_respawned', monster: m });
       }
     }
   });
+
+  // ---- Ground loot that has lain around too long disappears ----
+  const lootNow = Date.now();
+  for (const l of Array.from(groundLoot.values())) if (lootNow >= l.expireAt) removeLoot(l);
 
   // ---- Monster AI (server-authoritative: everyone sees the same monsters) ----
   const alivePlayers = Array.from(players.values()).filter(pl => pl.hp > 0);
