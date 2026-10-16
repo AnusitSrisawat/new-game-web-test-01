@@ -129,6 +129,44 @@ export function dropSprite(kind, amountOrSize = 0) {
   return { src: `assets/sprites/drops/${id}.png`, sx: 0, sy: 0, sw: 140, sh: 140, iw: 140, ih: 140 };
 }
 
+// Display-only split of a gold / EXP reward into S (50) / M (100) / L (500) pieces, biggest first.
+// 620 -> L, M, S.  Anything under 50 still shows one S.  The pieces' amounts always add up to `total`.
+export const DROP_PIECE_MAX = 12;
+export function splitDropPieces(total) {
+  total = Math.floor(total || 0);
+  if (total <= 0) return [];
+  const sizes = [];
+  let rest = total;
+  const l = Math.floor(rest / 500); rest -= l * 500;
+  const m = Math.floor(rest / 100); rest -= m * 100;
+  const sn = Math.ceil(rest / 50);
+  for (let i = 0; i < l; i++) sizes.push('l');
+  for (let i = 0; i < m; i++) sizes.push('m');
+  for (let i = 0; i < sn; i++) sizes.push('s');
+  const capped = sizes.length > DROP_PIECE_MAX;
+  if (capped) { // huge reward: keep 1 M + 1 S and fill the rest with L
+    sizes.length = 0;
+    for (let i = 0; i < DROP_PIECE_MAX - 2; i++) sizes.push('l');
+    sizes.push('m', 's');
+  }
+  // nominal values for the small pieces, the L pieces share the remainder so the sum is exact
+  const nominal = { s: 50, m: 100, l: 500 };
+  const pieces = sizes.map(size => ({ size, amount: nominal[size] }));
+  if (sizes.length <= DROP_PIECE_MAX && !capped) { // normal case: the last S carries the leftover
+    pieces[pieces.length - 1].amount += total - pieces.reduce((a, p) => a + p.amount, 0);
+    return pieces;
+  }
+  let diff = total - pieces.reduce((a, p) => a + p.amount, 0);
+  if (diff !== 0) {
+    const big = pieces.filter(p => p.size === 'l');
+    const adj = big.length ? big : [pieces[pieces.length - 1]];
+    const each = Math.trunc(diff / adj.length);
+    adj.forEach(p => { p.amount += each; });
+    adj[adj.length - 1].amount += diff - each * adj.length;
+  }
+  return pieces;
+}
+
 // -> { src, sx, sy, sw, sh } or null when the monster/item/relic has no picture yet
 export function monsterSprite(id) {
   const e = MONSTER_SPRITES[id];
