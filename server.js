@@ -222,13 +222,23 @@ function writeJsonAtomic(file, value) {
   fs.renameSync(tmp, file);
 }
 
-// Picture files in assets/floors/ that a map can use as its tiled floor (re-scanned on every call)
+// Picture files in assets/floors/ and assets/ground/** (any subfolder) that a map can use as its tiled floor.
+// Value = path relative to assets/ (re-scanned on every call)
 function refreshFloorImages() {
-  let files = [];
-  try { files = fs.readdirSync(path.join(__dirname, 'assets', 'floors')).filter(f => /^[\w.-]+\.(png|jpe?g|webp|gif)$/i.test(f)).sort(); } catch {}
+  const found = [];
+  const walk = (rel, depth) => {
+    let ents = [];
+    try { ents = fs.readdirSync(path.join(__dirname, 'assets', rel), { withFileTypes: true }); } catch { return; }
+    for (const e of ents) {
+      const r = `${rel}/${e.name}`;
+      if (e.isDirectory() && depth < 3) walk(r, depth + 1);
+      else if (e.isFile() && /^[\w.-]+\.(png|jpe?g|webp|gif)$/i.test(e.name)) found.push(r);
+    }
+  };
+  walk('floors', 0); walk('ground', 0);
   SCHEMA.maps.fields.floorImage.options = [
     { value: '', label: '(ไม่ใช้รูป — ใช้ texture ด้านบน)' },
-    ...files.map(f => ({ value: f, label: f }))
+    ...found.sort().map(f => ({ value: f, label: f }))
   ];
 }
 
