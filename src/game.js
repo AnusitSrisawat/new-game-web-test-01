@@ -1029,7 +1029,7 @@ export class GameEngine {
         if (sheet) {
           ctx.shadowColor = gold ? '#fbbf24' : '#4ade80';
           ctx.shadowBlur = 12;
-          const sz = o.size === 'l' ? 32 : o.size === 'm' ? 26 : 22;
+          const sz = o.size === 'xl' ? 38 : o.size === 'l' ? 32 : o.size === 'm' ? 26 : 22;
           ctx.drawImage(sheet, sp.sx, sp.sy, sp.sw, sp.sh, x - sz / 2, y - sz / 2, sz, sz);
         } else {
           ctx.shadowColor = gold ? '#fbbf24' : '#4ade80';
