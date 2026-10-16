@@ -646,10 +646,10 @@
     return { cv, redraw };
   }
 
-  // Normal items (not weapon / armor / wearable): editable "use" effect - restore HP / SP, instant EXP. 0 = no effect.
+  // Normal items (not material / weapon / armor / wearable): editable "use" effect - restore HP / SP, instant EXP. 0 = no effect.
   function useEffectBox(id) {
     const t = state.itemsInfo?.[id]?.type;
-    if (['weapon', 'armor', ...WEAR_TYPES.map(x => x[0]), 'pet'].includes(t)) return null;
+    if (['weapon', 'armor', 'material', ...WEAR_TYPES.map(x => x[0]), 'pet'].includes(t)) return null;
     const keys = ['heal', 'sp', 'exp'];
     const clear = h('button', { class: 'btn small', type: 'button', onclick: () => { keys.forEach(k => setValue('items', id, k, 0)); renderList(); } }, '🗑️ เอาเอฟเฟกต์ออกทั้งหมด');
     return h('div', { class: 'card' },

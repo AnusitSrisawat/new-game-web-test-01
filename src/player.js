@@ -1,7 +1,7 @@
 // Player State & Logic Handler (classless: power comes from stats, weapon and (later) skills)
 import { ITEMS, RELICS, WEAPON_TYPES, BASE_STATS, STAT_KEYS, SKILLS } from './data.js';
 
-export const HP_POTION_IDS = ['hp_potion_s', 'apple', 'hp_potion_m', 'boar_meat', 'hp_potion_l']; // weakest first
+export const HP_POTION_IDS = ['hp_potion_s', 'hp_potion_m', 'hp_potion_l']; // weakest first
 export const SP_POTION_IDS = ['sp_potion_s', 'sp_potion_m', 'sp_potion_l'];
 export const SKILL_SLOTS = 4;     // skills usable at once (passives take a slot too)
 export const GACHA_SINGLE = 500;   // gold per skill-book pull
@@ -62,8 +62,7 @@ export class Player {
 
     // Inventory: { [itemId]: count }
     this.inventory = {
-      hp_potion_s: 10,
-      apple: 5
+      hp_potion_s: 10
     };
 
     // Equipment: item id or null
@@ -373,7 +372,7 @@ export class Player {
   // Use any item that has a use-effect (heal HP / restore SP / gain EXP). Effects come from the item data, editable in Studio.
   useItem(itemId) {
     const item = ITEMS[itemId];
-    if (!item || !this.inventory[itemId] || this.inventory[itemId] <= 0) return null;
+    if (!item || item.type === 'material' || !this.inventory[itemId] || this.inventory[itemId] <= 0) return null;
     if (!(item.heal > 0 || item.sp > 0 || item.exp > 0)) return null;
     this.removeItem(itemId, 1);
     const res = { itemName: item.name, itemId, healed: 0, restored: 0, exp: 0 };
@@ -569,6 +568,9 @@ export class Player {
             this.equipment[slot] = null;
           }
         });
+        // items that no longer exist (e.g. the removed apple) leave the bag / hotbar
+        for (const id of Object.keys(this.inventory)) if (!ITEMS[id]) delete this.inventory[id];
+        this.hotbar = this.hotbar.map(h => (typeof h === 'string' && !ITEMS[h] ? null : h));
         if (!this.equipment.weapon && !this.inventory.wooden_stick) this.inventory.wooden_stick = 1;
         if (!this.mountItem) this.isMounted = false;
         if (Array.isArray(d.skillLoadout)) this.skillLoadout = Array.from({ length: SKILL_SLOTS }, (_, i) => d.skillLoadout[i] || null);

@@ -109,7 +109,6 @@ export const MONSTERS = {
     exp: 15,
     drops: [
       { itemId: 'sticky_mucus', chance: 0.8 },
-      { itemId: 'apple', chance: 0.4 },
       { itemId: 'relic_slime_heart', chance: 0.05, isRelic: true } // 5% chance in demo
     ]
   },
@@ -193,12 +192,11 @@ export const MONSTERS = {
 export const ITEMS = {
   // Common / Trash & Materials
   sticky_mucus: { id: 'sticky_mucus', name: 'Sticky Mucus', price: 5, icon: '🧪', type: 'material', desc: 'เมือกเหนียวจากสไลม์ นำไปขายหรือทำน้ำยาได้' },
-  apple: { id: 'apple', name: 'Fresh Apple', price: 8, icon: '🍎', type: 'consumable', heal: 30, desc: 'แอปเปิ้ลสด ฟื้นฟู HP 30 หน่วย' },
   green_leaf: { id: 'green_leaf', name: 'Green Leaf', price: 10, icon: '🍃', type: 'material', desc: 'ใบไม้สมุนไพรสด' },
   plant_stem: { id: 'plant_stem', name: 'Plant Stem', price: 15, icon: '🌾', type: 'material', desc: 'ก้านพืชเหนียวทนทาน ใช้คราฟต์เชือกและด้ามดาบ' },
   rabbit_fluff: { id: 'rabbit_fluff', name: 'Rabbit Fluff', price: 20, icon: '🧶', type: 'material', desc: 'ขนกระต่ายนุ่มฟู' },
   small_horn: { id: 'small_horn', name: 'Small Horn', price: 28, icon: '📯', type: 'material', desc: 'เขาเล็กแหลมคม ใช้เป็นส่วนประกอบอาวุธ' },
-  boar_meat: { id: 'boar_meat', name: 'Wild Boar Meat', price: 35, icon: '🥩', type: 'consumable', heal: 90, desc: 'เนื้อหมูป่าชุ่มฉ่ำ ฟื้นฟู HP 90 หน่วย' },
+  boar_meat: { id: 'boar_meat', name: 'Wild Boar Meat', price: 35, icon: '🥩', type: 'material', desc: 'เนื้อหมูป่าชุ่มฉ่ำ (วัตถุดิบ)' },
   hard_tusk: { id: 'hard_tusk', name: 'Hard Tusk', price: 45, icon: '🦴', type: 'material', desc: 'เขี้ยวหมูป่าแข็งแกร่ง' },
   wolf_fur: { id: 'wolf_fur', name: 'Wolf Fur', price: 60, icon: '🐺', type: 'material', desc: 'ขนหมาป่าสีดำเงา' },
   sharp_fang: { id: 'sharp_fang', name: 'Sharp Fang', price: 80, icon: '🦷', type: 'material', desc: 'เขี้ยวคมกริบของหมาป่าเงามืด' },
