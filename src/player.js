@@ -33,8 +33,8 @@ export const TEST_ALL_SWORDS = true;
 export const TEST_ALL_GEAR = true;
 
 // Equipment slots: weapon = right hand, offhand = left hand (shield), outfit = whole look, pet, mount
-export const EQUIP_SLOTS = ['weapon', 'offhand', 'outfit', 'pet', 'mount'];
-const SLOT_OF = { weapon: 'weapon', shield: 'offhand', outfit: 'outfit', armor: 'outfit', pet: 'pet', mount: 'mount' };
+export const EQUIP_SLOTS = ['hat', 'head', 'outfit', 'weapon', 'offhand', 'pet', 'mount'];
+const SLOT_OF = { weapon: 'weapon', shield: 'offhand', hat: 'hat', head: 'head', outfit: 'outfit', armor: 'outfit', pet: 'pet', mount: 'mount' };
 
 export class Player {
   constructor() {
@@ -68,9 +68,11 @@ export class Player {
 
     // Equipment: item id or null
     this.equipment = {
+      hat: null,
+      head: 'head_0',
+      outfit: 'outfit_knight',
       weapon: 'wooden_stick',   // right hand
       offhand: null,            // left hand (shield)
-      outfit: 'outfit_knight',  // the whole look
       pet: null,
       mount: null
     };
@@ -168,7 +170,7 @@ export class Player {
   // Sum of a stat over the worn outfit + left-hand item (the weapon is counted where it is used)
   gearSum(key) {
     let s = 0;
-    for (const slot of ['outfit', 'offhand']) {
+    for (const slot of ['hat', 'outfit', 'offhand']) {
       const it = this.equipment[slot] && ITEMS[this.equipment[slot]];
       if (it) s += it[key] || 0;
     }
@@ -461,7 +463,7 @@ export class Player {
   }
 
   unequip(slot) {
-    if (slot === 'weapon' || !(slot in this.equipment)) return false;
+    if (slot === 'weapon' || slot === 'head' || !(slot in this.equipment)) return false; // always keep a head
     this.equipment[slot] = null;
     if (slot === 'mount') this.isMounted = false;
     this.saveToStorage();
@@ -535,6 +537,7 @@ export class Player {
         if (d.equipment) {
           // old saves had weapon / armor / pet only: armor goes back to the bag, the knight outfit is worn
           this.equipment = { weapon: d.equipment.weapon ?? null, offhand: d.equipment.offhand ?? null,
+            hat: d.equipment.hat ?? null, head: d.equipment.head ?? 'head_0',
             outfit: d.equipment.outfit ?? (('outfit' in d.equipment) ? null : 'outfit_knight'), pet: d.equipment.pet ?? null, mount: d.equipment.mount ?? null };
           if (d.equipment.armor && ITEMS[d.equipment.armor]) this.inventory[d.equipment.armor] = (this.inventory[d.equipment.armor] || 0) + 1;
         }
@@ -566,7 +569,7 @@ export class Player {
       if (!this.name || this.name === 'Novice Adventurer') this.name = randomName();
       if (TEST_ALL_GEAR) {
         for (const it of Object.values(ITEMS)) {
-          if (['outfit', 'shield', 'mount'].includes(it.type) && !this.inventory[it.id] && this.equipment[SLOT_OF[it.type]] !== it.id) this.inventory[it.id] = 1;
+          if (['outfit', 'hat', 'head', 'shield', 'mount'].includes(it.type) && !this.inventory[it.id] && this.equipment[SLOT_OF[it.type]] !== it.id) this.inventory[it.id] = 1;
         }
       }
       if (TEST_ALL_SWORDS) {

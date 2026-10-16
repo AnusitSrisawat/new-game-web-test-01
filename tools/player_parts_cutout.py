@@ -23,6 +23,7 @@ PARTS = {
   'outfit_sorcerer': (575, 440, 145, 160), 'outfit_assassin': (815, 435, 150, 170),
   'wings_angel':  (45, 660, 210, 140), 'wings_dragon': (275, 665, 275, 135),
   'wings_fairy':  (570, 665, 190, 150), 'cape_red':     (810, 660, 180, 135),
+  'head_1': (432, 65, 120, 110), 'head_2': (552, 65, 118, 110), 'head_3': (670, 65, 118, 110),
   'shield_lion':  (95, 865, 110, 120), 'shield_rune':   (330, 865, 120, 120),
 }
 # id -> (x, y, w, h) on the 1024x1024 mounts sheet
@@ -68,6 +69,10 @@ def main():
     d = os.path.join(ROOT, 'assets/sprites/player/parts'); os.makedirs(d, exist_ok=True)
     for k, r in PARTS.items():
         im = cut(sheet, r); im.save(os.path.join(d, k + '.png')); print(k, im.size)
+    # the bare body (assets/sprites/player/base_body.png, tools/cut_base_body.py) is split into head + headless body
+    b = Image.open(os.path.join(ROOT, 'assets/sprites/player/base_body.png')).convert('RGBA')
+    b.crop((0, 0, b.width, 134)).save(os.path.join(ROOT, 'assets/sprites/player/parts/head_0.png'))
+    b.crop((0, 132, b.width, b.height)).save(os.path.join(ROOT, 'assets/sprites/player/parts/body_nohead.png'))
     ms = Image.open(os.path.join(ROOT, 'assets/mounts/mounts_riding_sheet.jpg'))
     d = os.path.join(ROOT, 'assets/sprites/mounts'); os.makedirs(d, exist_ok=True)
     for k, r in MOUNTS.items():

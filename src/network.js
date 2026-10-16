@@ -278,7 +278,9 @@ export class NetworkManager {
     this.send({
       type: 'update_profile',
       pet: this.player.activePet || null,
-      costume: (ITEMS[this.player.equipment.outfit] || {}).costume || 'none',
+      hat: this.player.equipment.hat || null,
+      head: this.player.equipment.head || 'head_0',
+      outfit: this.player.equipment.outfit || null,
       shield: this.player.equipment.offhand || null,
       mount: this.player.equipment.mount || null,
       riding: this.player.riding,

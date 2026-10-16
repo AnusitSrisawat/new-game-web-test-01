@@ -533,17 +533,27 @@
   const IMG_CACHE = {};
   const loadImg = (src) => IMG_CACHE[src] || (IMG_CACHE[src] = Object.assign(new Image(), { src }));
   function gearPreview(id) {
-    const type = state.itemsInfo?.[id]?.type;
-    if (!['outfit', 'shield', 'mount'].includes(type)) return null;
+    const info = state.itemsInfo?.[id];
+    const type = info?.type;
+    if (!['hat', 'head', 'outfit', 'shield', 'mount'].includes(type)) return null;
     const cv = h('canvas', { width: 260, height: 190, class: 'gearprev' });
     const v = (k, d) => { const x = Number(valueOf('items', id, k)); return Number.isFinite(x) ? x : d; };
+    // this item with the values being edited (not saved yet) + its fixed part ids from the server
+    const live = (iid) => {
+      const base = state.itemsInfo[iid] || {};
+      const o = { ...base };
+      for (const k of ['scale', 'offX', 'offY', 'seatX', 'seatY']) { const x = Number(valueOf('items', iid, k)); if (Number.isFinite(x)) o[k] = x; }
+      return o;
+    };
     const draw = async () => {
-      const m = await import('/src/player_sprites.js'); const PS = m.PLAYER_SPRITES;
+      const PS = (await import('/src/player_sprites.js')).PLAYER_SPRITES;
+      const { drawLook } = await import('/src/player_look.js');
       const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, 260, 190);
       ctx.fillStyle = '#7fb069'; ctx.fillRect(0, 0, 260, 190);
-      const U = 2.4, cx = 130, gy = 150;                       // world unit -> px, ground line
-      const costumeId = type === 'outfit' ? (state.itemsInfo[id]?.costume || id.slice(7)) : 'knight';
-      const cs = PS.costumes[costumeId] || PS.costumes.none, kb = 58 / PS.bodyHeight;
+      const U = 2.4, cx = 130, gy = 150, kb = 58 / 301 * U;     // world unit -> px
+      const look = { hat: null, head: { head: 'head_0' }, outfit: { outfit: 'outfit_knight', back: 'cape_red' } };
+      const me = live(id);
+      if (type === 'hat') look.hat = me; else if (type === 'head') look.head = me; else if (type === 'outfit') look.outfit = me;
       let rx = cx, ry = gy;
       if (type === 'mount') {
         const ms = PS.mounts[id], img = loadImg(`/assets/sprites/mounts/${id}.png`);
@@ -554,19 +564,20 @@
         const sx = v('seatX', 0.5), sy = v('seatY', 0.4);
         rx = cx + v('offX', 0) * U + ((left ? 1 - sx : sx) - 0.5) * w; ry = gy + v('offY', 0) * U - h2 + sy * h2 + 12 * U;
       }
-      const os = type === 'outfit' ? v('scale', 1) : 1;
-      const cimg = loadImg(`/assets/sprites/player/costume_${costumeId}.png`);
       ctx.save();
-      if (type === 'mount') { ctx.beginPath(); ctx.rect(0, 0, 260, ry - 3 * U); ctx.clip(); }
-      if (cimg.complete) ctx.drawImage(cimg, rx - cs.fx * kb * U * os + (type === 'outfit' ? v('offX', 0) * U : 0), ry - cs.fy * kb * U * os + (type === 'outfit' ? v('offY', 0) * U : 0), cs.w * kb * U * os, cs.h * kb * U * os);
+      ctx.translate(rx, ry - 24 * U);
+      if (type === 'mount') { ctx.beginPath(); ctx.rect(-130, -190, 260, 190 + 24 * U - 3 * U); ctx.clip(); }
+      // drawLook works in world units: scale the context instead of k
+      ctx.scale(U, U);
+      drawLook(ctx, (src) => { const im = loadImg('/' + src); return im.complete && im.naturalWidth ? im : null; }, look, 58 / 301);
       ctx.restore();
       if (type === 'shield') {
-        const sm = PS.shields[id], simg = loadImg(`/assets/sprites/player/parts/${id}.png`), sw = 20 * v('scale', 1) * U, sh = sw * sm.h / sm.w;
+        const sm = PS.parts[id], simg = loadImg(`/assets/sprites/player/parts/${id}.png`), sw = 20 * v('scale', 1) * U, sh = sw * sm.h / sm.w;
         if (simg.complete) ctx.drawImage(simg, cx + (5 + v('offX', 0)) * U - sw / 2, gy + (-21 + v('offY', 0)) * U - sh / 2, sw, sh);
       }
     };
     const redraw = () => draw().catch(() => {});
-    setTimeout(redraw, 50); setTimeout(redraw, 400); // images may still be loading
+    setTimeout(redraw, 50); setTimeout(redraw, 400); setTimeout(redraw, 1200); // images may still be loading
     return { cv, redraw };
   }
 
