@@ -33,6 +33,11 @@ export function drawLook(ctx, getImg, look, k) {
     ctx.save();
     if (flip) { ctx.translate(x + wk / 2, 0); ctx.scale(-1, 1); }
     const dx = flip ? -wk / 2 : x;
+    if (crop && crop.poly && crop.poly.length >= 3) {          // freehand outline: only what is inside it is shown
+      ctx.beginPath();
+      crop.poly.forEach(([px, py], i) => { const X = dx + (px - crop.sx) * wk / crop.sw, Y = y + (py - crop.sy) * hk / crop.sh; if (i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
+      ctx.closePath(); ctx.clip();
+    }
     if (crop) ctx.drawImage(im, crop.sx, crop.sy, crop.sw, crop.sh, dx, y, wk, hk);
     else ctx.drawImage(im, dx, y, wk, hk);
     ctx.restore();
@@ -48,7 +53,7 @@ export function drawLook(ctx, getImg, look, k) {
       if (!P[l.src]) continue;
       const cw = l.sw || P[l.src].w, ch = l.sh || P[l.src].h, lw = l.partW || cw, lh = ch * lw / cw;
       stages[LAYER_ZS.includes(l.z) ? l.z : z].push(() =>
-        draw(l.src, MODEL.cx + (l.partX || 0) - lw / 2, (l.partY ?? 150) - lh / 2, lw, lh, l.flip === 'yes', { sx: l.sx || 0, sy: l.sy || 0, sw: cw, sh: ch }));
+        draw(l.src, MODEL.cx + (l.partX || 0) - lw / 2, (l.partY ?? 150) - lh / 2, lw, lh, l.flip === 'yes', { sx: l.sx || 0, sy: l.sy || 0, sw: cw, sh: ch, poly: l.poly }));
     }
   };
   addMain('back', look.back);

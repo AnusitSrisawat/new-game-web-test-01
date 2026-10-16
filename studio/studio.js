@@ -587,13 +587,42 @@
         const lab = (txt, el) => h('label', { class: 'minifield' }, h('span', {}, txt), el);
         const rows = list.map((l, i) => {
           const P = PS.parts[l.src] || { w: 1, h: 1 };
-          const mini = h('canvas', { width: 90, height: 90, class: 'gearprev' });
+          // drawing board: the source picture; drag the mouse around the part to keep (the outline closes on release)
+          const BOX = 280, S = Math.min(BOX / P.w, BOX / P.h), cw = Math.round(P.w * S), chh = Math.round(P.h * S);
+          const mini = h('canvas', { width: cw, height: chh, class: 'gearprev', style: 'cursor:crosshair;touch-action:none' });
           const im = new Image(); im.src = `/assets/sprites/player/parts/${l.src}.png`;
-          im.onload = () => {   // source picture with the cropped part framed in red
-            const c = mini.getContext('2d'); c.fillStyle = '#7fb069'; c.fillRect(0, 0, 90, 90);
-            const s = Math.min(86 / P.w, 86 / P.h); c.drawImage(im, 2, 2, P.w * s, P.h * s);
-            c.strokeStyle = '#ef4444'; c.lineWidth = 2; c.strokeRect(2 + l.sx * s, 2 + l.sy * s, l.sw * s, l.sh * s);
+          const paint = (live) => {
+            const c = mini.getContext('2d'); c.clearRect(0, 0, cw, chh);
+            c.fillStyle = '#7fb069'; c.fillRect(0, 0, cw, chh);
+            if (im.complete) c.drawImage(im, 0, 0, cw, chh);
+            const pts = live || l.poly;
+            c.lineWidth = 2; c.strokeStyle = '#ef4444'; c.fillStyle = 'rgba(239,68,68,0.15)';
+            if (pts && pts.length > 1) { c.beginPath(); pts.forEach(([x, y], k) => (k ? c.lineTo(x * S, y * S) : c.moveTo(x * S, y * S))); if (!live) c.closePath(); c.stroke(); if (!live) c.fill(); }
+            else c.strokeRect(l.sx * S, l.sy * S, l.sw * S, l.sh * S);
           };
+          im.onload = () => paint();
+          let stroke = null;
+          const pos = (e) => { const r = mini.getBoundingClientRect(); return [Math.min(P.w, Math.max(0, (e.clientX - r.left) / r.width * P.w)), Math.min(P.h, Math.max(0, (e.clientY - r.top) / r.height * P.h))]; };
+          mini.addEventListener('pointerdown', (e) => { mini.setPointerCapture(e.pointerId); stroke = [pos(e)]; paint(stroke); e.preventDefault(); });
+          mini.addEventListener('pointermove', (e) => {
+            if (!stroke) return;
+            const p = pos(e), q = stroke[stroke.length - 1];
+            if (Math.hypot(p[0] - q[0], p[1] - q[1]) >= 2) { stroke.push(p); paint(stroke); }
+          });
+          mini.addEventListener('pointerup', () => {
+            const pts = stroke; stroke = null;
+            if (!pts || pts.length < 3) { paint(); return; }
+            const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+            const nx = Math.floor(Math.min(...xs)), ny = Math.floor(Math.min(...ys)), nw = Math.max(1, Math.ceil(Math.max(...xs)) - nx), nh = Math.max(1, Math.ceil(Math.max(...ys)) - ny);
+            const scale = (l.partW || l.sw) / l.sw;                       // keep the same size on the model, and the same spot
+            l.partX = Math.round((l.partX + ((nx + nw / 2) - (l.sx + l.sw / 2)) * scale) * 10) / 10;
+            l.partY = Math.round((l.partY + ((ny + nh / 2) - (l.sy + l.sh / 2)) * scale) * 10) / 10;
+            l.partW = Math.max(5, Math.round(nw * scale * 10) / 10);
+            l.sx = nx; l.sy = ny; l.sw = nw; l.sh = nh;
+            let slim = pts; if (slim.length > 300) { const step = Math.ceil(slim.length / 300); slim = slim.filter((_, k) => k % step === 0); }
+            l.poly = slim.map(p => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]);
+            save(); draw();
+          });
           return h('div', { class: 'card', style: 'padding:8px;margin:6px 0;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap' },
             mini,
             h('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;flex:1;align-items:flex-end' },
@@ -602,6 +631,7 @@
               lab('วางกว้าง', num(l, 'partW')), lab('เลื่อน x', num(l, 'partX')), lab('ระดับ y (กึ่งกลาง)', num(l, 'partY')),
               lab('กลับด้าน', sel(l, 'flip', [['no', 'ปกติ'], ['yes', 'กลับด้าน']])),
               lab('ชั้น', sel(l, 'z', LK.LAYER_ZS.map(z => [z, LK.LAYER_Z_LABEL[z]]))),
+              h('button', { class: 'btn small', title: 'ใช้ทั้งรูป (ล้างเส้นที่วาด)', onclick: () => { const k = (l.partW || l.sw) / l.sw; l.partX = Math.round((l.partX + (P.w / 2 - (l.sx + l.sw / 2)) * k) * 10) / 10; l.partY = Math.round((l.partY + (P.h / 2 - (l.sy + l.sh / 2)) * k) * 10) / 10; l.partW = Math.round(P.w * k * 10) / 10; l.sx = 0; l.sy = 0; l.sw = P.w; l.sh = P.h; delete l.poly; save(); draw(); } }, '↺ ใช้ทั้งรูป'),
               h('button', { class: 'btn small', title: 'clone เลเยอร์นี้', onclick: () => { if (list.length < LK.MAX_EXTRA_LAYERS) { list.splice(i + 1, 0, { ...l, partX: l.partX + 12 }); save(); draw(); } } }, '⧉ clone'),
               h('button', { class: 'btn small', onclick: () => { if (i > 0) { [list[i - 1], list[i]] = [list[i], list[i - 1]]; save(); draw(); } } }, '↑'),
               h('button', { class: 'btn small', onclick: () => { if (i < list.length - 1) { [list[i + 1], list[i]] = [list[i], list[i + 1]]; save(); draw(); } } }, '↓'),
@@ -609,6 +639,7 @@
         });
         host.replaceChildren(
           h('div', { class: 'group-title' }, 'เลเยอร์เพิ่ม — clone รูปมาแปะเฉพาะส่วน แล้วเลือกว่าอยู่ชั้นไหนของโมเดล'),
+          h('div', { class: 'hint' }, '✏️ ลากเมาส์วาดเส้นรอบส่วนที่ต้องการบนรูปต้นฉบับ (ปล่อยเมาส์ = ปิดรูปร่างอัตโนมัติ) — วาดใหม่ได้เรื่อยๆ ส่วนนอกเส้นจะไม่ถูกแสดง'),
           ...rows,
           h('button', { class: 'btn small', disabled: list.length >= LK.MAX_EXTRA_LAYERS, onclick: () => {
             // start from a copy of the main picture (placed where the main piece is); then crop / move it
