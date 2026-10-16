@@ -1428,4 +1428,4 @@ body, html {
 .attack-wheel .skill-slot-card:not(.empty) .skill-hotkey-badge { top: auto; bottom: 4px; transform: translateX(-50%); font-size: 0.65rem; }
 
 /* Map button under the minimap matches the minimap width */
-.hud-top-right > #btn-open-zones { width: 130px; justify-content: center; box-sizing: border-box; }
+.minimap-card#btn-open-zones:hover { border-color: #fff; }
