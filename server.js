@@ -783,7 +783,7 @@ wss.on('connection', (ws) => {
           if (data.maxHp !== undefined) p.maxHp = clampInt(data.maxHp, 1, 500000, p.maxHp);
           if (data.hp !== undefined) p.hp = clampInt(data.hp, 0, p.maxHp, p.hp);
           p.hp = Math.min(p.hp, p.maxHp);
-          if (typeof data.hasPet === 'boolean') p.hasPet = data.hasPet;
+          if (data.pet !== undefined) { p.pet = typeof data.pet === 'string' && MONSTERS[data.pet] ? data.pet : null; p.hasPet = !!p.pet; }
           if (ZONE_IDS.has(data.currentMap)) p.currentMap = data.currentMap;
           syncMember(p);
           broadcast({ type: 'player_profile_updated', player: p }, ws);
