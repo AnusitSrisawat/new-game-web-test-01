@@ -179,7 +179,7 @@
   function buildMaps() {
     return state.mapIds.map(id => h('div', { class: 'card' },
       h('h3', {}, state.zoneNames[id] || id, h('small', {}, id)),
-      h('div', { class: 'fields' }, ...fieldsFor('zones', id, ['name', 'desc']), ...fieldsFor('maps', id, ['size', 'texture', 'floor', 'wall']))
+      h('div', { class: 'fields' }, ...fieldsFor('zones', id, ['name', 'desc']), ...fieldsFor('maps', id, ['size', 'texture', 'floorImage', 'floor', 'wall']))
     ));
   }
 
@@ -368,7 +368,7 @@
       g.scale(k, k);
       g.fillStyle = floor; g.fillRect(0, 0, size, size);
       if (texMod) {
-        const pat = texMod.getFloorPattern(g, tex, floor);
+        const pat = texMod.getFloorPattern(g, tex, floor, valueOf('maps', mapId, 'floorImage'), () => drawObjCanvas && drawObjCanvas());
         if (pat) { g.fillStyle = pat; g.fillRect(0, 0, size, size); }
       }
       g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 1 / k;
