@@ -60,5 +60,32 @@
     "skeleton_knight": {
       "facing": "right"
     }
+  },
+  "sounds": {
+    "slash": {
+      "freq": 500,
+      "freqEnd": 90,
+      "dur": 1,
+      "vol": 60,
+      "noiseFreq": 2000,
+      "noiseFreqEnd": 500,
+      "pitchVar": 20
+    },
+    "critHit": {
+      "dur": 1.5,
+      "vol": 100,
+      "tone": 0,
+      "noise": 100,
+      "pitchVar": 20
+    },
+    "coin": {
+      "wave": "sine",
+      "freq": 700,
+      "freqEnd": 600,
+      "dur": 0.1,
+      "vol": 30,
+      "tone": 20,
+      "arp": "chord"
+    }
   }
 }
