@@ -150,14 +150,21 @@ export class UIController {
     const atkBtn = document.getElementById('btn-big-attack');
     if (atkBtn) {
       atkBtn.addEventListener('click', () => {
-        if (!this.gameEngine.selectedTarget) {
-          const live = this.gameEngine.monsters.filter(m => !m.isDead);
-          if (live.length > 0) {
-            this.gameEngine.selectedTarget = live[0];
-            this.gameEngine.updateTargetHUD(live[0]);
-          }
-        } else {
-          this.gameEngine.tryPlayerAttack(this.gameEngine.selectedTarget);
+        const g = this.gameEngine;
+        const pe = g.playerEntity;
+        let t = g.selectedTarget;
+        if (!t || t.isDead || t.map !== g.currentZone.id) {
+          // Pick the nearest live monster in the current zone
+          const live = g.monsters.filter(m => !m.isDead && m.map === g.currentZone.id);
+          live.sort((a, b) => Math.hypot(a.x - pe.x, a.y - pe.y) - Math.hypot(b.x - pe.x, b.y - pe.y));
+          t = live[0];
+          if (!t) return;
+          g.selectedTarget = t;
+          g.updateTargetHUD(t);
+        }
+        // Only strike when in range; otherwise the update loop walks toward the target first
+        if (Math.hypot(t.x - pe.x, t.y - pe.y) <= this.player.attackRange) {
+          g.tryPlayerAttack(t);
         }
       });
     }
