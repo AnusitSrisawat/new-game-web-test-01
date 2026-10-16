@@ -437,6 +437,7 @@ export class Player {
 
   // Save / Load
   saveToStorage() {
+    if (this.resetting) return; // /reset in progress: don't rewrite the wiped save
     const data = {
       name: this.name,
       baseLevel: this.baseLevel,
@@ -528,6 +529,7 @@ export class Player {
   }
 
   resetProgress() {
+    this.resetting = true;
     localStorage.removeItem(SAVE_KEY);
     localStorage.removeItem(OLD_SAVE_KEY);
     window.location.reload();

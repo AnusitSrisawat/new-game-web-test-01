@@ -69,6 +69,11 @@ export class NetworkManager {
         this.game.onGmAction(msg);
         break;
 
+      case 'reset_player':
+        this.game.onLog('🔄 รีเซ็ตตัวละครเป็นผู้เล่นใหม่...', 'system');
+        this.game.player.resetProgress();
+        break;
+
       case 'server_buffs':
         this.game.serverBuffs = msg.buffs;
         break;
