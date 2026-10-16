@@ -86,7 +86,7 @@
   function field(col, id, key, opts = {}) {
     const spec = state.schema[col].fields[key];
     const def = defaultOf(col, id, key);
-    if (!state.schema[col].freeForm && def === undefined) {
+    if (!state.schema[col].freeForm && def === undefined && !opts.force) {
       // this row has no such property (e.g. a weapon has no "heal")
       return null;
     }
@@ -634,6 +634,16 @@
     return { cv, redraw };
   }
 
+  // Normal items (not weapon / armor / wearable): editable "use" effect - restore HP / SP, instant EXP. 0 = no effect.
+  function useEffectBox(id) {
+    const t = state.itemsInfo?.[id]?.type;
+    if (['weapon', 'armor', ...WEAR_TYPES.map(x => x[0]), 'pet'].includes(t)) return null;
+    const keys = ['heal', 'sp', 'exp'];
+    const clear = h('button', { class: 'btn small', type: 'button', onclick: () => { keys.forEach(k => setValue('items', id, k, 0)); renderList(); } }, '🗑️ เอาเอฟเฟกต์ออกทั้งหมด');
+    return h('div', { class: 'card' },
+      h('div', { class: 'hint' }, '🧪 เอฟเฟกต์เมื่อใช้ไอเท็ม (บัฟ) — ใส่ค่า > 0 ให้ไอเท็มนี้กดใช้ได้ในกระเป๋า, ใส่ 0 = ไม่มีเอฟเฟกต์'),
+      h('div', { class: 'fields' }, ...keys.map(k => field('items', id, k, { force: true }))), clear);
+  }
   function buildItems(q) {
     return Object.keys(state.defaults.items).filter(id => itemPassesFilter(id) && matches(q, id, valueOf('items', id, 'name'))).map(id => {
       const prev = gearPreview(id);
@@ -641,7 +651,8 @@
         h('h3', {}, valueOf('items', id, 'name'), h('small', {}, id)),
         prev ? h('div', { class: 'hint' }, 'ตัวอย่างบนตัวละคร (ปรับค่าแล้วภาพขยับตามทันที)') : null,
         prev ? prev.cv : null,
-        h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'heal', 'reqLevel', 'lootSpeed', 'speedPct', 'flip', 'layer', 'partW', 'partX', 'partY', 'scale', 'offX', 'offY', 'seatX', 'seatY', 'seatDrop', 'seatClip', 'desc']))
+        useEffectBox(id),
+        h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'reqLevel', 'lootSpeed', 'speedPct', 'flip', 'layer', 'partW', 'partX', 'partY', 'scale', 'offX', 'offY', 'seatX', 'seatY', 'seatDrop', 'seatClip', 'desc']))
       );
       if (prev) {
         const tog = (key, a, b, label) => h('button', { class: 'btn small', onclick: () => { setValue('items', id, key, valueOf('items', id, key) === a ? b : a); renderList(); } }, label);

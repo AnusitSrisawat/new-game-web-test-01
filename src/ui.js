@@ -1193,15 +1193,15 @@ export class UIController {
           const res = this.player.equipItem(k);
           if (!res.ok) { this.gameEngine.onLog(`🚫 สวมใส่ ${item.name} ไม่ได้: ${res.reason}`, 'system'); return; }
           this.gameEngine.onLog(`🛡️ สวมใส่ ${item.name}`, 'system');
-        } else if (item.type === 'consumable' && item.sp) {
-          const res = this.player.useSpPotion(k);
-          if (res) this.gameEngine.onLog(`💧 ใช้ ${res.itemName} ฟื้นฟู ${res.restored} SP`, 'system');
-        } else if (item.type === 'consumable' && item.heal) {
-          const res = this.player.usePotion(k);
-          if (res) this.gameEngine.onLog(`🧪 ใช้ ${res.itemName} ฟื้นฟู ${res.healed} HP`, 'system');
-        } else if (item.type === 'consumable' && item.exp) {
-          const res = this.player.useExpPotion(k);
-          if (res) this.gameEngine.onLog(`⭐ ใช้ ${res.itemName} ได้รับ ${res.exp} EXP!`, 'system');
+        } else if (item.heal > 0 || item.sp > 0 || item.exp > 0) {
+          const res = this.player.useItem(k);
+          if (res) {
+            const parts = [];
+            if (item.heal > 0) parts.push(`HP +${res.healed}`);
+            if (item.sp > 0) parts.push(`SP +${res.restored}`);
+            if (item.exp > 0) parts.push(`EXP +${res.exp}`);
+            this.gameEngine.onLog(`🧪 ใช้ ${res.itemName}: ${parts.join(' · ')}`, 'system');
+          }
         } else return;
         this.renderInventoryModal();
         this.updateHUD();
