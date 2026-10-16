@@ -67,6 +67,10 @@ export class UIController {
       }
     });
 
+    // Quick map list under the minimap
+    this.renderMapQuickList();
+    document.addEventListener('mapchanged', () => { this.renderMapQuickList(); this.renderZonesModal(); });
+
     // Party Invitation Toast Accept & Decline
     document.getElementById('btn-party-accept')?.addEventListener('click', () => {
       const toast = document.getElementById('party-invite-toast');
@@ -1473,6 +1477,17 @@ export class UIController {
         this.renderShopModal();
       });
     });
+  }
+
+  // Map picker shown directly under the minimap
+  renderMapQuickList() {
+    const box = document.getElementById('map-quick-list');
+    if (!box) return;
+    box.innerHTML = ZONES.map((z, i) =>
+      `<button class="map-quick-btn${this.gameEngine.currentZoneIndex === i ? ' active' : ''}" data-idx="${i}">${z.name}</button>`).join('');
+    box.querySelectorAll('.map-quick-btn').forEach(b => b.addEventListener('click', () => {
+      this.gameEngine.changeMap(ZONES[parseInt(b.dataset.idx)].id);
+    }));
   }
 
   // 6. World Map Zones Modal
