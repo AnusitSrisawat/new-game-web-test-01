@@ -610,21 +610,27 @@
     } catch (e) { toast('เล่นเสียงไม่ได้: ' + e.message, true); }
   }
 
+  let soundTab = 'general'; // 'general' | 'skill'
+  const SOUND_TABS = [['general', '🔊 เสียงทั่วไป'], ['skill', '✨ เสียงสกิล']];
+
   function panelSounds() {
     return [
       h('h2', {}, 'เสียง'),
-      h('p', { class: 'hint' }, 'ปรับเสียงเอฟเฟกต์ของเกม (สังเคราะห์สด ไม่ต้องมีไฟล์) — กด ▶ ลองฟังค่าที่กำลังแก้ได้ทันทีก่อนบันทึก • เสียงของสกิลเลือกได้ที่แท็บ "สกิล" • ทดลองปรับ "ความถี่", "ส่วนเสียงซ่า", "ความยาว" เพื่อได้เสียงใหม่'),
+      h('div', { style: 'display:flex;gap:6px;margin:8px 0;' }, ...SOUND_TABS.map(([id, label]) =>
+        h('button', { class: 'btn' + (soundTab === id ? ' primary' : ''), onclick: () => { soundTab = id; render(); } }, label))),
+      h('p', { class: 'hint' }, 'ปรับเสียงเอฟเฟกต์ของเกม (สังเคราะห์สด ไม่ต้องมีไฟล์) — กด ▶ ลองฟังค่าที่กำลังแก้ได้ทันทีก่อนบันทึก • ทดลองปรับ "ความถี่", "ส่วนเสียงซ่า", "ความยาว" เพื่อได้เสียงใหม่'),
       searchBar('ค้นหาเสียง...'),
       (listHost = h('div'))
     ];
   }
 
   function buildSounds() {
-    const groups = [
-      ['⚔️ การต่อสู้', ['slash', 'critHit', 'monsterHit', 'monsterDie', 'playerHurt', 'bowShoot', 'arrowHit']],
-      ['✨ สกิล', ['powerStrike', 'whirlwind', 'ironGuard', 'berserk', 'dash', 'warCry', 'falconCry', 'dragonRoar', 'firstAid', 'townPortal']],
-      ['🎁 อื่นๆ', ['levelUp', 'coin', 'loot', 'potion']]
-    ];
+    const groups = soundTab === 'skill'
+      ? [['✨ เสียงสกิล (เลือกใช้กับสกิลได้ที่แท็บ "สกิล")', ['powerStrike', 'whirlwind', 'ironGuard', 'berserk', 'dash', 'warCry', 'falconCry', 'dragonRoar', 'firstAid', 'townPortal']]]
+      : [
+        ['⚔️ การต่อสู้', ['slash', 'critHit', 'monsterHit', 'monsterDie', 'playerHurt', 'bowShoot', 'arrowHit']],
+        ['🎁 อื่นๆ', ['levelUp', 'coin', 'loot', 'potion']]
+      ];
     const out = [];
     for (const [title, ids] of groups) {
       const cards = ids.filter(id => state.defaults.sounds?.[id]).map(id => {
