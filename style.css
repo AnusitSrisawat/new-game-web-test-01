@@ -1397,16 +1397,6 @@ body, html {
   display: flex; align-items: center; justify-content: center;
 }
 
-.map-quick-list {
-  display: flex; flex-direction: column; gap: 3px; width: 150px; max-height: 38vh; overflow-y: auto;
-  padding: 4px; background: rgba(10, 15, 30, 0.85); border: 1px solid rgba(251, 191, 36, 0.45); border-radius: 8px;
-}
-.map-quick-btn {
-  text-align: left; font-family: inherit; font-size: 0.72rem; padding: 4px 8px; border-radius: 5px; cursor: pointer;
-  background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255, 255, 255, 0.08); color: #e2e8f0;
-}
-.map-quick-btn:hover { background: rgba(245, 158, 11, 0.22); }
-.map-quick-btn.active { border-color: #fbbf24; color: #fbbf24; font-weight: 700; }
 
 /* In-game confirm dialog */
 .confirm-overlay {
