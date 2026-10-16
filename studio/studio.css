@@ -95,3 +95,5 @@ table.spawns input[type=number] { width: 90px; }
 .pbar { height: 8px; background: rgba(255,255,255,0.12); border-radius: 4px; margin-top: 6px; overflow: hidden; }
 .pbar i { display: block; height: 100%; }
 .pbtn { display: inline-block; margin-top: 10px; padding: 3px 12px; border-radius: 6px; font-weight: 700; }
+.minifield { display: flex; flex-direction: column; gap: 2px; font-size: 0.68rem; color: var(--dim); }
+.minifield input, .minifield select { padding: 3px 4px; font-size: 0.78rem; }

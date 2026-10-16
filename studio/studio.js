@@ -567,6 +567,65 @@
   const IMG_CACHE = {};
   let previewZoom = 1.6; // preview magnification (kept across cards)
   const loadImg = (src) => IMG_CACHE[src] || (IMG_CACHE[src] = Object.assign(new Image(), { src }));
+  // Extra picture layers of a player piece (clone + crop, see src/player_look.js)
+  const currentLayers = (id) => ov.layers?.[id] ?? state.defaults.layers?.[id] ?? [];
+  function setLayers(id, list) {
+    if (JSON.stringify(list) === JSON.stringify(state.defaults.layers?.[id] ?? [])) {
+      if (ov.layers) { delete ov.layers[id]; if (!Object.keys(ov.layers).length) delete ov.layers; }
+    } else { ov.layers ||= {}; ov.layers[id] = list; }
+    setDirty(true);
+  }
+  function layersEditor(id, onChange) {
+    const host = h('div', { class: 'layers' });
+    Promise.all([import('/src/player_sprites.js'), import('/src/player_look.js')]).then(([{ PLAYER_SPRITES: PS }, LK]) => {
+      const partIds = Object.keys(PS.parts).filter(p => p !== 'body_nohead');
+      const draw = () => {
+        const list = currentLayers(id).map(l => ({ ...l }));
+        const save = () => { setLayers(id, list); onChange(); };
+        const num = (l, k, w = 62, step = 1) => h('input', { type: 'number', step, style: `width:${w}px`, value: l[k], onchange: (e) => { l[k] = Number(e.target.value) || 0; save(); draw(); } });
+        const sel = (l, k, opts) => h('select', { onchange: (e) => { l[k] = e.target.value; save(); draw(); } }, ...opts.map(([v, lab]) => h('option', { value: v, selected: v === l[k] }, lab)));
+        const lab = (txt, el) => h('label', { class: 'minifield' }, h('span', {}, txt), el);
+        const rows = list.map((l, i) => {
+          const P = PS.parts[l.src] || { w: 1, h: 1 };
+          const mini = h('canvas', { width: 90, height: 90, class: 'gearprev' });
+          const im = new Image(); im.src = `/assets/sprites/player/parts/${l.src}.png`;
+          im.onload = () => {   // source picture with the cropped part framed in red
+            const c = mini.getContext('2d'); c.fillStyle = '#7fb069'; c.fillRect(0, 0, 90, 90);
+            const s = Math.min(86 / P.w, 86 / P.h); c.drawImage(im, 2, 2, P.w * s, P.h * s);
+            c.strokeStyle = '#ef4444'; c.lineWidth = 2; c.strokeRect(2 + l.sx * s, 2 + l.sy * s, l.sw * s, l.sh * s);
+          };
+          return h('div', { class: 'card', style: 'padding:8px;margin:6px 0;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap' },
+            mini,
+            h('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;flex:1;align-items:flex-end' },
+              lab('รูปต้นฉบับ', sel(l, 'src', partIds.map(p => [p, p]))),
+              lab('ตัดจาก x', num(l, 'sx')), lab('y', num(l, 'sy')), lab('กว้าง', num(l, 'sw')), lab('สูง', num(l, 'sh')),
+              lab('วางกว้าง', num(l, 'partW')), lab('เลื่อน x', num(l, 'partX')), lab('ระดับ y (กึ่งกลาง)', num(l, 'partY')),
+              lab('กลับด้าน', sel(l, 'flip', [['no', 'ปกติ'], ['yes', 'กลับด้าน']])),
+              lab('ชั้น', sel(l, 'z', LK.LAYER_ZS.map(z => [z, LK.LAYER_Z_LABEL[z]]))),
+              h('button', { class: 'btn small', title: 'clone เลเยอร์นี้', onclick: () => { if (list.length < LK.MAX_EXTRA_LAYERS) { list.splice(i + 1, 0, { ...l, partX: l.partX + 12 }); save(); draw(); } } }, '⧉ clone'),
+              h('button', { class: 'btn small', onclick: () => { if (i > 0) { [list[i - 1], list[i]] = [list[i], list[i - 1]]; save(); draw(); } } }, '↑'),
+              h('button', { class: 'btn small', onclick: () => { if (i < list.length - 1) { [list[i + 1], list[i]] = [list[i], list[i + 1]]; save(); draw(); } } }, '↓'),
+              h('button', { class: 'btn small danger', onclick: () => { list.splice(i, 1); save(); draw(); } }, '✕')));
+        });
+        host.replaceChildren(
+          h('div', { class: 'group-title' }, 'เลเยอร์เพิ่ม — clone รูปมาแปะเฉพาะส่วน แล้วเลือกว่าอยู่ชั้นไหนของโมเดล'),
+          ...rows,
+          h('button', { class: 'btn small', disabled: list.length >= LK.MAX_EXTRA_LAYERS, onclick: () => {
+            // start from a copy of the main picture (placed where the main piece is); then crop / move it
+            const part = state.itemsInfo[id].part, P = PS.parts[part];
+            const num0 = (k, d) => { const x = Number(valueOf('items', id, k)); return Number.isFinite(x) ? x : d; };
+            const w = num0('partW', P.w), hgt = P.h * w / P.w, y = num0('partY', 301);
+            const type = state.itemsInfo[id].type;
+            list.push({ src: part, sx: 0, sy: 0, sw: P.w, sh: P.h, partW: w, partX: num0('partX', 0), partY: Math.round(type === 'back' ? y : y - hgt / 2),
+              flip: valueOf('items', id, 'flip') === 'yes' ? 'yes' : 'no', z: 'over_outfit' });
+            save(); draw();
+          } }, '+ clone เลเยอร์จากรูปหลัก'));
+      };
+      draw();
+    });
+    return host;
+  }
+
   function gearPreview(id) {
     const info = state.itemsInfo?.[id];
     const type = info?.type;
@@ -581,6 +640,7 @@
       const o = { ...base };
       for (const k of ['scale', 'offX', 'offY', 'seatX', 'seatY', 'seatDrop', 'seatClip', 'partW', 'partX', 'partY']) { const x = Number(valueOf('items', iid, k)); if (Number.isFinite(x)) o[k] = x; }
       for (const k of ['flip', 'layer']) { const x = valueOf('items', iid, k); if (x) o[k] = x; }
+      o.layers = currentLayers(iid);
       return o;
     };
     const draw = async () => {
@@ -663,6 +723,7 @@
         h('h3', {}, itemPic(id, 48), ' ', valueOf('items', id, 'name'), h('small', {}, id)),
         prev ? h('div', { class: 'hint' }, 'ตัวอย่างบนตัวละคร (ปรับค่าแล้วภาพขยับตามทันที)') : null,
         prev ? prev.cv : null,
+        (prev && ['hat', 'head', 'outfit', 'back'].includes(state.itemsInfo[id].type)) ? layersEditor(id, () => prev.redraw()) : null,
         useEffectBox(id),
         h('div', { class: 'fields' }, ...fieldsFor('items', id, ['name', 'price', 'atk', 'def', 'hp', 'reqLevel', 'lootSpeed', 'speedPct', 'flip', 'layer', 'partW', 'partX', 'partY', 'scale', 'offX', 'offY', 'seatX', 'seatY', 'seatDrop', 'seatClip', 'desc']))
       );
