@@ -379,7 +379,6 @@ export class GameEngine {
       for (const p of splitDropPieces(msg[kind])) this.spawnLootOrb(ox, oy, kind, p);
     }
     if (msg.shared) {
-      this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 45, `+${msg.exp} EXP [Party]`, '#4ade80', 16);
       this.onLog(`🤝 ได้ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
     } else {
       this.onLog(`⚔️ ได้ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
@@ -745,14 +744,14 @@ export class GameEngine {
       this.player.gold += o.amount;
       soundEngine.play('coin');
       this.player.saveToStorage();
-      this.addFloatingText(pl.x, pl.y - 40, `+${o.amount} G`, '#fbbf24', 15);
+      this.addPickupText('gold', o.amount, 'G', 40, '#fbbf24');
       this.spawnGoldPickupVFX(pl.x, pl.y - 12, o.amount);
     } else if (o.kind === 'exp') {
       const lv = this.player.baseLevel;
       this.player.gainExp(o.amount);
       soundEngine.play(this.player.baseLevel > lv ? 'levelUp' : 'coin');
       this.player.saveToStorage();
-      this.addFloatingText(pl.x, pl.y - 52, `+${o.amount} EXP`, '#4ade80', 15);
+      this.addPickupText('exp', o.amount, 'EXP', 52, '#4ade80');
       this.spawnExpPickupVFX(pl.x, pl.y - 12, o.amount);
     } else if (o.isPet) {
       const pid = `pet_${o.monsterId}`;
@@ -1075,6 +1074,24 @@ export class GameEngine {
       vy: -32 - Math.random() * 20,
       vx: (Math.random() - 0.5) * 16
     });
+  }
+
+  // Gold / EXP pickups: while the previous number is still floating, add to it instead of stacking a new one.
+  addPickupText(key, amount, label, dy, color) {
+    const pl = this.playerEntity;
+    let ft = this.floatingTexts.find(f => f.pickupKey === key && f.life > 0);
+    if (ft) {
+      ft.total += amount;
+    } else {
+      this.addFloatingText(pl.x, pl.y - dy, '', color, 15);
+      ft = this.floatingTexts[this.floatingTexts.length - 1];
+      ft.pickupKey = key;
+      ft.total = amount;
+    }
+    ft.text = `+${ft.total} ${label}`;
+    ft.life = ft.maxLife = 1.3;
+    ft.x = pl.x; ft.y = pl.y - dy;
+    ft.vx = 0; ft.vy = -14;
   }
 
   // Ragnarok-style damage numbers: each hit appears on the monster, drifts away from the attacker while it
