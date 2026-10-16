@@ -87,9 +87,11 @@
       "offY": -0.5
     },
     "head_1": {
+      "flip": "yes",
       "offY": 2
     },
     "head_2": {
+      "flip": "yes",
       "offY": 2
     },
     "head_0": {
@@ -130,6 +132,29 @@
     },
     "shield_rune": {
       "offX": -12
+    },
+    "mount_runner": {
+      "layer": "front",
+      "scale": 1.25,
+      "seatClip": 10,
+      "seatY": 0.52
+    },
+    "mount_wolf": {
+      "layer": "front",
+      "scale": 1.25,
+      "seatY": 0.45
+    },
+    "mount_unicorn": {
+      "layer": "front",
+      "scale": 0.95,
+      "seatX": 0.5,
+      "seatY": 0.45
+    },
+    "mount_drake": {
+      "scale": 1.9,
+      "seatX": 0.5,
+      "seatClip": 10,
+      "seatY": 0.45
     }
   },
   "ui": {
