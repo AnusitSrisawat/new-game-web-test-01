@@ -1716,6 +1716,15 @@ export class GameEngine {
         const opMap = op.currentMap || 'meadows';
         if (opMap === this.currentZone.id) {
           if (op.x >= cam.x - 100 && op.x <= cam.x + cam.w + 100 && op.y >= cam.y - 100 && op.y <= cam.y + cam.h + 100) {
+            if (op.pet && MONSTERS[op.pet]) {
+              // other players' pets just trail behind their owner
+              const f = op.facing || 1, gx = op.x - f * 46, gy = op.y + 14;
+              const pt = op.petPos || (op.petPos = { x: gx, y: gy });
+              const d = Math.hypot(gx - pt.x, gy - pt.y);
+              if (d > 500) { pt.x = gx; pt.y = gy; } else if (d > 4) { const k = Math.min(1, 0.06 + d / 400); pt.x += (gx - pt.x) * k * 0.2; pt.y += (gy - pt.y) * k * 0.2; }
+              pt.moving = d > 12;
+              this.drawPetSprite(ctx, op.pet, pt, f);
+            }
             this.drawOtherPlayer(ctx, op);
           }
         }
@@ -1984,9 +1993,18 @@ export class GameEngine {
     const sheet = sp ? this.getSheet(sp.src) : null;
     if (!sheet) return;
     const p = this.playerEntity;
-    const now = performance.now() / 1000;
     const pet = this.petState;
     if (!pet) return;
+    this.drawPetSprite(ctx, mid, pet, p.facing);
+  }
+
+  // A pet sprite at pet.x/pet.y (own pet and other players' pets)
+  drawPetSprite(ctx, mid, pet, facing) {
+    const sp = monsterSprite(mid);
+    const sheet = sp ? this.getSheet(sp.src) : null;
+    if (!sheet) return;
+    const p = { facing };
+    const now = performance.now() / 1000;
     const size = ((MONSTERS[mid] && MONSTERS[mid].size) || 92) * 0.42;
     const dh = size * sp.sh / sp.sw;
     const hop = pet.moving ? Math.abs(Math.sin(now * 12)) * 5 : 0;

@@ -267,7 +267,7 @@ export class NetworkManager {
   sendProfileUpdate() {
     this.send({
       type: 'update_profile',
-      hasPet: !!this.player.activePet,
+      pet: this.player.activePet || null,
       name: this.player.name,
       level: this.player.baseLevel,
       weaponType: this.player.weaponInfo.type,
