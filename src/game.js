@@ -1158,6 +1158,9 @@ export class GameEngine {
             this.tryPlayerAttack(target);
           }
         }
+        // Stay where the fight ended instead of walking back to an old click destination
+        p.targetX = p.x;
+        p.targetY = p.y;
       } else {
         const dx = p.targetX - p.x;
         const dy = p.targetY - p.y;
