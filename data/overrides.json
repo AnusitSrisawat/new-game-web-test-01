@@ -1,28 +1,35 @@
 {
   "maps": {
     "meadows": {
-      "size": 3000
+      "size": 3000,
+      "texture": "stone"
     },
     "town": {
       "size": 3000
     },
     "misty_forest": {
-      "size": 3000
+      "size": 3000,
+      "texture": "sand"
     },
     "goblin_caverns": {
-      "size": 3000
+      "size": 3000,
+      "texture": "grass"
     },
     "volcano": {
-      "size": 3000
+      "size": 3000,
+      "texture": "lava"
     },
     "bone_crypt": {
-      "size": 3000
+      "size": 3000,
+      "texture": "stone"
     },
     "haunted_ruins": {
-      "size": 3000
+      "size": 3000,
+      "texture": "stone"
     },
     "bandit_hideout": {
-      "size": 3000
+      "size": 3000,
+      "texture": "cobble"
     }
   },
   "monsters": {
