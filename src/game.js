@@ -128,6 +128,7 @@ export class GameEngine {
     }
     this.monsters = [];
     this.selectedTarget = null;
+    this.hoverMonster = null; // monster under the mouse cursor (attackable)
     this.lastTimestamp = performance.now();
     this.lastPosSync = 0;
 
@@ -519,6 +520,54 @@ export class GameEngine {
       life: 0.8,
       maxLife: 0.8
     });
+  }
+
+  // MOUSE HOVER: highlight the monster under the cursor (same hit area as click-to-attack)
+  handleMouseMove(screenX, screenY) {
+    const worldX = screenX / this.zoom + this.camera.x;
+    const worldY = screenY / this.zoom + this.camera.y;
+    let best = null, bestD = 65;
+    for (const m of this.monsters) {
+      if (m.isDead || m.map !== this.currentZone.id) continue;
+      const d = Math.hypot(worldX - m.x, worldY - m.y);
+      if (d < bestD) { bestD = d; best = m; }
+    }
+    this.hoverMonster = best;
+    return best;
+  }
+
+  // Ground ring under a monster: 'target' = being attacked / locked, 'hover' = mouse is over it
+  drawTargetRing(ctx, m, kind) {
+    const t = performance.now() / 1000;
+    const x = m.x + (m.knockbackX || 0);
+    const y = m.y + (m.knockbackY || 0) + 26;
+    const size = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
+    const rx = Math.max(30, size * 0.5), ry = rx * 0.38;
+    ctx.save();
+    if (kind === 'target') {
+      const pulse = 1 + Math.sin(t * 6) * 0.06;
+      ctx.translate(x, y);
+      ctx.scale(pulse, pulse);
+      ctx.fillStyle = 'rgba(239,68,68,0.18)';
+      ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 10;
+      ctx.strokeStyle = '#f87171'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+      // rotating dashed outer ring
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#fecaca'; ctx.lineWidth = 2;
+      ctx.setLineDash([10, 8]); ctx.lineDashOffset = -t * 40;
+      ctx.beginPath(); ctx.ellipse(0, 0, rx + 8, ry + 3, 0, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      ctx.translate(x, y);
+      ctx.fillStyle = 'rgba(250,204,21,0.12)';
+      ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowColor = '#facc15'; ctx.shadowBlur = 8;
+      ctx.strokeStyle = 'rgba(253,224,71,' + (0.7 + Math.sin(t * 8) * 0.25) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // RIGHT-CLICK: Select Target
@@ -1414,6 +1463,11 @@ export class GameEngine {
 
     // 6. Render Active Monsters in Current Map
     const currentMonsters = this.monsters.filter(m => (!m.isDead || m.deathTimer > 0) && m.map === this.currentZone.id);
+    for (const m of currentMonsters) {
+      if (m.isDead) continue;
+      const isTarget = m === this.selectedTarget;
+      if (isTarget || m === this.hoverMonster) this.drawTargetRing(ctx, m, isTarget ? 'target' : 'hover');
+    }
     for (const m of currentMonsters) {
       if (m.x >= cam.x - 120 && m.x <= cam.x + cam.w + 120 && m.y >= cam.y - 120 && m.y <= cam.y + cam.h + 120) {
         this.drawMonster(ctx, m);
