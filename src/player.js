@@ -132,7 +132,7 @@ export class Player {
 
   // Calculate Base EXP needed for next level
   get maxBaseExp() {
-    return Math.floor(60 * Math.pow(this.baseLevel, 1.5) + this.baseLevel * 25);
+    return Math.floor(60 * Math.pow(this.baseLevel, 1.8) + this.baseLevel * 25);
   }
 
   // Sum of a bonus key (e.g. 'bonusAtkPct') from equipped passives (weapon must match) and running buffs

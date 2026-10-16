@@ -143,6 +143,7 @@
     { id: 'relics', icon: '💎', label: 'Relic', sub: 'ชื่อ ไอคอน โบนัสถาวรของ Relic แต่ละตัว' },
     { id: 'quests', icon: '📜', label: 'เควสต์', sub: 'ชื่อ เป้าหมาย รางวัล' },
     { id: 'sounds', icon: '🔊', label: 'เสียง', sub: 'ฟันมอนตาย โดนตี สกิล ฯลฯ + ลองฟัง' },
+    { id: 'exp', icon: '📈', label: 'กราฟ EXP', sub: 'EXP ต่อเลเวล (ดูอย่างเดียว)' },
     { id: 'skills', icon: '✨', label: 'สกิล', sub: 'Active/Passive + สมุด/กาชา (ข้อมูลล่วงหน้า)' }
   ];
 
@@ -683,7 +684,53 @@
     return out.length ? out : [h('p', { class: 'hint' }, 'ไม่พบเสียง')];
   }
 
+  // Mirrors Player.maxBaseExp in src/player.js (view-only)
+  const expForLevel = (L) => Math.floor(60 * Math.pow(L, 1.8) + L * 25);
+  const expForLevelOld = (L) => Math.floor(60 * Math.pow(L, 1.5) + L * 25);
+  let expMaxLv = 100;
+
+  function panelExp() {
+    const W = 860, H = 400, m = { l: 70, r: 20, t: 20, b: 40 };
+    const N = expMaxLv;
+    const vals = Array.from({ length: N }, (_, i) => expForLevel(i + 1));
+    const old = Array.from({ length: N }, (_, i) => expForLevelOld(i + 1));
+    const maxV = Math.max(...vals);
+    const x = (L) => m.l + (L - 1) / Math.max(1, N - 1) * (W - m.l - m.r);
+    const y = (v) => H - m.b - v / maxV * (H - m.t - m.b);
+    const path = (arr) => arr.map((v, i) => `${i ? 'L' : 'M'}${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join('');
+    let grid = '';
+    for (let i = 0; i <= 5; i++) {
+      const v = maxV * i / 5, yy = y(v);
+      grid += `<line x1="${m.l}" x2="${W - m.r}" y1="${yy}" y2="${yy}" stroke="#8884" /><text x="${m.l - 6}" y="${yy + 4}" text-anchor="end" font-size="11" fill="currentColor">${Math.round(v).toLocaleString()}</text>`;
+    }
+    const step = N <= 20 ? 1 : N <= 60 ? 5 : 10;
+    for (let L = 1; L <= N; L++) {
+      if (L !== 1 && L % step) continue;
+      grid += `<text x="${x(L)}" y="${H - m.b + 16}" text-anchor="middle" font-size="11" fill="currentColor">${L}</text>`;
+    }
+    const dots = vals.map((v, i) => `<circle cx="${x(i + 1)}" cy="${y(v)}" r="${N <= 60 ? 3 : 1.5}" fill="#e8743b"><title>Lv.${i + 1} → ${i + 2}: ${v.toLocaleString()} EXP (รวมสะสม ${vals.slice(0, i + 1).reduce((a, b) => a + b, 0).toLocaleString()})</title></circle>`).join('');
+    const svg = h('div', { style: 'overflow-x:auto' });
+    svg.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;color:inherit" font-family="sans-serif">
+      ${grid}
+      <path d="${path(old)}" fill="none" stroke="#888" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <path d="${path(vals)}" fill="none" stroke="#e8743b" stroke-width="2.5"/>${dots}
+      <text x="${W / 2}" y="${H - 4}" text-anchor="middle" font-size="12" fill="currentColor">เลเวล</text>
+      <text x="${W - 150}" y="30" font-size="12" fill="#e8743b">━ ปัจจุบัน (L^1.8)</text>
+      <text x="${W - 150}" y="48" font-size="12" fill="#888">┅ เดิม (L^1.5)</text></svg>`;
+    const slider = h('input', { type: 'range', min: 10, max: 200, step: 5, value: expMaxLv,
+      oninput: (e) => { expMaxLv = +e.target.value; render(); } });
+    const total = vals.reduce((a, b) => a + b, 0);
+    return [
+      h('h2', {}, 'กราฟ EXP ต่อเลเวล'),
+      h('p', { class: 'hint' }, 'EXP ที่ต้องใช้เลื่อนจากเลเวล L → L+1 = floor(60 × L^1.8 + 25L) — แก้ที่ Player.maxBaseExp ใน src/player.js (หน้านี้ดูอย่างเดียว) • เอาเมาส์วางบนจุดเพื่อดูค่า'),
+      h('label', {}, `แสดงถึงเลเวล ${expMaxLv} `, slider),
+      svg,
+      h('p', { class: 'hint' }, `EXP สะสมรวมจนถึงเลเวล ${N + 1}: ${total.toLocaleString()}`)
+    ];
+  }
+
   const PANELS = {
+    exp: [panelExp, () => []],
     maps: [panelMaps, buildMaps],
     objects: [panelObjects, buildObjects],
     ui: [panelUi, buildUi],
