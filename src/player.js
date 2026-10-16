@@ -176,11 +176,22 @@ export class Player {
     return Math.floor(hp * (1 + this.skillBonus('bonusHpPct') / 100));
   }
 
-  get attack() {
-    const main = this.weaponInfo.scalesWith;
+  get attack() { return this._atkFor(this.weaponInfo.scalesWith, true); }
+
+  // Display-only: physical ATK (str/dex) and magic MATK (int); the equipped weapon's ATK counts toward the one it scales with
+  get displayAtk() {
+    const m = this.weaponInfo.scalesWith;
+    return this._atkFor(m === 'int' ? 'str' : m, m !== 'int');
+  }
+  get displayMatk() { return this._atkFor('int', this.weaponInfo.scalesWith === 'int'); }
+
+  // Crit damage multiplier (fixed for now)
+  get critDamage() { return 1.6; }
+
+  _atkFor(main, withWeapon) {
     const sub = main === 'dex' ? 'str' : 'dex';
     let atk = BASE_STATS.atk + (this.stats[main] * 3) + this.stats[sub] + Math.floor(this.baseLevel * 1.5);
-    if (this.equipment.weapon && ITEMS[this.equipment.weapon]) {
+    if (withWeapon && this.equipment.weapon && ITEMS[this.equipment.weapon]) {
       atk += (ITEMS[this.equipment.weapon].atk || 0);
     }
     if (this.equipment.armor && ITEMS[this.equipment.armor]) {

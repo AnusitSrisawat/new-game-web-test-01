@@ -911,7 +911,7 @@ export class UIController {
     if (pendTotal > pl.statPoints) { STAT_KEYS.forEach(k => { pend[k] = 0; }); }
     const pendLeft = pl.statPoints - STAT_KEYS.reduce((n, k) => n + (pend[k] || 0), 0);
     // Preview: temporarily apply staged points to read the derived stats, then restore
-    const readDerived = () => ({ hp: pl.maxHp, atk: pl.attack, def: pl.defense, aspd: pl.aspd, move: pl.moveMul, crit: pl.critRate });
+    const readDerived = () => ({ hp: pl.maxHp, atk: pl.displayAtk, matk: pl.displayMatk, cdmg: pl.critDamage, def: pl.defense, aspd: pl.aspd, move: pl.moveMul, crit: pl.critRate });
     const before = readDerived();
     STAT_KEYS.forEach(k => { pl.stats[k] += pend[k] || 0; });
     const after = readDerived();
@@ -932,7 +932,6 @@ export class UIController {
           <div style="width:${bPct}%; height:100%; background:linear-gradient(90deg,#0284c7,#38bdf8);"></div>
         </div>
         <div style="font-size:0.7rem; color:#94a3b8; margin-top:2px; text-align:right;">${pl.baseExp.toLocaleString()} / ${maxB.toLocaleString()} EXP</div>
-        <div style="font-size:0.72rem; color:#94a3b8; margin-top:4px;">เลเวลใช้เป็นเงื่อนไขสวมอาวุธ/เกราะหายาก</div>
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
@@ -968,16 +967,14 @@ export class UIController {
         </div>
         <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); font-size:0.85rem;">
           <h4 style="margin-bottom:8px;">⚔️ ข้อมูลพลังรบรวม</h4>
-          ${row('อาวุธ:', w ? w.name : 'มือเปล่า')}
-          ${row('ประเภท / ระยะโจมตี:', `${wtName} / ${info.range}px`)}
-          ${row('เกราะ:', a ? a.name : '-')}
-          ${row('Max HP:', prev('hp'))}
-          ${row('Total ATK:', prev('atk'))}
-          ${row('Total DEF:', prev('def'))}
-          ${row('ASPD:', prev('aspd', v => `${v}/s`))}
-          ${row('Move Speed:', prev('move', v => `${Math.round(v * 100)}%`))}
-          ${row('Crit Rate:', prev('crit', v => `${(v * 100).toFixed(1)}%`))}
-          ${row('สมบัติ Relic:', `${pl.collectedRelics.length}/12 ชิ้น`)}
+          ${row('Max HP', prev('hp'))}
+          ${row('ATK', prev('atk'))}
+          ${row('MATK', prev('matk'))}
+          ${row('DEF', prev('def'))}
+          ${row('ASPD', prev('aspd', v => `${v}/s`))}
+          ${row('Crit Rate', prev('crit', v => `${(v * 100).toFixed(1)}%`))}
+          ${row('Crit Damage', prev('cdmg', v => `${Math.round(v * 100)}%`))}
+          ${row('Move Speed', prev('move', v => `${Math.round(v * 100)}%`))}
         </div>
       </div>
     `;
