@@ -67,6 +67,17 @@ export class UIController {
       }
     });
 
+    // Clicking the top-left player card opens the status modal (same as pressing C)
+    const pcCard = document.querySelector('.pc-card');
+    if (pcCard) {
+      pcCard.style.cursor = 'pointer';
+      pcCard.addEventListener('click', (e) => {
+        if (e.target.closest('#hud-stat-point-alert')) return; // pill has its own handler
+        this.toggleModal('modal-status', () => this.renderStatusModal());
+        this.closeOptionMenu();
+      });
+    }
+
     document.addEventListener('mapchanged', () => this.renderZonesModal());
 
     // Party Invitation Toast Accept & Decline
