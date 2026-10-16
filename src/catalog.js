@@ -10,7 +10,7 @@ const ITEM_NAMES = {
   rabbit_fluff: 'Rabbit Fluff', small_horn: 'Sharp Little Horn', relic_golden_carrot: 'Golden Carrot',
   stone_plate: 'Mossy Stone Plate', golem_core_gem: 'Golem Core Gem', relic_golem_core: 'Ancient Earth Relic'
 };
-const CHANCES = [0.7, 0.4, 0.1]; // common / uncommon / rare
+const CHANCES = [0.5, 0.3, 0.1]; // common / uncommon / rare — one roll per kill, so the sum is ≤ 100% (the rest = nothing drops)
 
 // Stats follow a smooth curve of the level (same ballpark as the original monsters)
 const stats = (lv) => ({
@@ -141,4 +141,33 @@ export function pruneItems({ MONSTERS, ITEMS, CRAFTING_RECIPES }) {
 const FACING = { skeleton_archer: 'right' };
 export function applyFacing(MONSTERS) {
   for (const [id, f] of Object.entries(FACING)) if (MONSTERS[id]) MONSTERS[id].facing = f;
+}
+
+// Final drop setup (after pruneItems):
+//  - every monster gets a pet chance + a relic chance (rolled SEPARATELY from the normal drop table; default 0.1% each)
+//  - every monster gets a relic of its own (generated when data.js has none for it)
+//  - the normal table is one roll, so its chances may not add up to more than 100%
+export const DEFAULT_PET_CHANCE = 0.001;
+export const DEFAULT_RELIC_CHANCE = 0.001;
+export function finishDrops({ MONSTERS, RELICS }) {
+  const STAT_CYCLE = ['atk', 'def', 'hp'];
+  let n = 0;
+  for (const [mid, m] of Object.entries(MONSTERS)) {
+    if (m.petChance === undefined) m.petChance = DEFAULT_PET_CHANCE;
+    if (m.relicChance === undefined) m.relicChance = DEFAULT_RELIC_CHANCE;
+    if (!Object.values(RELICS).some(r => r.monsterId === mid)) {
+      const stat = STAT_CYCLE[n++ % 3];
+      const amount = stat === 'hp' ? m.level * 12 : Math.max(1, Math.ceil(m.level * (stat === 'atk' ? 0.8 : 0.6)));
+      const id = `relic_${mid}`;
+      RELICS[id] = { id, monsterId: mid, name: `${m.name} Relic`, desc: `สมบัติพิเศษประจำ ${m.name}`, icon: '💠',
+        statBonus: { [stat]: amount }, bonusText: `+${amount} ${stat === 'hp' ? 'Max HP' : stat.toUpperCase()} ถาวร` };
+    }
+    // normal table: trim so the total never goes above 100%
+    let sum = 0;
+    m.drops = (m.drops || []).filter(d => {
+      if (d.isRelic || RELICS[d.itemId]) return false; // relics have their own roll now
+      sum += d.chance;
+      return sum <= 1.0001;
+    });
+  }
 }

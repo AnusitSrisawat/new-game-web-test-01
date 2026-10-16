@@ -63,6 +63,8 @@ export const SCHEMA = {
       def: num('DEF', 0, 100000),
       exp: num('EXP ที่ได้', 0, 100000000),
       size: num('ขนาดรูป (px กว้าง, ปกติ 92)', 30, 400),
+      petChance: num('โอกาสดรอป Pet (สุ่มแยก, 0.001 = 0.1%)', 0, 1, 0.001),
+      relicChance: num('โอกาสดรอป Relic (สุ่มแยก, 0.001 = 0.1%)', 0, 1, 0.001),
       facing: select('รูปต้นฉบับหันไปทาง', [
         { value: 'left', label: 'ซ้าย (กลับด้านตอนเดินไปขวา)' },
         { value: 'right', label: 'ขวา (กลับด้านตอนเดินไปซ้าย)' },
@@ -277,12 +279,16 @@ export function sanitizeOverrides(raw, known) {
       if (!known.monsters.has(mid) || !Array.isArray(list)) continue;
       const seen = new Set();
       const clean = [];
+      let sum = 0; // one roll per kill: the table can't add up to more than 100%
       for (const d of list.slice(0, MAX_DROPS)) {
         if (!d || !known.items.has(d.itemId) || seen.has(d.itemId)) continue;
         const chance = Number(d.chance);
         if (!Number.isFinite(chance)) continue;
+        const c = Math.round(Math.min(1, Math.max(0.001, chance)) * 1000) / 1000;
+        if (sum + c > 1.0001) continue;
+        sum += c;
         seen.add(d.itemId);
-        clean.push({ itemId: d.itemId, chance: Math.round(Math.min(1, Math.max(0.001, chance)) * 1000) / 1000 });
+        clean.push({ itemId: d.itemId, chance: c });
       }
       drops[mid] = clean;
     }
