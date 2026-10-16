@@ -1235,33 +1235,29 @@ export class UIController {
     };
     const here = this.gameEngine.currentZone.id;
     const cards = Object.entries(MONSTERS).filter(([id, m]) => !q || `${id} ${m.name}`.toLowerCase().includes(q)).sort((a, b) => a[1].level - b[1].level).map(([id, m]) => {
+      const chip = 'display:inline-flex;gap:3px;align-items:center;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,0.06);white-space:nowrap;';
       const drops = (m.drops || []).map(d => {
         const it = ITEMS[d.itemId];
-        return it ? `<div style="display:flex;gap:6px;align-items:center;">${itemIconHtml(d.itemId, it.icon, 22)} <span style="flex:1;">${esc(it.name)}</span><b style="color:#fbbf24;">${pct(d.chance)}</b></div>` : '';
+        return it ? `<span style="${chip}" title="${esc(it.name)}">${itemIconHtml(d.itemId, it.icon, 16)} ${esc(it.name)} <b style="color:#fbbf24;">${pct(d.chance)}</b></span>` : '';
       }).join('');
       const total = (m.drops || []).reduce((a, d) => a + d.chance, 0);
       const relic = Object.values(RELICS).find(r => r.monsterId === id);
       const maps = mapsOf(id);
       const mapBtns = maps.length ? maps.map(z => z.id === here
-        ? `<span style="padding:3px 8px;border-radius:4px;background:#16a34a;font-size:0.72rem;">📍 ${esc(z.name)} (อยู่ที่นี่)</span>`
-        : `<button class="info-warp" data-zone="${z.id}" data-mon="${id}" style="padding:3px 8px;border:none;border-radius:4px;background:#2563eb;color:#fff;cursor:pointer;font-size:0.72rem;">🚀 วาร์ปไป ${esc(z.name)}</button>`).join(' ')
-        : '<span style="color:#94a3b8;font-size:0.75rem;">ยังไม่มีในแมพไหน</span>';
-      return `<div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;margin-bottom:8px;display:flex;gap:10px;">
-        <div style="width:64px;text-align:center;font-size:36px;">${monsterIconHtml(id, m.emoji, 60)}</div>
-        <div style="flex:1;font-size:0.78rem;">
-          <div><b style="font-size:0.9rem;">${esc(m.name)}</b> <span style="color:#7dd3fc;">Lv.${m.level}</span></div>
-          <div style="color:#94a3b8;">HP ${m.hp.toLocaleString()} • ATK ${m.atk} • DEF ${m.def} • EXP ${m.exp.toLocaleString()}</div>
-          <div style="margin:6px 0 2px;color:#94a3b8;">🎁 ไอเทมที่ดรอป (สุ่มครั้งเดียว)</div>
-          ${drops || '<div style="color:#64748b;">ไม่มี</div>'}
-          <div style="display:flex;gap:6px;"><span style="flex:1;color:#94a3b8;">🚫 ไม่ดรอป</span><b>${pct(Math.max(0, 1 - total))}</b></div>
-          <div style="margin:6px 0 2px;color:#94a3b8;">✨ สุ่มแยก</div>
-          <div style="display:flex;gap:6px;"><span style="flex:1;">🐾 Pet ${esc(m.name)} <span style="color:#94a3b8;">(เก็บของ x${ITEMS['pet_' + id]?.lootSpeed || 1})</span></span><b style="color:#ec4899;">${pct(m.petChance || 0)}</b></div>
-          ${relic ? `<div style="display:flex;gap:6px;"><span style="flex:1;">${relic.icon} ${esc(relic.name)} <span style="color:#94a3b8;">(${esc(relic.bonusText || '')})</span></span><b style="color:#a855f7;">${pct(m.relicChance || 0)}</b></div>` : ''}
-          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">🗺️ ${mapBtns}</div>
+        ? `<span style="padding:1px 6px;border-radius:4px;background:#16a34a;font-size:0.68rem;">📍 ${esc(z.name)}</span>`
+        : `<button class="info-warp" data-zone="${z.id}" data-mon="${id}" style="padding:1px 6px;border:none;border-radius:4px;background:#2563eb;color:#fff;cursor:pointer;font-size:0.68rem;">🚀 ${esc(z.name)}</button>`).join(' ')
+        : '<span style="color:#94a3b8;font-size:0.7rem;">ยังไม่มีในแมพไหน</span>';
+      return `<div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px 8px;display:flex;gap:8px;">
+        <div style="width:40px;flex:none;text-align:center;font-size:26px;">${monsterIconHtml(id, m.emoji, 40)}</div>
+        <div style="flex:1;min-width:0;font-size:0.72rem;line-height:1.35;">
+          <div><b style="font-size:0.82rem;">${esc(m.name)}</b> <span style="color:#7dd3fc;">Lv.${m.level}</span> <span style="color:#94a3b8;">HP ${m.hp.toLocaleString()} • ATK ${m.atk} • DEF ${m.def} • EXP ${m.exp.toLocaleString()}</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;align-items:center;"><span title="ไอเทมที่ดรอป (สุ่มครั้งเดียว)">🎁</span>${drops || '<span style="color:#64748b;">ไม่มี</span>'}<span style="${chip}color:#94a3b8;">🚫 <b style="color:#e2e8f0;">${pct(Math.max(0, 1 - total))}</b></span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;align-items:center;"><span title="สุ่มแยก">✨</span><span style="${chip}">🐾 Pet <span style="color:#94a3b8;">x${ITEMS['pet_' + id]?.lootSpeed || 1}</span> <b style="color:#ec4899;">${pct(m.petChance || 0)}</b></span>${relic ? `<span style="${chip}" title="${esc(relic.bonusText || '')}">${relic.icon} ${esc(relic.name)} <b style="color:#a855f7;">${pct(m.relicChance || 0)}</b></span>` : ''}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;align-items:center;">🗺️ ${mapBtns}</div>
         </div></div>`;
     }).join('');
-    body.innerHTML = `<input type="text" id="info-search" placeholder="ค้นหามอนสเตอร์..." value="${esc(this.infoSearch || '')}" style="width:100%;margin-bottom:10px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:#fff;">
-      ${cards || '<p style="color:#94a3b8;">ไม่พบมอนสเตอร์</p>'}`;
+    body.innerHTML = `<input type="text" id="info-search" placeholder="ค้นหามอนสเตอร์..." value="${esc(this.infoSearch || '')}" style="width:100%;margin-bottom:6px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:#fff;">
+      ${cards ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:6px;">${cards}</div>` : '<p style="color:#94a3b8;">ไม่พบมอนสเตอร์</p>'}`;
     const inp = document.getElementById('info-search');
     inp.addEventListener('input', () => {
       this.infoSearch = inp.value;
