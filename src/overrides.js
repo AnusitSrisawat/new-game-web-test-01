@@ -13,11 +13,14 @@
 //   skills:   { [skillId]:   { name, desc } }   // free-form list, not wired into the game yet
 //   objects:  { [zoneId]: [ { type, x, y, scale, solid } ] }  // replaces that map's object list
 //   ui:       { main: { hudBg, hudOpacity, ... show* } }          // HUD theme + show/hide panels
+//   layers:   { [itemId]: [ { src, sx, sy, sw, sh, partW, partX, partY, flip, z } ] }   // extra (cropped) picture layers of a player piece
 //   drops:    { [monsterId]: [ { itemId, chance } ] }  // replaces that monster's drop list (chance 0.001..1)
 // }
 
 import { TEXTURES, OBJECT_TYPES, MAX_OBJECTS_PER_MAP } from './maps.js';
 import { SOUND_DEFAULTS, SOUND_META } from './sounds.js';
+import { PLAYER_SPRITES } from './player_sprites.js';
+import { LAYER_ZS, MAX_EXTRA_LAYERS } from './player_look.js';
 
 const text = (label, max) => ({ type: 'text', label, max });
 const num = (label, min, max, step = 1) => ({ type: 'number', label, min, max, step });
@@ -328,12 +331,34 @@ export function sanitizeOverrides(raw, known) {
     }
     if (Object.keys(drops).length) out.drops = drops;
   }
+  // Extra picture layers of player pieces: whole list per item (see player_look.js)
+  if (raw.layers && typeof raw.layers === 'object' && known.items) {
+    const layers = {};
+    const n = (v, lo, hi, d) => { const x = Number(v); return Number.isFinite(x) ? Math.round(Math.min(hi, Math.max(lo, x)) * 10) / 10 : d; };
+    for (const [iid, list] of Object.entries(raw.layers)) {
+      if (!known.items.has(iid) || !Array.isArray(list)) continue;
+      const clean = [];
+      for (const l of list.slice(0, MAX_EXTRA_LAYERS)) {
+        const P = l && PLAYER_SPRITES.parts[l.src];
+        if (!P) continue;
+        clean.push({
+          src: l.src,
+          sx: n(l.sx, 0, P.w, 0), sy: n(l.sy, 0, P.h, 0), sw: n(l.sw, 1, P.w, P.w), sh: n(l.sh, 1, P.h, P.h),   // crop of the source picture (px)
+          partW: n(l.partW, 5, 600, P.w), partX: n(l.partX, -300, 300, 0), partY: n(l.partY, -200, 600, 150),     // centre of the piece on the base model
+          flip: l.flip === 'yes' ? 'yes' : 'no',
+          z: LAYER_ZS.includes(l.z) ? l.z : 'over_outfit'
+        });
+      }
+      layers[iid] = clean;
+    }
+    if (Object.keys(layers).length) out.layers = layers;
+  }
   return out;
 }
 
 // Copy the editable fields of the current data so they can be restored / shown as "default".
 export function snapshotEditable(data) {
-  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {}, relics: {}, drops: {}, ui: { main: { ...UI_DEFAULTS } }, objects: {}, skills: {}, sounds: {} };
+  const snap = { zones: {}, maps: {}, monsters: {}, ai: {}, items: {}, quests: {}, relics: {}, drops: {}, layers: {}, ui: { main: { ...UI_DEFAULTS } }, objects: {}, skills: {}, sounds: {} };
   const pick = (obj, fields) => {
     const o = {};
     for (const k of Object.keys(fields)) if (obj && obj[k] !== undefined) o[k] = obj[k];
@@ -349,7 +374,10 @@ export function snapshotEditable(data) {
     snap.ai[id] = { ...data.MONSTER_AI_DEFAULT, ...(data.MONSTER_AI[id] || {}) };
     snap.drops[id] = (m.drops || []).map(d => ({ itemId: d.itemId, chance: d.chance }));
   }
-  for (const [id, it] of Object.entries(data.ITEMS)) snap.items[id] = pick(it, SCHEMA.items.fields);
+  for (const [id, it] of Object.entries(data.ITEMS)) {
+    snap.items[id] = pick(it, SCHEMA.items.fields);
+    if (it.part) snap.layers[id] = (it.layers || []).map(l => ({ ...l }));
+  }
   for (const [id, r] of Object.entries(data.RELICS || {})) {
     snap.relics[id] = { name: r.name, icon: r.icon, desc: r.desc, hp: 0, atk: 0, def: 0, aspd: 0, critRate: 0, ...pick(r.statBonus || {}, { hp: 1, atk: 1, def: 1, aspd: 1, critRate: 1 }) };
   }
@@ -406,6 +434,9 @@ export function applyOverrides(data, o) {
   }
   for (const [id, list] of Object.entries(o.drops || {})) {
     if (data.MONSTERS[id]) data.MONSTERS[id].drops = list.map(d => ({ itemId: d.itemId, chance: d.chance }));
+  }
+  for (const [id, list] of Object.entries(o.layers || {})) {
+    if (data.ITEMS[id]) data.ITEMS[id].layers = list.map(l => ({ ...l }));
   }
   if (o.ui && o.ui.main) data.UI = { ...UI_DEFAULTS, ...o.ui.main };
   // skills: merge field by field, so editing one value of a default skill keeps the rest
