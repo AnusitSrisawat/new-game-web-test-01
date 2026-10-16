@@ -6,12 +6,12 @@ import { WEAPON_SPRITES } from './weapon_sprites.js';
 // Monster cell k drops the items in cells 3k..3k+2 of the matching item sheet.
 
 export const SHEETS = {
-  starter:  { monsters: 'assets/monsters/monsters_sheet.jpg', items: 'assets/items/items_sheet.jpg' },
-  beasts:   { monsters: 'assets/monsters/monsters_beasts.jpg',   items: 'assets/items/items_beasts.jpg' },
-  bandits:  { monsters: 'assets/monsters/monsters_bandits.jpg',  items: 'assets/items/items_bandits.jpg' },
-  fantasy:  { monsters: 'assets/monsters/monsters_fantasy.jpg',  items: 'assets/items/items_fantasy.jpg' },
-  others:   { monsters: 'assets/monsters/monsters_others.jpg',   items: 'assets/items/items_others.jpg' },
-  skeleton: { monsters: 'assets/monsters/monsters_skeleton.jpg', items: 'assets/items/items_skeleton.jpg' }
+  starter:  { monsters: 'assets/monsters/monsters_sheet.jpg', items: 'assets/items/items_sheet.jpg', relics: 'assets/relics/relics_starter.jpg' },
+  beasts:   { monsters: 'assets/monsters/monsters_beasts.jpg',   items: 'assets/items/items_beasts.jpg', relics: 'assets/relics/relics_beasts.jpg' },
+  bandits:  { monsters: 'assets/monsters/monsters_bandits.jpg',  items: 'assets/items/items_bandits.jpg', relics: 'assets/relics/relics_bandits.jpg' },
+  fantasy:  { monsters: 'assets/monsters/monsters_fantasy.jpg',  items: 'assets/items/items_fantasy.jpg', relics: 'assets/relics/relics_fantasy.jpg' },
+  others:   { monsters: 'assets/monsters/monsters_others.jpg',   items: 'assets/items/items_others.jpg', relics: 'assets/relics/relics_others.jpg' },
+  skeleton: { monsters: 'assets/monsters/monsters_skeleton.jpg', items: 'assets/items/items_skeleton.jpg', relics: 'assets/relics/relics_skeleton.jpg' }
 };
 
 // monsterId -> [sheet, cell 0..3]
@@ -47,12 +47,47 @@ export function dropItemIds(sheet, cell) {
 }
 
 // Every picture is cut out of its sheet by tools/cutout.py (grey background removed) into one
-// transparent PNG per monster/item: assets/sprites/{monsters,items}/<sheet>_<cell>.png
+// transparent PNG per monster/item/relic: assets/sprites/{monsters,items,relics}/<sheet>_<cell>.png
 const MONSTER_PX = { w: 230, h: 210 };
 const ITEM_PX = { w: 100, h: 95 };
+const RELIC_PX = { w: 160, h: 160 };
 const spriteOf = (kind, sheet, cell, px) => ({
   src: `assets/sprites/${kind}/${sheet}_${cell}.png`, sx: 0, sy: 0, sw: px.w, sh: px.h, iw: px.w, ih: px.h
 });
+
+// Relic sprite mapping: relicId, monsterId, or legacy id -> [sheet, cell 0..3]
+export const RELIC_SPRITES = {
+  // starter
+  relic_slime_heart: ['starter', 0], slime: ['starter', 0], relic_slime: ['starter', 0],
+  relic_amber_queen_brooch: ['starter', 1], forest_hornet: ['starter', 1], relic_forest_hornet: ['starter', 1],
+  relic_carrot_charm: ['starter', 2], horned_rabbit: ['starter', 2], relic_horned_rabbit: ['starter', 2],
+  relic_golem_heart: ['starter', 3], mossy_golem: ['starter', 3], relic_mossy_golem: ['starter', 3],
+  // beasts
+  relic_alpha_eye: ['beasts', 0], forest_wolf: ['beasts', 0], relic_forest_wolf: ['beasts', 0],
+  relic_boar_crest: ['beasts', 1], wild_boar: ['beasts', 1], relic_wild_boar: ['beasts', 1],
+  relic_ouroboros_viper: ['beasts', 2], jungle_viper: ['beasts', 2], relic_jungle_viper: ['beasts', 2],
+  relic_ursa_totem: ['beasts', 3], claw_bear: ['beasts', 3], relic_claw_bear: ['beasts', 3],
+  // bandits
+  relic_shadow_cameo: ['bandits', 0], bandit_rogue: ['bandits', 0], relic_bandit_rogue: ['bandits', 0],
+  relic_falcon_astrolabe: ['bandits', 1], bandit_archer: ['bandits', 1], relic_bandit_archer: ['bandits', 1],
+  relic_titan_knuckle_seal: ['bandits', 2], bandit_brute: ['bandits', 2], relic_bandit_brute: ['bandits', 2],
+  relic_pirate_sovereign_brooch: ['bandits', 3], bandit_leader: ['bandits', 3], relic_bandit_leader: ['bandits', 3],
+  // fantasy
+  relic_goblin_badge: ['fantasy', 0], goblin_scout: ['fantasy', 0], relic_goblin_scout: ['fantasy', 0],
+  relic_brimstone_censer: ['fantasy', 1], fire_imp: ['fantasy', 1], relic_fire_imp: ['fantasy', 1],
+  relic_heart_of_forest: ['fantasy', 2], treant: ['fantasy', 2], relic_treant: ['fantasy', 2],
+  relic_pandora_mimic_lock: ['fantasy', 3], chest_mimic: ['fantasy', 3], relic_chest_mimic: ['fantasy', 3],
+  // others
+  relic_void_gazer_sphere: ['others', 0], floating_eye: ['others', 0], relic_floating_eye: ['others', 0],
+  relic_phantom_aegis: ['others', 1], spectral_armor: ['others', 1], relic_spectral_armor: ['others', 1],
+  relic_mycelium_chalice: ['others', 2], mushroom_sporeling: ['others', 2], relic_mushroom_sporeling: ['others', 2],
+  relic_solar_dragon_egg: ['others', 3], baby_fire_wyrm: ['others', 3], relic_baby_fire_wyrm: ['others', 3],
+  // skeleton
+  relic_vanguard_crest: ['skeleton', 0], skeleton_warrior: ['skeleton', 0], relic_skeleton_warrior: ['skeleton', 0],
+  relic_banshee_harp: ['skeleton', 1], skeleton_archer: ['skeleton', 1], relic_skeleton_archer: ['skeleton', 1],
+  relic_lich_archon_orb: ['skeleton', 2], skeleton_mage: ['skeleton', 2], relic_skeleton_mage: ['skeleton', 2],
+  relic_death_knight_crown: ['skeleton', 3], skeleton_knight: ['skeleton', 3], relic_skeleton_knight: ['skeleton', 3]
+};
 
 let itemIndex = null;
 function itemLookup() {
@@ -62,14 +97,21 @@ function itemLookup() {
   return itemIndex;
 }
 
-// -> { src, sx, sy, sw, sh } or null when the monster/item has no picture yet
+// -> { src, sx, sy, sw, sh } or null when the monster/item/relic has no picture yet
 export function monsterSprite(id) {
   const e = MONSTER_SPRITES[id];
   return e ? spriteOf('monsters', e[0], e[1], MONSTER_PX) : null;
 }
 export function itemSprite(id) {
   const e = itemLookup()[id];
-  return e ? spriteOf('items', e[0], e[1], ITEM_PX) : null;
+  if (e) return spriteOf('items', e[0], e[1], ITEM_PX);
+  const r = relicSprite(id);
+  if (r) return r;
+  return null;
+}
+export function relicSprite(id) {
+  const e = RELIC_SPRITES[id];
+  return e ? spriteOf('relics', e[0], e[1], RELIC_PX) : null;
 }
 
 // CSS for a `px`-wide box showing the sprite (DOM use: inventory, Studio)
@@ -80,12 +122,20 @@ export function spriteStyle(sp, px) {
     `background-position:-${Math.round(sp.sx * k)}px -${Math.round(sp.sy * k)}px;`;
 }
 
+// HTML for a relic icon: picture if available, fallback to emoji
+export function relicIconHtml(id, emoji, px = 28) {
+  const sp = relicSprite(id);
+  return sp ? `<span style="${spriteStyle(sp, px)}"></span>` : (emoji || '💎');
+}
+
 // HTML for an item's icon: its picture when it has one, otherwise the emoji
 export function itemIconHtml(id, emoji, px = 28) {
   if (id && id.startsWith('pet_')) {
     const ms = monsterSprite(id.slice(4));
     if (ms) return `<span style="${spriteStyle(ms, px)}"></span>`;
   }
+  const rs = relicSprite(id);
+  if (rs) return `<span style="${spriteStyle(rs, px)}"></span>`;
   const ws = weaponSprite(id);
   if (ws) {
     const k = Math.min(px / ws.w, px / ws.h);

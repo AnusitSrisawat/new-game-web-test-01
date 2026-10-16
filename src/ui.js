@@ -3,7 +3,7 @@ import { ZONES, ITEMS, RELICS, CRAFTING_RECIPES, GACHA_COSTUMES, QUESTS, WEAPON_
 import { SP_POTION_IDS, SKILL_SLOTS, GACHA_SINGLE, GACHA_PACK } from './player.js';
 import { TILE_SIZE, getMapDef } from './maps.js';
 import { soundEngine } from './audio.js';
-import { itemIconHtml, monsterSprite, spriteStyle } from './sprites.js';
+import { itemIconHtml, relicIconHtml, monsterSprite, spriteStyle } from './sprites.js';
 
 // cut-out of a monster picture (falls back to its emoji)
 function monsterIconHtml(mid, emoji, px) {
@@ -1489,12 +1489,15 @@ export class UIController {
 
     list.forEach(r => {
       const unlocked = this.player.collectedRelics.includes(r.id);
+      const mName = MONSTERS[r.monsterId]?.name || 'มอนสเตอร์เฉพาะตัว';
       html += `
-        <div style="background:rgba(0,0,0,0.3); border:1px solid ${unlocked ? '#ec4899' : 'rgba(255,255,255,0.08)'}; border-radius:8px; padding:10px; display:flex; gap:10px; align-items:center; opacity:${unlocked ? '1' : '0.45'};">
-          <div style="font-size:28px;">${unlocked ? r.icon : '❓'}</div>
-          <div>
-            <b style="font-size:0.85rem;">${unlocked ? r.name : '??? (สมบัติยังไม่ถูกค้นพบ)'}</b>
-            <div style="font-size:0.75rem; color:#f59e0b; margin-top:2px;">${unlocked ? `⚡ ${r.bonusText}` : '🔒 ดรอปจากมอนสเตอร์เฉพาะตัว'}</div>
+        <div style="background:rgba(0,0,0,0.35); border:1px solid ${unlocked ? '#ec4899' : 'rgba(255,255,255,0.08)'}; border-radius:8px; padding:10px; display:flex; gap:12px; align-items:center; opacity:${unlocked ? '1' : '0.45'}; transition:all 0.2s;" title="${unlocked ? r.desc : `ดรอปจาก ${mName}`}">
+          <div style="width:48px;height:48px;flex:none;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04);border-radius:6px;border:1px solid ${unlocked ? 'rgba(236,72,153,0.35)' : 'rgba(255,255,255,0.05)'};">
+            ${unlocked ? relicIconHtml(r.id, r.icon, 44) : '<span style="font-size:24px;opacity:0.6;">❓</span>'}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <b style="font-size:0.85rem;color:${unlocked ? '#f8fafc' : '#94a3b8'};display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${unlocked ? r.name : '??? (สมบัติยังไม่ถูกค้นพบ)'}</b>
+            <div style="font-size:0.75rem; color:#f59e0b; margin-top:2px;">${unlocked ? `⚡ ${r.bonusText}` : `🔒 ดรอปจาก ${mName}`}</div>
           </div>
         </div>
       `;

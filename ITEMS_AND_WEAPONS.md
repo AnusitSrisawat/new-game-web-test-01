@@ -436,4 +436,62 @@ assets/weapons/
 - **Tier 2 (12 ชิ้น):**
   > `Create a 2D fantasy RPG legendary divine grimoires and cosmic tomes sprite sheet, in the exact same layout and composition as the reference image with exactly 12 items arranged in a 4x3 grid (4 rows, 3 items per row). Clean solid light grey background (#E2E2E2). All 12 books must be identical in uniform scale and size, tilted diagonally at 45 degrees. CRITICAL REQUIREMENT: ALL BOOKS MUST BE COMPLETELY CLOSED with closed hardcovers and visible spines, NO open books, NO open pages, NO floating pages. CRITICAL REQUIREMENT: NO visual effects, NO fire, NO flames, NO smoke, NO lightning, NO halos, NO glow, NO aura. Plain closed ornate books only. Labels underneath: Lv.55 Blizzard Glacial Tome, Lv.60 Thunder Scripture, Lv.65 Titan Earth Grimoire, Lv.70 Chaos Demonic Codex, Lv.70 Chaos Demonic Codex, Lv.75 Book of Heavenly Light, Lv.80 Dragon Secret Tome, Lv.85 Astral Cosmos Scripture, Lv.90 Book of Phoenix, Lv.90 Book of Phoenix, Lv.95 Chronos Time Archive, Lv.100 Genesis Divine Grimoire. High resolution, clear separation.`
 
+---
+
+## 6. มอนสเตอร์และ Rare Relics ประจำตัว 24 ชิ้น (Unique Monster Relics Database)
+
+มอนสเตอร์ทุกตัวในเกม (รวม 24 ตัว ใน 6 แผ่นสไปรต์) มี **Rare Relic ประจำตัว 1 ชิ้น** ซึ่งสุ่มดรอปแยกต่างหากจากไอเทมปกติ (`relicChance` 0.1% ขึ้นไป) เมื่อผู้เล่นเก็บได้จะปลดล็อกบันทึกลงใน **Treasure Compendium** และมอบบัฟสเตตัสถาวรให้ตัวละครทันที
+
+ไฟล์รูปภาพต้นฉบับ: `assets/relics/relics_<group>.jpg` (2x2 Grid, 1024x1024)  
+ไฟล์สไปรต์โปร่งใส: `assets/sprites/relics/<group>_<cell>.png` (160x160 Transparent PNG)
+
+### 6.1 Starter Group (`assets/relics/relics_starter.jpg`)
+| มอนสเตอร์ | Cell | รหัส Relic (ID) | ชื่อ Relic | สเตตัสโบนัสถาวร | คำอธิบายความสามารถ |
+|---|:---:|---|---|---|---|
+| **Bouncy Slime** | 0 | `relic_slime_heart` | 🫧 Royal Slime Heart Reliquary | +100 Max HP | จอกแก้วทองคำบรรจุผลึกหัวใจสไลม์สีครามบริสุทธิ์ เปล่งประกายพลังชีวิตและความยืดหยุ่น |
+| **Forest Hornet** | 1 | `relic_amber_queen_brooch` | 🐝 Amber Queen Brooch | +10 ATK, +4% ASPD | เข็มกลัดอำพันโบราณล้อมลายปีกผึ้งทองคำ กักเก็บพลังแห่งความเร็วและการโจมตีที่แม่นยำ |
+| **Horned Rabbit** | 2 | `relic_carrot_charm` | 🌙 Lunar Rabbit Jade Talisman | +12 ATK, +5% ASPD, +3% Crit | เครื่องรางหยกพระจันทร์เสี้ยวประดับใบโคลเวอร์สี่แฉกและผนึกกระต่าย เพิ่มโชคและความคล่องตัว |
+| **Mossy Golem** | 3 | `relic_golem_heart` | 🗿 Primordial Earth Titan Rune | +35 DEF, +500 HP | แผ่นศิลาอักขระไททันปฐพีโบราณ รัดแถบสำริดสลักรูนเขียวเรืองแสง มอบความทนทานดั่งขุนเขา |
+
+### 6.2 Beasts Group (`assets/relics/relics_beasts.jpg`)
+| มอนสเตอร์ | Cell | รหัส Relic (ID) | ชื่อ Relic | สเตตัสโบนัสถาวร | คำอธิบายความสามารถ |
+|---|:---:|---|---|---|---|
+| **Shadow Wolf** | 0 | `relic_alpha_eye` | 🐺 Silver Moon Alpha Medallion | +25 ATK, +6% Crit Rate | เหรียญเงินจันทราเสี้ยวสลักรูปหมาป่าหอน ประดับอัญมณีดวงตาสีไพลินเรืองแสง มองทะลุจุดตายศัตรู |
+| **Armored Boar** | 1 | `relic_boar_crest` | 🐗 Crest of the Primal Behemoth | +18 ATK, +15 DEF, +300 HP | ตราศึกสำริดประดับเขี้ยวหมูป่าทองคำและทับทิมโลหิต มอบพลังการบุกทะลวงและพลังกายดุดัน |
+| **Jungle Viper** | 2 | `relic_ouroboros_viper` | 🐍 Ouroboros Emerald Idol | +32 ATK, +6% ASPD | เทวรูปทองคำรูปงูขดคาบหยดมรกตพิษบริสุทธิ์ เสริมพลังโจมตีรวดเร็วและอันตราย |
+| **Claw Bear** | 3 | `relic_ursa_totem` | 🐻 Ursa Major Star Totem | +36 ATK, +600 HP | โทเทมไม้สักทองแกะสลักรูปพญาหมี ฝังอัญมณีประกายดาวฤกษ์ มอบพละกำลังอันมหาศาล |
+
+### 6.3 Bandits Group (`assets/relics/relics_bandits.jpg`)
+| มอนสเตอร์ | Cell | รหัส Relic (ID) | ชื่อ Relic | สเตตัสโบนัสถาวร | คำอธิบายความสามารถ |
+|---|:---:|---|---|---|---|
+| **Bandit Rogue** | 0 | `relic_shadow_cameo` | 🥷 Phantom Cameo of the Shadow | +35 ATK, +7% Crit Rate | จี้เหรียญเงินรมดำแกะสลักหน้ากากเงาลึกลับ เรืองแสงไอเวทสีม่วง ช่วยหลบหลีกและจู่โจมจุดตาย |
+| **Bandit Archer** | 1 | `relic_falcon_astrolabe` | 🏹 Falcon Eye Astrolabe | +40 ATK, +7% ASPD | อุปกรณ์ดาราศาสตร์สำริดทองเหลืองเลนส์คริสตัล ประดับขนนกอินทรี เพิ่มระยะเล็งและความเร็วโจมตี |
+| **Bandit Brute** | 2 | `relic_titan_knuckle_seal` | 💪 Iron Titan Knuckle Seal | +45 ATK, +30 DEF, +500 HP | แท่นหินเหล็กกล้าฝังหนามสลักอักขระรูนโลหิตสีแดง มอบพลังโจมตีทำลายล้างและการป้องกัน |
+| **Bandit Leader** | 3 | `relic_pirate_sovereign_brooch` | 🏴‍☠️ Pirate Sovereign Brooch | +55 ATK, +5% Crit, +750 HP | เข็มกลัดทองคำแท้ลวดลายดาบไขว้หัวกะโหลกสวมมงกุฎทับทิม อภิมหาสมบัติของผู้นำกองโจร |
+
+### 6.4 Fantasy Group (`assets/relics/relics_fantasy.jpg`)
+| มอนสเตอร์ | Cell | รหัส Relic (ID) | ชื่อ Relic | สเตตัสโบนัสถาวร | คำอธิบายความสามารถ |
+|---|:---:|---|---|---|---|
+| **Goblin Scout** | 0 | `relic_goblin_badge` | 🪙 Cunning Clockwork Goblin Idol | +45 ATK, +450 HP, +15% Gold | หุ่นกลโบราณรูปก็อบลินถือเหรียญทองอัญมณีมรกต เพิ่มการหาเงินและพละกำลัง |
+| **Fire Imp** | 1 | `relic_brimstone_censer` | 😈 Brimstone Infernal Censer | +58 ATK, +6% ASPD | กระถางกำยานห้อยสายโซ่ทองคำ กักขังเปลวเพลิงเวทสีม่วงที่ไม่มีวันมอดดับ มอบพลังทำลายล้าง |
+| **Treant** | 2 | `relic_heart_of_forest` | 🌲 Golden Seed of Yggdrasil | +60 DEF, +1,200 HP | เมล็ดพันธุ์ทองคำเรืองแสงในอ้อมกอดของรากไม้เงินศักดิ์สิทธิ์ มอบพลังฟื้นฟูและความทนทาน |
+| **Chest Mimic** | 3 | `relic_pandora_mimic_lock` | 🧰 Pandora Gilded Mimic Lock | +65 ATK, +8% Crit Rate | กล่องกลไกทองคำโบราณสลักลวดลายคมเขี้ยว ฝังดวงตาสีม่วงอมตะของมิมิค นำโชคลาภและการโจมตีคริติคอล |
+
+### 6.5 Others Group (`assets/relics/relics_others.jpg`)
+| มอนสเตอร์ | Cell | รหัส Relic (ID) | ชื่อ Relic | สเตตัสโบนัสถาวร | คำอธิบายความสามารถ |
+|---|:---:|---|---|---|---|
+| **Floating Eye** | 0 | `relic_void_gazer_sphere` | 👁️ Celestial Void Gazer Sphere | +70 ATK, +8% Crit Rate | วงแหวนไจโรสโคปทองคำกักขังทรงกลมเนตรจักรวาลและละอองเนบิวลา มองเห็นจุดอ่อนทุกมิติ |
+| **Spectral Armor** | 1 | `relic_phantom_aegis` | 🛡️ Aegis of the Phantom Sovereign | +80 DEF, +1,400 HP | โล่เงินสลักอักขระเวทโบราณล้อมปีกเทวา เรืองแสงเพลิงวิญญาณสีฟ้า ป้องกันการโจมตีรอบด้าน |
+| **Mushroom Sporeling** | 2 | `relic_mycelium_chalice` | 🍄 Chalice of the Fungal Goddess | +50 DEF, +1,500 HP | จอกศิลาแกะสลักโบราณที่เห็ดเรืองแสงสีฟ้าครามผลิบานตลอดกาล มอบพลังชีวิตอันมหาศาล |
+| **Baby Fire Wyrm** | 3 | `relic_solar_dragon_egg` | 🐲 Solar Hearth Dragon Egg | +90 ATK, +1,000 HP | ไข่มังกรทองคำฝังเกล็ดทับทิมล้อมรอบด้วยเปลวไฟศักดิ์สิทธิ์ ปลดปล่อยพลังโจมตีและชีวิต |
+
+### 6.6 Skeleton Group (`assets/relics/relics_skeleton.jpg`)
+| มอนสเตอร์ | Cell | รหัส Relic (ID) | ชื่อ Relic | สเตตัสโบนัสถาวร | คำอธิบายความสามารถ |
+|---|:---:|---|---|---|---|
+| **Skeleton Warrior** | 0 | `relic_vanguard_crest` | 💀 Crest of the Fallen Vanguard | +88 ATK, +65 DEF | ตราศึกดาบคู่สลักหัวกะโหลกสวมมงกุฎ บ่งบอกถึงเกียรติยศและพลังโจมตีของผู้ไม่ยอมจำนน |
+| **Skeleton Archer** | 1 | `relic_banshee_harp` | 🏹 Banshee Bone Harp | +95 ATK, +8% ASPD | พิณแกะสลักจากงาช้างโบราณ ขึงด้วยสายเพลิงวิญญาณสีเขียว บรรเลงเสียงแห่งความเร็วอันไร้เสียงสะท้อน |
+| **Skeleton Mage** | 2 | `relic_lich_archon_orb` | 🧙 Lich Archon Soul Sphere | +110 ATK, +9% Crit Rate | หัวคทากระดูกโบราณโอบอุ้มลูกแก้ววิญญาณสีฟ้าคราม สลักอักขระต้องห้ามแห่งความตาย |
+| **Skeleton Knight** | 3 | `relic_death_knight_crown` | ⚔️ Crown of the Dread Death Knight | +70 ATK, +110 DEF, +2,000 HP | มงกุฎเหล็กดำปลายแหลมฝังไพลินแห่งความมืด มอบพลังป้องกันและพลังกายสูงสุดของขุนศึกยมโลก |
+
+
 

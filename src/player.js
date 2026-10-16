@@ -478,8 +478,16 @@ export class Player {
         const keep = ['name', 'baseLevel', 'baseExp', 'statPoints', 'gold', 'gachaTokens', 'inventory',
           'costumes', 'unlockedCostumes', 'collectedRelics', 'questProgress', 'hpPotionSlot', 'spPotionSlot', 'learnedSkills', 'skillBooks', 'autoBattle'];
         keep.forEach(k => { if (d[k] !== undefined) this[k] = d[k]; });
-        // relic ids that used to clash with item-sheet ids were renamed
-        const RELIC_RENAME = { relic_slime_core: 'relic_slime_heart', relic_golden_carrot: 'relic_carrot_charm', relic_golem_core: 'relic_golem_heart' };
+        // relic ids that used to clash with item-sheet ids or legacy generic names
+        const RELIC_RENAME = {
+          relic_slime_core: 'relic_slime_heart', relic_golden_carrot: 'relic_carrot_charm', relic_golem_core: 'relic_golem_heart',
+          relic_forest_hornet: 'relic_amber_queen_brooch', relic_jungle_viper: 'relic_ouroboros_viper', relic_claw_bear: 'relic_ursa_totem',
+          relic_bandit_rogue: 'relic_shadow_cameo', relic_bandit_archer: 'relic_falcon_astrolabe', relic_bandit_brute: 'relic_titan_knuckle_seal',
+          relic_bandit_leader: 'relic_pirate_sovereign_brooch', relic_fire_imp: 'relic_brimstone_censer', relic_chest_mimic: 'relic_pandora_mimic_lock',
+          relic_floating_eye: 'relic_void_gazer_sphere', relic_spectral_armor: 'relic_phantom_aegis', relic_mushroom_sporeling: 'relic_mycelium_chalice',
+          relic_baby_fire_wyrm: 'relic_solar_dragon_egg', relic_skeleton_warrior: 'relic_vanguard_crest', relic_skeleton_archer: 'relic_banshee_harp',
+          relic_skeleton_mage: 'relic_lich_archon_orb', relic_skeleton_knight: 'relic_death_knight_crown'
+        };
         if (Array.isArray(this.collectedRelics)) this.collectedRelics = this.collectedRelics.map(id => RELIC_RENAME[id] || id);
         if (d.stats) STAT_KEYS.forEach(k => { if (typeof d.stats[k] === 'number') this.stats[k] = d.stats[k]; });
         if (d.auto) {

@@ -255,69 +255,233 @@ export const ITEMS = {
 
 // Rare Unique Relics (1 from each monster) - Collected in the Treasure Compendium for Permanent Stat Buffs
 export const RELICS = {
+  // Starter Monsters (assets/relics/relics_starter.jpg)
   relic_slime_heart: {
     id: 'relic_slime_heart',
     monsterId: 'slime',
-    name: '🫧 Pure Slime Core',
-    desc: 'แก่นหัวใจสไลม์บริสุทธิ์ ให้ความยืดหยุ่นแก่ร่างกาย',
-    icon: '🔮',
-    statBonus: { hp: 80 },
-    bonusText: '+80 Max HP ถาวร'
+    name: '🫧 Royal Slime Heart Reliquary',
+    desc: 'จอกแก้วทองคำบรรจุผลึกหัวใจสไลม์สีครามบริสุทธิ์ เปล่งประกายพลังชีวิตและความยืดหยุ่น',
+    icon: '🫧',
+    statBonus: { hp: 100 },
+    bonusText: '+100 Max HP ถาวร'
+  },
+  relic_amber_queen_brooch: {
+    id: 'relic_amber_queen_brooch',
+    monsterId: 'forest_hornet',
+    name: '🐝 Amber Queen Brooch',
+    desc: 'เข็มกลัดอำพันโบราณล้อมลายปีกผึ้งทองคำ กักเก็บพลังแห่งความเร็วและการโจมตีที่แม่นยำ',
+    icon: '🐝',
+    statBonus: { atk: 10, aspd: 0.04 },
+    bonusText: '+10 ATK, +4% ASPD ถาวร'
   },
   relic_carrot_charm: {
     id: 'relic_carrot_charm',
     monsterId: 'horned_rabbit',
-    name: '🥕 Horned Rabbit Lucky Charm',
-    desc: 'เครื่องรางกระต่ายมีเขา เพิ่มความคล่องตัวและโชคชะตา',
+    name: '🌙 Lunar Rabbit Jade Talisman',
+    desc: 'เครื่องรางหยกพระจันทร์เสี้ยวประดับใบโคลเวอร์สี่แฉกและผนึกกระต่าย เพิ่มโชคและความคล่องตัว',
     icon: '🐇',
-    statBonus: { atk: 8, aspd: 0.05 },
-    bonusText: '+8 ATK, +5% ASPD ถาวร'
-  },
-  relic_boar_crest: {
-    id: 'relic_boar_crest',
-    monsterId: 'wild_boar',
-    name: '🐗 Savage Boar Crest',
-    desc: 'ตราแห่งหมูป่าดุร้าย พลังการพุ่งชนไร้สิ่งกีดขวาง',
-    icon: '🛡️',
-    statBonus: { atk: 12, hp: 150 },
-    bonusText: '+12 ATK, +150 HP ถาวร'
-  },
-  relic_alpha_eye: {
-    id: 'relic_alpha_eye',
-    monsterId: 'forest_wolf',
-    name: '🐺 Eye of the Alpha Wolf',
-    desc: 'ดวงตาสีเงินของจ่าฝูงหมาป่า มองทะลุจุดอ่อนของศัตรู',
-    icon: '👁️',
-    statBonus: { atk: 22, critRate: 0.05 },
-    bonusText: '+22 ATK, +5% Crit Rate ถาวร'
-  },
-  relic_heart_of_forest: {
-    id: 'relic_heart_of_forest',
-    monsterId: 'treant',
-    name: '🌲 Heart of the Ancient Forest',
-    desc: 'หัวใจพฤกษาพันปี มอบพลังฟื้นฟูและความทนทาน',
-    icon: '💚',
-    statBonus: { def: 18, hp: 300 },
-    bonusText: '+18 DEF, +300 HP ถาวร'
-  },
-  relic_goblin_badge: {
-    id: 'relic_goblin_badge',
-    monsterId: 'goblin_scout',
-    name: '🪙 Cunning Goblin Badge',
-    desc: 'เหรียญตราก็อบลิน เพิ่มการหาเงินและการเอาตัวรอด',
-    icon: '🎖️',
-    statBonus: { goldBonus: 0.1, atk: 15 },
-    bonusText: '+15 ATK, +10% Gold Drop ถาวร'
+    statBonus: { atk: 12, aspd: 0.05, critRate: 0.03 },
+    bonusText: '+12 ATK, +5% ASPD, +3% Crit Rate ถาวร'
   },
   relic_golem_heart: {
     id: 'relic_golem_heart',
     monsterId: 'mossy_golem',
-    name: '🪨 Unbreakable Rune Core',
-    desc: 'แกนกลางหินรูน ไร้ความเสียหายจากอาวุธทั่วไป',
+    name: '🗿 Primordial Earth Titan Rune',
+    desc: 'แผ่นศิลาอักขระไททันปฐพีโบราณ รัดแถบสำริดสลักรูนเขียวเรืองแสง มอบความทนทานดั่งขุนเขา',
     icon: '🗿',
-    statBonus: { def: 45, hp: 800 },
-    bonusText: '+45 DEF, +800 HP ถาวร'
+    statBonus: { def: 35, hp: 500 },
+    bonusText: '+35 DEF, +500 HP ถาวร'
   },
+
+  // Beast Monsters (assets/relics/relics_beasts.jpg)
+  relic_alpha_eye: {
+    id: 'relic_alpha_eye',
+    monsterId: 'forest_wolf',
+    name: '🐺 Silver Moon Alpha Medallion',
+    desc: 'เหรียญเงินจันทราเสี้ยวสลักรูปหมาป่าหอน ประดับอัญมณีดวงตาสีไพลินเรืองแสง มองทะลุจุดตายศัตรู',
+    icon: '🐺',
+    statBonus: { atk: 25, critRate: 0.06 },
+    bonusText: '+25 ATK, +6% Crit Rate ถาวร'
+  },
+  relic_boar_crest: {
+    id: 'relic_boar_crest',
+    monsterId: 'wild_boar',
+    name: '🐗 Crest of the Primal Behemoth',
+    desc: 'ตราศึกสำริดประดับเขี้ยวหมูป่าทองคำและทับทิมโลหิต มอบพลังการบุกทะลวงและพลังกายดุดัน',
+    icon: '🐗',
+    statBonus: { atk: 18, def: 15, hp: 300 },
+    bonusText: '+18 ATK, +15 DEF, +300 HP ถาวร'
+  },
+  relic_ouroboros_viper: {
+    id: 'relic_ouroboros_viper',
+    monsterId: 'jungle_viper',
+    name: '🐍 Ouroboros Emerald Idol',
+    desc: 'เทวรูปทองคำรูปงูขดคาบหยดมรกตพิษบริสุทธิ์ เสริมพลังโจมตีรวดเร็วและอันตราย',
+    icon: '🐍',
+    statBonus: { atk: 32, aspd: 0.06 },
+    bonusText: '+32 ATK, +6% ASPD ถาวร'
+  },
+  relic_ursa_totem: {
+    id: 'relic_ursa_totem',
+    monsterId: 'claw_bear',
+    name: '🐻 Ursa Major Star Totem',
+    desc: 'โทเทมไม้สักทองแกะสลักรูปพญาหมี ฝังอัญมณีประกายดาวฤกษ์ มอบพละกำลังอันมหาศาล',
+    icon: '🐻',
+    statBonus: { atk: 36, hp: 600 },
+    bonusText: '+36 ATK, +600 HP ถาวร'
+  },
+
+  // Bandit Monsters (assets/relics/relics_bandits.jpg)
+  relic_shadow_cameo: {
+    id: 'relic_shadow_cameo',
+    monsterId: 'bandit_rogue',
+    name: '🥷 Phantom Cameo of the Shadow',
+    desc: 'จี้เหรียญเงินรมดำแกะสลักหน้ากากเงาลึกลับ เรืองแสงไอเวทสีม่วง ช่วยหลบหลีกและจู่โจมจุดตาย',
+    icon: '🥷',
+    statBonus: { atk: 35, critRate: 0.07 },
+    bonusText: '+35 ATK, +7% Crit Rate ถาวร'
+  },
+  relic_falcon_astrolabe: {
+    id: 'relic_falcon_astrolabe',
+    monsterId: 'bandit_archer',
+    name: '🏹 Falcon Eye Astrolabe',
+    desc: 'อุปกรณ์ดาราศาสตร์สำริดทองเหลืองเลนส์คริสตัล ประดับขนนกอินทรี เพิ่มระยะเล็งและความเร็วโจมตี',
+    icon: '🏹',
+    statBonus: { atk: 40, aspd: 0.07 },
+    bonusText: '+40 ATK, +7% ASPD ถาวร'
+  },
+  relic_titan_knuckle_seal: {
+    id: 'relic_titan_knuckle_seal',
+    monsterId: 'bandit_brute',
+    name: '💪 Iron Titan Knuckle Seal',
+    desc: 'แท่นหินเหล็กกล้าฝังหนามสลักอักขระรูนโลหิตสีแดง มอบพลังโจมตีทำลายล้างและการป้องกัน',
+    icon: '💪',
+    statBonus: { atk: 45, def: 30, hp: 500 },
+    bonusText: '+45 ATK, +30 DEF, +500 HP ถาวร'
+  },
+  relic_pirate_sovereign_brooch: {
+    id: 'relic_pirate_sovereign_brooch',
+    monsterId: 'bandit_leader',
+    name: '🏴‍☠️ Pirate Sovereign Brooch',
+    desc: 'เข็มกลัดทองคำแท้ลวดลายดาบไขว้หัวกะโหลกสวมมงกุฎทับทิม อภิมหาสมบัติของผู้นำกองโจร',
+    icon: '🏴‍☠️',
+    statBonus: { atk: 55, critRate: 0.05, hp: 750 },
+    bonusText: '+55 ATK, +5% Crit Rate, +750 HP ถาวร'
+  },
+
+  // Fantasy Monsters (assets/relics/relics_fantasy.jpg)
+  relic_goblin_badge: {
+    id: 'relic_goblin_badge',
+    monsterId: 'goblin_scout',
+    name: '🪙 Cunning Clockwork Goblin Idol',
+    desc: 'หุ่นกลโบราณรูปก็อบลินถือเหรียญทองอัญมณีมรกต เพิ่มการหาเงินและพละกำลัง',
+    icon: '🎖️',
+    statBonus: { atk: 45, hp: 450, goldBonus: 0.15 },
+    bonusText: '+45 ATK, +450 HP, +15% Gold Drop ถาวร'
+  },
+  relic_brimstone_censer: {
+    id: 'relic_brimstone_censer',
+    monsterId: 'fire_imp',
+    name: '😈 Brimstone Infernal Censer',
+    desc: 'กระถางกำยานห้อยสายโซ่ทองคำ กักขังเปลวเพลิงเวทสีม่วงที่ไม่มีวันมอดดับ มอบพลังทำลายล้าง',
+    icon: '😈',
+    statBonus: { atk: 58, aspd: 0.06 },
+    bonusText: '+58 ATK, +6% ASPD ถาวร'
+  },
+  relic_heart_of_forest: {
+    id: 'relic_heart_of_forest',
+    monsterId: 'treant',
+    name: '🌲 Golden Seed of Yggdrasil',
+    desc: 'เมล็ดพันธุ์ทองคำเรืองแสงในอ้อมกอดของรากไม้เงินศักดิ์สิทธิ์ มอบพลังฟื้นฟูและความทนทาน',
+    icon: '💚',
+    statBonus: { def: 60, hp: 1200 },
+    bonusText: '+60 DEF, +1,200 HP ถาวร'
+  },
+  relic_pandora_mimic_lock: {
+    id: 'relic_pandora_mimic_lock',
+    monsterId: 'chest_mimic',
+    name: '🧰 Pandora Gilded Mimic Lock',
+    desc: 'กล่องกลไกทองคำโบราณสลักลวดลายคมเขี้ยว ฝังดวงตาสีม่วงอมตะของมิมิค นำโชคลาภและการโจมตีคริติคอล',
+    icon: '🧰',
+    statBonus: { atk: 65, critRate: 0.08 },
+    bonusText: '+65 ATK, +8% Crit Rate ถาวร'
+  },
+
+  // Others Monsters (assets/relics/relics_others.jpg)
+  relic_void_gazer_sphere: {
+    id: 'relic_void_gazer_sphere',
+    monsterId: 'floating_eye',
+    name: '👁️ Celestial Void Gazer Sphere',
+    desc: 'วงแหวนไจโรสโคปทองคำกักขังทรงกลมเนตรจักรวาลและละอองเนบิวลา มองเห็นจุดอ่อนทุกมิติ',
+    icon: '👁️',
+    statBonus: { atk: 70, critRate: 0.08 },
+    bonusText: '+70 ATK, +8% Crit Rate ถาวร'
+  },
+  relic_phantom_aegis: {
+    id: 'relic_phantom_aegis',
+    monsterId: 'spectral_armor',
+    name: '🛡️ Aegis of the Phantom Sovereign',
+    desc: 'โล่เงินสลักอักขระเวทโบราณล้อมปีกเทวา เรืองแสงเพลิงวิญญาณสีฟ้า ป้องกันการโจมตีรอบด้าน',
+    icon: '🛡️',
+    statBonus: { def: 80, hp: 1400 },
+    bonusText: '+80 DEF, +1,400 HP ถาวร'
+  },
+  relic_mycelium_chalice: {
+    id: 'relic_mycelium_chalice',
+    monsterId: 'mushroom_sporeling',
+    name: '🍄 Chalice of the Fungal Goddess',
+    desc: 'จอกศิลาแกะสลักโบราณที่เห็ดเรืองแสงสีฟ้าครามผลิบานตลอดกาล มอบพลังชีวิตอันมหาศาล',
+    icon: '🍄',
+    statBonus: { def: 50, hp: 1500 },
+    bonusText: '+50 DEF, +1,500 HP ถาวร'
+  },
+  relic_solar_dragon_egg: {
+    id: 'relic_solar_dragon_egg',
+    monsterId: 'baby_fire_wyrm',
+    name: '🐲 Solar Hearth Dragon Egg',
+    desc: 'ไข่มังกรทองคำฝังเกล็ดทับทิมล้อมรอบด้วยเปลวไฟศักดิ์สิทธิ์ ปลดปล่อยพลังโจมตีและชีวิต',
+    icon: '🐲',
+    statBonus: { atk: 90, hp: 1000 },
+    bonusText: '+90 ATK, +1,000 HP ถาวร'
+  },
+
+  // Skeleton Monsters (assets/relics/relics_skeleton.jpg)
+  relic_vanguard_crest: {
+    id: 'relic_vanguard_crest',
+    monsterId: 'skeleton_warrior',
+    name: '💀 Crest of the Fallen Vanguard',
+    desc: 'ตราศึกดาบคู่สลักหัวกะโหลกสวมมงกุฎ บ่งบอกถึงเกียรติยศและพลังโจมตีของผู้ไม่ยอมจำนน',
+    icon: '💀',
+    statBonus: { atk: 88, def: 65 },
+    bonusText: '+88 ATK, +65 DEF ถาวร'
+  },
+  relic_banshee_harp: {
+    id: 'relic_banshee_harp',
+    monsterId: 'skeleton_archer',
+    name: '🏹 Banshee Bone Harp',
+    desc: 'พิณแกะสลักจากงาช้างโบราณ ขึงด้วยสายเพลิงวิญญาณสีเขียว บรรเลงเสียงแห่งความเร็วอันไร้เสียงสะท้อน',
+    icon: '🏹',
+    statBonus: { atk: 95, aspd: 0.08 },
+    bonusText: '+95 ATK, +8% ASPD ถาวร'
+  },
+  relic_lich_archon_orb: {
+    id: 'relic_lich_archon_orb',
+    monsterId: 'skeleton_mage',
+    name: '🧙 Lich Archon Soul Sphere',
+    desc: 'หัวคทากระดูกโบราณโอบอุ้มลูกแก้ววิญญาณสีฟ้าคราม สลักอักขระต้องห้ามแห่งความตาย',
+    icon: '🧙',
+    statBonus: { atk: 110, critRate: 0.09 },
+    bonusText: '+110 ATK, +9% Crit Rate ถาวร'
+  },
+  relic_death_knight_crown: {
+    id: 'relic_death_knight_crown',
+    monsterId: 'skeleton_knight',
+    name: '⚔️ Crown of the Dread Death Knight',
+    desc: 'มงกุฎเหล็กดำปลายแหลมฝังไพลินแห่งความมืด มอบพลังป้องกันและพลังกายสูงสุดของขุนศึกยมโลก',
+    icon: '⚔️',
+    statBonus: { atk: 70, def: 110, hp: 2000 },
+    bonusText: '+70 ATK, +110 DEF, +2,000 HP ถาวร'
+  }
 };
 
 // Crafting Recipes
