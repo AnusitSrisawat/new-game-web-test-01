@@ -1032,6 +1032,9 @@ export class GameEngine {
         log(`ตั้งเลเวลเป็น ${msg.value}`); break;
       case 'points': pl.statPoints += msg.value; log(`ได้แต้มสเตตัส +${msg.value}`); break;
       case 'warp': this.changeMap(msg.map); break;
+      case 'giveweapons':
+        msg.ids.forEach(id => pl.addItem(id, 1));
+        log(`ได้อาวุธ ${msg.ids.length} ชิ้น: ${msg.ids.map(id => ITEMS[id]?.name || id).join(', ')}`); break;
       case 'give':
         if (msg.kind === 'gold') { pl.gold += msg.value; log(`ได้ Gold +${msg.value.toLocaleString()}`); }
         else if (msg.kind === 'exp') { pl.gainExp(msg.value); log(`ได้ EXP +${msg.value.toLocaleString()}`); }

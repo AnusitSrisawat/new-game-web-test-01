@@ -523,7 +523,7 @@ function handleCommand(ws, p, text) {
   const [cmdRaw, ...args] = text.slice(1).split(/\s+/);
   const cmd = (cmdRaw || '').toLowerCase();
   if (cmd === 'help') {
-    sysMsg(ws, '📖 คำสั่ง: /help • /gm <รหัส> • (GM) /buffserver [exp|gold|drop|monster] <ตัวคูณ> • /buffserver reset • /give gold|exp|item|book|pet … • /level <n> • /points <n> • /heal • /warp <แมพ> • /announce <ข้อความ>');
+    sysMsg(ws, '📖 คำสั่ง: /help • /gm <รหัส> • (GM) /buffserver [exp|gold|drop|monster] <ตัวคูณ> • /buffserver reset • /give gold|exp|item|book|pet … • /giveweapons [ประเภท] • /level <n> • /points <n> • /heal • /warp <แมพ> • /announce <ข้อความ>');
     return true;
   }
   if (cmd === 'gm') {
@@ -560,7 +560,7 @@ function handleCommand(ws, p, text) {
     return true;
   }
   // ---- other GM commands: the server checks the GM, then tells that client to apply it ----
-  const GM_CMDS = ['give', 'level', 'points', 'heal', 'warp', 'announce'];
+  const GM_CMDS = ['give', 'giveweapons', 'level', 'points', 'heal', 'warp', 'announce'];
   if (GM_CMDS.includes(cmd)) {
     if (!gmSockets.has(ws)) { sysMsg(ws, '⚠️ คำสั่งนี้ใช้ได้เฉพาะ GM'); return true; }
     const n = (v, lo, hi) => { const x = Math.floor(Number(v)); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : null; };
@@ -569,6 +569,13 @@ function handleCommand(ws, p, text) {
       const t = cleanText(args.join(' '), 150);
       if (!t) { sysMsg(ws, '⚠️ ใช้: /announce <ข้อความ>'); return true; }
       broadcast({ type: 'chat', text: `📢 [ประกาศ] ${t}`, channel: 'system' });
+    } else if (cmd === 'giveweapons') {
+      // /giveweapons → every weapon; /giveweapons sword → one weapon type (or one weapon id)
+      const q = (args[0] || '').toLowerCase();
+      const all = Object.values(ITEMS).filter(it => it.type === 'weapon');
+      const ids = (q && q !== 'all' ? all.filter(it => it.weaponType === q || it.id === q) : all).map(it => it.id);
+      if (!ids.length) sysMsg(ws, `⚠️ ไม่มีอาวุธ "${q}" — ประเภทที่มี: ${[...new Set(all.map(it => it.weaponType))].join(', ')}`);
+      else act({ action: 'giveweapons', ids });
     } else if (cmd === 'heal') act({ action: 'heal' });
     else if (cmd === 'level') {
       const v = n(args[0], 1, 999);
