@@ -906,6 +906,13 @@ export class GameEngine {
       const k = Math.min(1, 0.06 + d / 400); pet.x += (tx - pet.x) * k * 0.2; pet.y += (ty - pet.y) * k * 0.2;
     }
     pet.moving = d > 12;
+    // tell the server where the pet is (10x/s) so other players see it fetching loot too
+    pet.syncT = (pet.syncT || 0) - dt;
+    if (this.network && pet.syncT <= 0) {
+      pet.syncT = 0.1;
+      const c = pet.carry;
+      this.network.sendPetState(pet.x, pet.y, c ? (c.isPet ? '🐾' : (ITEMS[c.itemId] || RELICS[c.itemId])?.icon || '🎁') : null);
+    }
   }
 
   drawGroundLoot(ctx) {
@@ -1685,6 +1692,9 @@ export class GameEngine {
   }
 
   render() {
+    const nowR = performance.now();
+    const dtRender = Math.min(0.1, (nowR - (this._lastRenderT || nowR)) / 1000);
+    this._lastRenderT = nowR;
     const ctx = this.ctx;
     const cam = this.camera;
 
@@ -1718,11 +1728,14 @@ export class GameEngine {
           if (op.x >= cam.x - 100 && op.x <= cam.x + cam.w + 100 && op.y >= cam.y - 100 && op.y <= cam.y + cam.h + 100) {
             if (op.pet && MONSTERS[op.pet]) {
               // other players' pets just trail behind their owner
-              const f = op.facing || 1, gx = op.x - f * 46, gy = op.y + 14;
+              const f = op.facing || 1;
+              const synced = op.petX !== undefined;
+              const gx = synced ? op.petX : op.x - f * 46, gy = synced ? op.petY : op.y + 14;
               const pt = op.petPos || (op.petPos = { x: gx, y: gy });
               const d = Math.hypot(gx - pt.x, gy - pt.y);
-              if (d > 500) { pt.x = gx; pt.y = gy; } else if (d > 4) { const k = Math.min(1, 0.06 + d / 400); pt.x += (gx - pt.x) * k * 0.2; pt.y += (gy - pt.y) * k * 0.2; }
+              if (d > 700) { pt.x = gx; pt.y = gy; } else if (d > 2) { const k = synced ? Math.min(1, dtRender * 12) : Math.min(1, 0.06 + d / 400) * 0.2; pt.x += (gx - pt.x) * k; pt.y += (gy - pt.y) * k; }
               pt.moving = d > 12;
+              pt.carry = op.petCarry ? { icon: op.petCarry } : null;
               this.drawPetSprite(ctx, op.pet, pt, f);
             }
             this.drawOtherPlayer(ctx, op);
@@ -2020,7 +2033,7 @@ export class GameEngine {
       ctx.save();
       ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const c = pet.carry, isp = c.isPet;
-      ctx.fillText(isp ? '🐾' : (ITEMS[c.itemId] || RELICS[c.itemId])?.icon || '🎁', pet.x, pet.y - dh - 6 - hop);
+      ctx.fillText(c.icon || (isp ? '🐾' : (ITEMS[c.itemId] || RELICS[c.itemId])?.icon || '🎁'), pet.x, pet.y - dh - 6 - hop);
       ctx.restore();
     }
   }
