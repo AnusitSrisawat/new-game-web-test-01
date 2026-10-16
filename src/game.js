@@ -180,6 +180,7 @@ export class GameEngine {
 
       const zoneTitle = document.getElementById('minimap-zone-name');
       if (zoneTitle) zoneTitle.textContent = z.name;
+      document.dispatchEvent(new CustomEvent('mapchanged'));
 
       if (this.network) {
         this.network.sendChangeMap(z.id, this.playerEntity.x, this.playerEntity.y);
@@ -208,6 +209,7 @@ export class GameEngine {
       this.onLog(`🗺️ ย้ายไปยังแผนที่: ${z.name}`, 'system');
       const zoneTitle = document.getElementById('minimap-zone-name');
       if (zoneTitle) zoneTitle.textContent = z.name;
+      document.dispatchEvent(new CustomEvent('mapchanged'));
 
       if (this.network) {
         this.network.sendChangeMap(z.id, this.playerEntity.x, this.playerEntity.y);
