@@ -61,6 +61,12 @@
       "facing": "right"
     }
   },
+  "ui": {
+    "main": {
+      "playerScale": 2.5,
+      "petScale": 1
+    }
+  },
   "sounds": {
     "slash": {
       "wave": "sawtooth",
