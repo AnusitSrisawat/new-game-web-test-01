@@ -94,6 +94,8 @@ export const SCHEMA = {
       def: num('DEF', 0, 100000),
       hp: num('HP', 0, 1000000),
       heal: num('ฟื้น HP', 0, 1000000),
+      sp: num('ฟื้น SP', 0, 1000000),
+      exp: num('ได้ EXP ทันที', 0, 100000000),
       reqLevel: num('เลเวลที่ต้องการ', 1, 999),
       lootSpeed: num('ความเร็วเก็บของของ Pet (x, 1 = ปกติ)', 1, 50, 0.01),
       speedPct: num('สัตว์ขี่: ความเร็วเดิน +%', 0, 300),

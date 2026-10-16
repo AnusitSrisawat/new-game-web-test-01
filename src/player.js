@@ -356,7 +356,7 @@ export class Player {
 
   // HP potions currently in the bag (weakest first)
   ownedHpPotions() {
-    return HP_POTION_IDS.filter(id => this.inventory[id] > 0 && ITEMS[id]);
+    return HP_POTION_IDS.filter(id => this.inventory[id] > 0 && ITEMS[id] && ITEMS[id].heal > 0);
   }
 
   // Drink a specific potion, or the weakest one owned when itemId is not given/owned
@@ -370,8 +370,21 @@ export class Player {
     return { healed: healAmt, itemName: item.name, itemId: id };
   }
 
+  // Use any item that has a use-effect (heal HP / restore SP / gain EXP). Effects come from the item data, editable in Studio.
+  useItem(itemId) {
+    const item = ITEMS[itemId];
+    if (!item || !this.inventory[itemId] || this.inventory[itemId] <= 0) return null;
+    if (!(item.heal > 0 || item.sp > 0 || item.exp > 0)) return null;
+    this.removeItem(itemId, 1);
+    const res = { itemName: item.name, itemId, healed: 0, restored: 0, exp: 0 };
+    if (item.heal > 0) { const b = this.currentHp; this.currentHp = Math.min(this.maxHp, b + item.heal); res.healed = this.currentHp - b; }
+    if (item.sp > 0) { const b = this.currentSp; this.currentSp = Math.min(this.maxSp, b + item.sp); res.restored = this.currentSp - b; }
+    if (item.exp > 0) { this.gainExp(item.exp); res.exp = item.exp; }
+    return res;
+  }
+
   ownedSpPotions() {
-    return SP_POTION_IDS.filter(id => this.inventory[id] > 0 && ITEMS[id]);
+    return SP_POTION_IDS.filter(id => this.inventory[id] > 0 && ITEMS[id] && ITEMS[id].sp > 0);
   }
 
   useSpPotion(itemId = null) {
