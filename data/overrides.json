@@ -61,6 +61,53 @@
       "facing": "right"
     }
   },
+  "items": {
+    "hat_helm": {
+      "scale": 1.65,
+      "offY": -15
+    },
+    "hat_wizard": {
+      "scale": 1.2,
+      "offY": 1
+    },
+    "hat_cat": {
+      "scale": 1.45,
+      "offY": 4.5
+    },
+    "hat_crown": {
+      "scale": 1.15,
+      "offY": -0.5
+    },
+    "head_1": {
+      "offY": 2
+    },
+    "head_2": {
+      "offY": 2
+    },
+    "head_0": {
+      "offY": 2
+    },
+    "head_3": {
+      "offY": 2
+    },
+    "outfit_knight": {
+      "offX": 0.5,
+      "offY": -1.5
+    },
+    "outfit_ranger": {
+      "offX": 1,
+      "offY": -2
+    },
+    "outfit_sorcerer": {
+      "offY": -1.5
+    },
+    "outfit_assassin": {
+      "offY": -2
+    },
+    "outfit_royal": {
+      "offY": -1.5
+    }
+  },
   "ui": {
     "main": {
       "playerScale": 2.5,
