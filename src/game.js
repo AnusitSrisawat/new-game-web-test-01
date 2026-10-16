@@ -1077,29 +1077,23 @@ export class GameEngine {
     });
   }
 
-  // Ragnarok-style damage numbers: consecutive hits on one monster line up away from the attacker
-  // (hit from the left -> numbers step to the right), each flies up in an arc, curves down and fades.
+  // Ragnarok-style damage numbers: the newest hit sits right on the monster; every new hit pushes the older
+  // numbers one step away — up and away from the attacker (hit from the left -> up-right) — while they fade out.
   addDamageText(m, damage, isCrit) {
-    const now = performance.now();
-    if (!m.dmgSeqAt || now - m.dmgSeqAt > 900) m.dmgSeq = 0;
-    m.dmgSeqAt = now;
-    const i = m.dmgSeq % 8;
-    m.dmgSeq++;
     const dir = m.x >= this.playerEntity.x ? 1 : -1;
+    for (const ft of this.floatingTexts) if (ft.owner === m) ft.slot++;
     this.floatingTexts.push({
-      x: m.x + dir * (i * 30 - 10),
-      y: m.y - 38 - i * 7,
+      owner: m, slot: 0, dir, ax: m.x, ay: m.y,
+      x: m.x, y: m.y - 30,
       text: `${damage}`,
       color: isCrit ? '#fde047' : '#ffffff',
       stroke: isCrit ? '#b45309' : '#1e293b',
       fontSize: isCrit ? 30 : 21,
       isCrit,
       pop: true,
-      life: 1.25,
-      maxLife: 1.25,
-      vx: dir * 38,
-      vy: -85,
-      gravity: 190
+      life: 1.5,
+      maxLife: 1.5,
+      vx: 0, vy: 0
     });
   }
 
@@ -1980,9 +1974,16 @@ export class GameEngine {
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
       const ft = this.floatingTexts[i];
       ft.life -= dt;
-      if (ft.gravity) ft.vy += ft.gravity * dt;
-      ft.x += ft.vx * dt;
-      ft.y += ft.vy * dt;
+      if (ft.owner) { // slide to this number's slot: further from the monster = further up/away
+        const tx = ft.ax + ft.dir * ft.slot * 30;
+        const ty = ft.ay - 32 - ft.slot * 24;
+        const k = Math.min(1, dt * 14);
+        ft.x += (tx - ft.x) * k;
+        ft.y += (ty - ft.y) * k;
+      } else {
+        ft.x += ft.vx * dt;
+        ft.y += ft.vy * dt;
+      }
       if (ft.life <= 0) this.floatingTexts.splice(i, 1);
     }
 
@@ -2139,7 +2140,7 @@ export class GameEngine {
     for (const ft of this.floatingTexts) {
       ctx.save();
       const age = 1 - ft.life / ft.maxLife;
-      if (ft.pop) ctx.globalAlpha = Math.max(0, Math.min(1, (1 - age) * 2.2)); // stays solid, then fades away
+      if (ft.pop) ctx.globalAlpha = Math.max(0, Math.min(1, (1 - age) * 1.8 - ft.slot * 0.12)); // older numbers fade away
       ctx.font = ft.isCrit || ft.pop ? `bold ${ft.fontSize}px sans-serif` : `${ft.fontSize}px sans-serif`;
       ctx.fillStyle = ft.color;
       ctx.textAlign = 'center';
