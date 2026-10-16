@@ -4,7 +4,7 @@ import { getMapDef, TILE_SIZE } from './maps.js';
 import { ZONES, WEAPON_TYPES, MONSTERS, ITEMS, RELICS, QUESTS, SKILLS, SOUNDS } from './data.js';
 import { weaponMatches } from './player.js';
 import { soundEngine } from './audio.js';
-import { monsterSprite, itemSprite, weaponSprite, dropSprite } from './sprites.js';
+import { monsterSprite, itemSprite, weaponSprite, dropSprite, splitDropPieces } from './sprites.js';
 
 // ---- Sword swing animation (prog 0..1: wind-up, snap strike, follow-through) ----
 // Angles are the blade direction: 0 = straight up, positive = clockwise (towards the facing side).
@@ -366,8 +366,9 @@ export class GameEngine {
     const src = this.monsters.find(item => item.id === msg.monsterId);
     const ox = src ? src.x : this.playerEntity.x;
     const oy = src ? src.y : this.playerEntity.y;
-    if (msg.gold > 0) this.spawnLootOrb(ox, oy, 'gold', { amount: msg.gold });
-    if (msg.exp > 0) this.spawnLootOrb(ox, oy, 'exp', { amount: msg.exp });
+    for (const kind of ['gold', 'exp']) {
+      for (const p of splitDropPieces(msg[kind])) this.spawnLootOrb(ox, oy, kind, p);
+    }
     if (msg.shared) {
       this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 45, `+${msg.exp} EXP [Party]`, '#4ade80', 16);
       this.onLog(`🤝 ได้ +${msg.exp} EXP, +${msg.gold} G`, 'system', 'monster');
@@ -712,7 +713,7 @@ export class GameEngine {
   spawnLootOrb(x, y, kind, data = {}) {
     const ang = Math.random() * Math.PI * 2;
     const dist = 28 + Math.random() * 34;
-    const sprite = (kind === 'gold' || kind === 'exp') ? dropSprite(kind, data.amount || 0) : null;
+    const sprite = (kind === 'gold' || kind === 'exp') ? dropSprite(kind, data.size || data.amount || 0) : null;
     this.lootOrbs.push({
       kind, ...data,
       sprite,
@@ -1023,14 +1024,12 @@ export class GameEngine {
         }
       } else {
         const gold = o.kind === 'gold';
-        const sp = o.sprite || dropSprite(o.kind, o.amount || 0);
+        const sp = o.sprite || dropSprite(o.kind, o.size || o.amount || 0);
         const sheet = sp ? this.getSheet(sp.src) : null;
         if (sheet) {
           ctx.shadowColor = gold ? '#fbbf24' : '#4ade80';
           ctx.shadowBlur = 12;
-          const sz = gold
-            ? (o.amount >= 500 ? 32 : o.amount >= 80 ? 26 : 22)
-            : (o.amount >= 1000 ? 34 : o.amount >= 150 ? 28 : 22);
+          const sz = o.size === 'l' ? 32 : o.size === 'm' ? 26 : 22;
           ctx.drawImage(sheet, sp.sx, sp.sy, sp.sw, sp.sh, x - sz / 2, y - sz / 2, sz, sz);
         } else {
           ctx.shadowColor = gold ? '#fbbf24' : '#4ade80';

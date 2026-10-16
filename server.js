@@ -372,6 +372,8 @@ const LOOT_LIFETIME = 900;      // seconds an item stays on the ground before it
 const LOOT_PICK_RANGE = 160;    // px between player and item for a pick-up
 const LOOT_PET_RANGE = 1100;    // px between player and item when the player's pet fetches it
 const LOOT_MAX_PER_MAP = 300;
+const POTION_DROP_CHANCE = 0.05;                          // every monster, separate from its drop table
+const POTION_DROP_IDS = ['hp_potion_s', 'sp_potion_s'];   // one roll, then a random kind
 const groundLoot = new Map();   // id -> { id, map, x, y, fromX, fromY, itemId?, isPet?, monsterId?, isRelic?, ownerId, ownerName, unlockAt, expireAt }
 let nextLootId = 1;
 
@@ -424,7 +426,12 @@ function spawnDrops(m, ownerId, ownerName) {
         if (r < acc) { if (ITEMS[drop.itemId]) add({ itemId: drop.itemId }); break; }
       }
     }
-    // 2) pet and 3) the monster's own relic: separate rolls
+    // 2) potion: its own roll for every monster (S size only, HP or SP; M / L are sold in the shop)
+    if (Math.random() < POTION_DROP_CHANCE) {
+      const pid = POTION_DROP_IDS[Math.floor(Math.random() * POTION_DROP_IDS.length)];
+      if (ITEMS[pid]) add({ itemId: pid });
+    }
+    // 3) pet and 4) the monster's own relic: separate rolls
     if (Math.random() < (template.petChance || 0)) add({ isPet: true, monsterId: m.templateId });
     const relic = Object.values(RELICS).find(rl => rl.monsterId === m.templateId);
     if (relic && Math.random() < (template.relicChance || 0)) add({ itemId: relic.id, isRelic: true });
