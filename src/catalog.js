@@ -36,24 +36,24 @@ const KEEP_STATS = ['slime']; // the very first monster keeps its hand-tuned num
 
 // New monsters. `items` is only needed for a monster that has neither an item sheet nor a starter-sheet picture.
 const NEW_MONSTERS = [
-  { id: 'forest_hornet', name: 'Forest Hornet', emoji: '🐝', level: 3, ai: { speed: 120, aggro: 250, attackRange: 55 } },
-  { id: 'mushroom_sporeling', name: 'Mushroom Sporeling', emoji: '🍄', level: 6, ai: { speed: 40, aggro: 160 } },
-  { id: 'mossy_golem', name: 'Mossy Golem', emoji: '🗿', level: 12, ai: { speed: 45, aggro: 180, attackRange: 80 } },
-  { id: 'jungle_viper', name: 'Jungle Viper', emoji: '🐍', level: 21, ai: { speed: 100, aggro: 260, attackRange: 70 } },
-  { id: 'claw_bear', name: 'Claw Bear', emoji: '🐻', level: 29, ai: { speed: 80, aggro: 240, attackRange: 85 } },
-  { id: 'bandit_rogue', name: 'Bandit Rogue', emoji: '🥷', level: 34, ai: { speed: 125, aggro: 300, attackCooldown: 1.2 } },
-  { id: 'bandit_archer', name: 'Bandit Archer', emoji: '🏹', level: 37, ai: { speed: 70, aggro: 380, attackRange: 260, attackCooldown: 1.8 } },
-  { id: 'chest_mimic', name: 'Chest Mimic', emoji: '🧰', level: 44, ai: { speed: 30, aggro: 120, attackRange: 70, wanderRadius: 0 } },
-  { id: 'bandit_brute', name: 'Bandit Brute', emoji: '💪', level: 42, ai: { speed: 65, aggro: 240, attackRange: 85, attackCooldown: 2.0 } },
-  { id: 'bandit_leader', name: 'Bandit Leader', emoji: '🏴‍☠️', level: 48, ai: { speed: 85, aggro: 300, attackRange: 90, attackCooldown: 1.4 }, mult: { hp: 2.2, atk: 1.3, exp: 2.5 } },
-  { id: 'fire_imp', name: 'Fire Imp', emoji: '😈', level: 52, ai: { speed: 115, aggro: 290, attackRange: 190, attackCooldown: 1.8 } },
-  { id: 'skeleton_warrior', name: 'Skeleton Warrior', emoji: '💀', level: 55, ai: { speed: 75, aggro: 250, attackRange: 75 } },
-  { id: 'floating_eye', name: 'Floating Eye', emoji: '👁️', level: 56, ai: { speed: 90, aggro: 330, attackRange: 200, attackCooldown: 2.0 } },
-  { id: 'baby_fire_wyrm', name: 'Baby Fire Wyrm', emoji: '🐲', level: 58, ai: { speed: 80, aggro: 280, attackRange: 160, attackCooldown: 2.0 } },
-  { id: 'skeleton_archer', name: 'Skeleton Archer', emoji: '🏹', level: 58, ai: { speed: 70, aggro: 380, attackRange: 260, attackCooldown: 1.8 } },
-  { id: 'skeleton_mage', name: 'Skeleton Mage', emoji: '🧙', level: 61, ai: { speed: 65, aggro: 350, attackRange: 230, attackCooldown: 2.2 } },
-  { id: 'spectral_armor', name: 'Spectral Armor', emoji: '🛡️', level: 62, ai: { speed: 60, aggro: 240, attackRange: 80 } },
-  { id: 'skeleton_knight', name: 'Skeleton Knight', emoji: '⚔️', level: 66, ai: { speed: 60, aggro: 260, attackRange: 90, attackCooldown: 1.8 } }
+  { id: 'forest_hornet', name: 'Forest Hornet', emoji: '🐝', level: 3, size: 68, ai: { speed: 120, aggro: 250, attackRange: 55 } },
+  { id: 'mushroom_sporeling', name: 'Mushroom Sporeling', emoji: '🍄', level: 6, size: 72, ai: { speed: 40, aggro: 160 } },
+  { id: 'mossy_golem', name: 'Mossy Golem', emoji: '🗿', level: 12, size: 135, ai: { speed: 45, aggro: 180, attackRange: 80 } },
+  { id: 'jungle_viper', name: 'Jungle Viper', emoji: '🐍', level: 21, size: 88, ai: { speed: 100, aggro: 260, attackRange: 70 } },
+  { id: 'claw_bear', name: 'Claw Bear', emoji: '🐻', level: 29, size: 128, ai: { speed: 80, aggro: 240, attackRange: 85 } },
+  { id: 'bandit_rogue', name: 'Bandit Rogue', emoji: '🥷', level: 34, size: 90, ai: { speed: 125, aggro: 300, attackCooldown: 1.2 } },
+  { id: 'bandit_archer', name: 'Bandit Archer', emoji: '🏹', level: 37, size: 90, ai: { speed: 70, aggro: 380, attackRange: 260, attackCooldown: 1.8 } },
+  { id: 'chest_mimic', name: 'Chest Mimic', emoji: '🧰', level: 44, size: 92, ai: { speed: 30, aggro: 120, attackRange: 70, wanderRadius: 0 } },
+  { id: 'bandit_brute', name: 'Bandit Brute', emoji: '💪', level: 42, size: 122, ai: { speed: 65, aggro: 240, attackRange: 85, attackCooldown: 2.0 } },
+  { id: 'bandit_leader', name: 'Bandit Leader', emoji: '🏴‍☠️', level: 48, size: 142, ai: { speed: 85, aggro: 300, attackRange: 90, attackCooldown: 1.4 }, mult: { hp: 2.2, atk: 1.3, exp: 2.5 } },
+  { id: 'fire_imp', name: 'Fire Imp', emoji: '😈', level: 52, size: 75, ai: { speed: 115, aggro: 290, attackRange: 190, attackCooldown: 1.8 } },
+  { id: 'skeleton_warrior', name: 'Skeleton Warrior', emoji: '💀', level: 55, size: 92, ai: { speed: 75, aggro: 250, attackRange: 75 } },
+  { id: 'floating_eye', name: 'Floating Eye', emoji: '👁️', level: 56, size: 92, ai: { speed: 90, aggro: 330, attackRange: 200, attackCooldown: 2.0 } },
+  { id: 'baby_fire_wyrm', name: 'Baby Fire Wyrm', emoji: '🐲', level: 58, size: 125, ai: { speed: 80, aggro: 280, attackRange: 160, attackCooldown: 2.0 } },
+  { id: 'skeleton_archer', name: 'Skeleton Archer', emoji: '🏹', level: 58, size: 92, ai: { speed: 70, aggro: 380, attackRange: 260, attackCooldown: 1.8 } },
+  { id: 'skeleton_mage', name: 'Skeleton Mage', emoji: '🧙', level: 61, size: 92, ai: { speed: 65, aggro: 350, attackRange: 230, attackCooldown: 2.2 } },
+  { id: 'spectral_armor', name: 'Spectral Armor', emoji: '🛡️', level: 62, size: 130, ai: { speed: 60, aggro: 240, attackRange: 80 } },
+  { id: 'skeleton_knight', name: 'Skeleton Knight', emoji: '⚔️', level: 66, size: 135, ai: { speed: 60, aggro: 260, attackRange: 90, attackCooldown: 1.8 } }
 ];
 
 // Existing monsters that finally got their own picture: their drops become the 3 items on the sheet
@@ -75,7 +75,7 @@ export function installCatalog({ MONSTERS, ITEMS, MONSTER_AI }) {
     MONSTERS[nm.id] = {
       id: nm.id, name: nm.name, emoji: nm.emoji, level: nm.level,
       hp: Math.round(s.hp * (mult.hp || 1)), atk: Math.round(s.atk * (mult.atk || 1)),
-      def: s.def, exp: Math.round(s.exp * (mult.exp || 1)), drops: []
+      def: s.def, exp: Math.round(s.exp * (mult.exp || 1)), size: nm.size || 92, drops: []
     };
     MONSTER_AI[nm.id] = nm.ai;
   }

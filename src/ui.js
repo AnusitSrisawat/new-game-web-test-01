@@ -255,6 +255,13 @@ export class UIController {
     modal.classList.add('active');
     this.bringToFront(modal);
     if (renderFn) renderFn();
+    // Re-verify modal stays strictly inside viewport after content is rendered
+    requestAnimationFrame(() => {
+      const w = modal.offsetWidth || 600;
+      const h = modal.offsetHeight || 400;
+      modal.style.left = `${this.clampX(modal.offsetLeft, w)}px`;
+      modal.style.top = `${this.clampY(modal.offsetTop, h)}px`;
+    });
     this.saveWindowState();
   }
 
@@ -281,23 +288,52 @@ export class UIController {
     return best;
   }
 
-  // Position: remembered spot, otherwise a cascade near the centre
+  // Position: remembered spot, otherwise cascade near centre, always strictly inside screen
   placeWindow(modal) {
     if (modal.dataset.placed) return;
     modal.dataset.placed = '1';
     let pos = null;
     try { pos = (JSON.parse(localStorage.getItem('win_pos') || '{}'))[modal.id]; } catch (e) { /* ignore */ }
-    const w = Math.min(680, window.innerWidth * 0.94);
+    const modalW = modal.offsetWidth || (modal.id === 'modal-status' ? 860 : modal.id === 'modal-inventory' ? 960 : modal.id === 'modal-shop' ? 940 : modal.id === 'modal-info' ? 880 : 680);
+    const modalH = modal.offsetHeight || 520;
+    const w = Math.min(modalW, window.innerWidth - 16);
+    const h = Math.min(modalH, window.innerHeight - 16);
     if (!pos) {
       const n = this.openWindows.size - 1;
-      pos = { x: Math.max(8, (window.innerWidth - w) / 2 + n * 28), y: 70 + n * 28 };
+      pos = {
+        x: Math.max(8, (window.innerWidth - w) / 2 + (n % 4) * 20),
+        y: Math.max(8, Math.min(60 + (n % 4) * 20, window.innerHeight - h - 16))
+      };
     }
     modal.style.left = `${this.clampX(pos.x, w)}px`;
-    modal.style.top = `${this.clampY(pos.y)}px`;
+    modal.style.top = `${this.clampY(pos.y, h)}px`;
   }
 
-  clampX(x, w) { return Math.min(Math.max(0, x), Math.max(0, window.innerWidth - Math.min(w, 120))); }
-  clampY(y) { return Math.min(Math.max(0, y), Math.max(0, window.innerHeight - 60)); }
+  // Clamps X so the window is 100% visible on screen (never sticks out left or right)
+  clampX(x, w) {
+    const margin = 8;
+    const maxLeft = Math.max(margin, window.innerWidth - (w || 600) - margin);
+    return Math.min(Math.max(margin, x), maxLeft);
+  }
+
+  // Clamps Y so the window is 100% visible on screen (never sticks out top or bottom)
+  clampY(y, h) {
+    const margin = 8;
+    const maxTop = Math.max(margin, window.innerHeight - (h || 400) - margin);
+    return Math.min(Math.max(margin, y), maxTop);
+  }
+
+  // Clamps all open windows so none stick out
+  clampAllWindowsToScreen() {
+    this.openWindows.forEach(id => {
+      const modal = document.getElementById(id);
+      if (!modal) return;
+      const w = modal.offsetWidth || 600;
+      const h = modal.offsetHeight || 400;
+      modal.style.left = `${this.clampX(modal.offsetLeft, w)}px`;
+      modal.style.top = `${this.clampY(modal.offsetTop, h)}px`;
+    });
+  }
 
   saveWindowState() {
     try {
@@ -305,8 +341,10 @@ export class UIController {
     } catch (e) { /* ignore */ }
   }
 
-  // Drag by header, click brings to front, positions are remembered
+  // Drag by header, click brings to front, positions are remembered and clamped
   initWindows() {
+    window.addEventListener('resize', () => this.clampAllWindowsToScreen());
+
     document.querySelectorAll('.game-modal').forEach(modal => {
       modal.addEventListener('mousedown', () => this.bringToFront(modal));
       const header = modal.querySelector('.modal-header');
@@ -318,7 +356,7 @@ export class UIController {
         const startY = e.clientY - modal.offsetTop;
         const move = (ev) => {
           modal.style.left = `${this.clampX(ev.clientX - startX, modal.offsetWidth)}px`;
-          modal.style.top = `${this.clampY(ev.clientY - startY)}px`;
+          modal.style.top = `${this.clampY(ev.clientY - startY, modal.offsetHeight)}px`;
         };
         const up = () => {
           window.removeEventListener('mousemove', move);
@@ -748,7 +786,7 @@ export class UIController {
       const maxB = this.player.maxBaseExp;
       const bPct = Math.min(100, (this.player.baseExp / maxB) * 100);
       expFill.style.width = `${bPct}%`;
-      if (expText) expText.textContent = `Lv.${this.player.baseLevel}  ${this.player.baseExp.toLocaleString()} / ${maxB.toLocaleString()}  (${bPct.toFixed(1)}%)`;
+      if (expText) expText.textContent = `Lv.${this.player.baseLevel}  ${this.player.baseExp.toLocaleString()} / ${maxB.toLocaleString()}  (${bPct.toFixed(2)}%)`;
     }
 
     if (goldEl) goldEl.textContent = this.player.gold.toLocaleString();
@@ -804,7 +842,7 @@ export class UIController {
         const textSpan = mask.querySelector('.skill-cd-text');
         if (cd > 0) {
           el.classList.add('on-cooldown');
-          textSpan.textContent = cd >= 1 ? `${Math.ceil(cd)}s` : cd.toFixed(1);
+          textSpan.textContent = cd >= 1 ? `${Math.ceil(cd)}s` : cd.toFixed(2);
         } else {
           if (el.classList.contains('on-cooldown')) {
             el.classList.remove('on-cooldown');
@@ -926,16 +964,24 @@ export class UIController {
     STAT_KEYS.forEach(k => { pl.stats[k] -= pend[k] || 0; });
     const prev = (key, fmt = v => v) => {
       const a = after[key], b = before[key];
-      return a !== b ? `${fmt(b)} <span style="color:#4ade80;">→ ${fmt(a)}</span>` : fmt(b);
+      return a !== b ? `${fmt(b)} <span style="color:#4ade80; font-weight:700;">→ ${fmt(a)}</span>` : fmt(b);
     };
-    const row = (l, v) => `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span>${l}</span> <b>${v}</b></div>`;
+    const row = (icon, l, v) => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px; background:rgba(255,255,255,0.02); border-radius:6px; border:1px solid rgba(255,255,255,0.04);">
+        <span style="display:flex; align-items:center; gap:6px; color:#cbd5e1; font-size:0.82rem;">
+          <span>${icon}</span>
+          <span>${l}</span>
+        </span>
+        <b style="font-size:0.86rem; color:#f8fafc;">${v}</b>
+      </div>
+    `;
 
     this.hideStatInfo();
     body.innerHTML = `
       <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(245,158,11,0.3); border-radius:8px; padding:10px 14px; margin-bottom:12px;">
         <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:3px;">
           <span style="font-weight:700; color:#38bdf8;">⭐ Level ${pl.baseLevel}</span>
-          <span style="color:#94a3b8; font-size:0.75rem;">${bPct.toFixed(1)}%</span>
+          <span style="color:#94a3b8; font-size:0.75rem;">${bPct.toFixed(2)}%</span>
         </div>
         <div style="width:100%; height:8px; background:#1e293b; border-radius:4px; overflow:hidden;">
           <div style="width:${bPct}%; height:100%; background:linear-gradient(90deg,#0284c7,#38bdf8);"></div>
@@ -943,47 +989,66 @@ export class UIController {
         <div style="font-size:0.7rem; color:#94a3b8; margin-top:2px; text-align:right;">${pl.baseExp.toLocaleString()} / ${maxB.toLocaleString()} EXP</div>
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-        <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <span style="display:flex; align-items:center; gap:8px;">
-              <span style="font-weight:700;">จัดสรรค่าสเตตัส</span>
-              <button id="btn-stat-reset" style="padding:2px 8px; background:#7f1d1d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">รีสเตตัส (ฟรี)</button>
-            </span>
-            <span style="color:#f59e0b; font-size:0.85rem; text-align:right;">แต้มคงเหลือ: <b>${pendLeft}</b></span>
+      <div style="display:grid; grid-template-columns:1.2fr 0.8fr; gap:16px;">
+        <div style="background:rgba(0,0,0,0.3); padding:12px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08);">
+              <span style="display:flex; align-items:center; gap:8px;">
+                <span style="font-weight:700; font-size:0.92rem; color:#fbbf24;">⚡ จัดสรรค่าสเตตัส</span>
+                <button id="btn-stat-reset" style="padding:3px 8px; background:#7f1d1d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.72rem; font-weight:600;">รีสเตตัส (ฟรี)</button>
+              </span>
+              <span style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); padding:3px 10px; border-radius:6px; color:#f59e0b; font-size:0.82rem;">
+                แต้มคงเหลือ: <b style="color:#fbbf24; font-size:0.95rem;">${pendLeft.toLocaleString()}</b>
+              </span>
+            </div>
+            ${STAT_KEYS.map(k => {
+              const bs = 'height:28px; border:none; border-radius:5px; color:#fff; cursor:pointer; font-size:0.75rem; font-weight:700; touch-action:none; padding:0 8px; white-space:nowrap; transition:all 0.15s;';
+              const canAdd = pendLeft > 0, canSub = pend[k] > 0;
+              const addBtn = (n, label, bg) => canAdd ? `<button class="btn-stat-add" data-stat="${k}" data-amt="${n}" style="${bs} background:${bg};">${label}</button>` : '';
+              return `
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.06);">
+                <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                  <span class="stat-name" data-stat="${k}" style="
+                    font-weight:800; text-transform:uppercase; min-width:40px; cursor:help;
+                    color:#38bdf8; font-size:0.92rem; text-decoration:underline dotted rgba(56,189,248,0.5); text-underline-offset:3px;
+                  ">${k}</span>
+                  <div style="display:flex; align-items:baseline; gap:5px; white-space:nowrap;">
+                    <span style="font-size:1.02rem; font-weight:700; color:#f8fafc;">${(pl.stats[k] || 0).toLocaleString()}</span>
+                    ${pend[k] ? `<span style="color:#4ade80; font-size:0.85rem; font-weight:700; background:rgba(74,222,128,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(74,222,128,0.3);">+${pend[k].toLocaleString()}</span>` : ''}
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                  ${canSub ? `<button class="btn-stat-sub" data-stat="${k}" data-amt="all" style="${bs} background:#7f1d1d;" title="ล้างทั้งหมด">ล้าง</button>` : ''}
+                  ${canSub ? `<button class="btn-stat-sub" data-stat="${k}" data-amt="1" style="${bs} background:#475569;" title="ลด 1 แต้ม">−1</button>` : ''}
+                  ${canSub && canAdd ? '<span style="width:1px; height:18px; background:rgba(255,255,255,0.2); margin:0 2px;"></span>' : ''}
+                  ${addBtn(1, '+1', '#2563eb')}
+                  ${addBtn(10, '+10', '#1d4ed8')}
+                  ${addBtn('max', 'MAX', '#b45309')}
+                </div>
+              </div>`;
+            }).join('')}
           </div>
-          ${STAT_KEYS.map(k => {
-            const bs = 'height:26px; border:none; border-radius:4px; color:#fff; cursor:pointer; font-size:0.72rem; font-weight:700; touch-action:none; padding:0 7px; white-space:nowrap;';
-            const canAdd = pendLeft > 0, canSub = pend[k] > 0;
-            const dis = on => on ? '' : 'disabled';
-            const dim = on => on ? '' : 'opacity:0.35; cursor:default;';
-            const addBtn = (n, label, bg) => canAdd ? `<button class="btn-stat-add" data-stat="${k}" data-amt="${n}" style="${bs} background:${bg};">${label}</button>` : '';
-            return `
-            <div style="display:flex; align-items:center; gap:4px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-              <span class="stat-name" data-stat="${k}" style="font-weight:700; text-transform:uppercase; width:36px; cursor:help; text-decoration:underline dotted rgba(255,255,255,0.4); text-underline-offset:3px;">${k}</span>
-              <b style="min-width:54px; font-size:1rem;">${pl.stats[k]}${pend[k] ? `<span style="color:#4ade80;"> +${pend[k]}</span>` : ''}</b>
-              <span style="flex:1;"></span>
-              ${canSub ? `<button class="btn-stat-sub" data-stat="${k}" data-amt="all" style="${bs} background:#7f1d1d;">ล้าง</button>` : ''}
-              ${canSub ? `<button class="btn-stat-sub" data-stat="${k}" data-amt="1" style="${bs} background:#475569;">−1</button>` : ''}
-              ${canSub && canAdd ? '<span style="width:1px; height:18px; background:rgba(255,255,255,0.2); margin:0 2px;"></span>' : ''}
-              ${addBtn(1, '+1', '#2563eb')}${addBtn(10, '+10', '#1d4ed8')}${addBtn('max', 'MAX', '#b45309')}
-            </div>`;
-          }).join('')}
-          ${pendTotal > 0 ? `<div style="display:flex; gap:8px; margin-top:10px;">
-            <button id="btn-stat-confirm" style="flex:1; padding:6px; background:#16a34a; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:700;">✅ ยืนยัน (${pendTotal} แต้ม)</button>
-            <button id="btn-stat-cancel" style="padding:6px 10px; background:#475569; color:#fff; border:none; border-radius:4px; cursor:pointer;">ยกเลิก</button>
+          ${pendTotal > 0 ? `<div style="display:flex; gap:8px; margin-top:12px;">
+            <button id="btn-stat-confirm" style="flex:1; padding:7px; background:#16a34a; color:#fff; border:none; border-radius:5px; cursor:pointer; font-weight:700; font-size:0.85rem; box-shadow:0 2px 6px rgba(22,163,74,0.3);">✅ ยืนยัน (${pendTotal.toLocaleString()} แต้ม)</button>
+            <button id="btn-stat-cancel" style="padding:7px 14px; background:#475569; color:#fff; border:none; border-radius:5px; cursor:pointer; font-size:0.85rem;">ยกเลิก</button>
           </div>` : ''}
         </div>
-        <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); font-size:0.85rem;">
-          <h4 style="margin-bottom:8px;">⚔️ ข้อมูลพลังรบรวม</h4>
-          ${row('Max HP', prev('hp'))}
-          ${row('ATK', prev('atk'))}
-          ${row('MATK', prev('matk'))}
-          ${row('DEF', prev('def'))}
-          ${row('ASPD', prev('aspd', v => `${v}/s`))}
-          ${row('Crit Rate', prev('crit', v => `${(v * 100).toFixed(1)}%`))}
-          ${row('Crit Damage', prev('cdmg', v => `${Math.round(v * 100)}%`))}
-          ${row('Move Speed', prev('move', v => `${Math.round(v * 100)}%`))}
+        <div style="background:rgba(0,0,0,0.3); padding:12px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); font-size:0.85rem; display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <div style="font-weight:700; font-size:0.9rem; margin-bottom:10px; color:#fbbf24; display:flex; align-items:center; gap:6px;">
+              <span>⚔️</span> ข้อมูลพลังรบรวม (Combat Stats)
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              ${row('❤️', 'Max HP', prev('hp', v => Number(Number(v || 0).toFixed(2)).toLocaleString(undefined, { maximumFractionDigits: 2 })))}
+              ${row('⚔️', 'ATK', prev('atk', v => Number(Number(v || 0).toFixed(2)).toLocaleString(undefined, { maximumFractionDigits: 2 })))}
+              ${row('🔮', 'MATK', prev('matk', v => Number(Number(v || 0).toFixed(2)).toLocaleString(undefined, { maximumFractionDigits: 2 })))}
+              ${row('🛡️', 'DEF', prev('def', v => Number(Number(v || 0).toFixed(2)).toLocaleString(undefined, { maximumFractionDigits: 2 })))}
+              ${row('⚡', 'ASPD', prev('aspd', v => `${Number(v).toFixed(2)}/s`))}
+              ${row('🎯', 'Crit Rate', prev('crit', v => `${(Number(v) * 100).toFixed(2)}%`))}
+              ${row('💥', 'Crit Damage', prev('cdmg', v => `${(Number(v) * 100).toFixed(2)}%`))}
+              ${row('👟', 'Move Speed', prev('move', v => `${(Number(v) * 100).toFixed(2)}%`))}
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -1320,6 +1385,8 @@ export class UIController {
       { slot: 'hat', label: 'หมวก', icon: '🎩' },
       { slot: 'hair', label: 'ทรงผม', icon: '💇' },
       { slot: 'face', label: 'ใบหน้า', icon: '👀' },
+      { slot: 'mouth', label: 'ปาก', icon: '👄' },
+      { slot: 'pet', label: 'สัตว์เลี้ยง', icon: '🐾' },
       { slot: 'mount', label: 'สัตว์ขี่', icon: '🐎' }
     ];
 
@@ -1653,10 +1720,13 @@ export class UIController {
       const cur = (curId && curId !== k) ? ITEMS[curId] : null;
       const head = (it, tag, tagColor) => `<div style="font-weight:700; font-size:0.85rem;">${it.name}</div><div style="color:${tagColor}; font-size:0.7rem; margin-bottom:4px;">${tag}</div>`;
       const stats = (it, other) => STAT_ROWS.filter(([f]) => it[f] || (other && other[f])).map(([f, label]) => {
-        const v = it[f] || 0;
+        const rawV = it[f] || 0;
+        const v = typeof rawV === 'number' ? Number(rawV.toFixed(2)) : rawV;
         let extra = '';
         if (other) {
-          const d = v - (other[f] || 0);
+          const rawO = other[f] || 0;
+          const oVal = typeof rawO === 'number' ? Number(rawO.toFixed(2)) : rawO;
+          const d = Number((v - oVal).toFixed(2));
           if (d !== 0) extra = ` <span style="color:${d > 0 ? '#4ade80' : '#f87171'};">(${d > 0 ? '+' : ''}${d})</span>`;
         }
         return row(label, f === 'lootSpeed' ? `x${v}` : f === 'speedPct' ? `+${v}%` : `+${v}`, extra);
@@ -1674,14 +1744,19 @@ export class UIController {
     body.querySelectorAll('.inv-slot, .equip-slot-card').forEach(el => {
       const k = el.dataset.id;
       if (!k || !ITEMS[k]) return;
-      el.addEventListener('mouseenter', () => {
-        tip.innerHTML = tipHtml(k);
-        tip.style.display = 'flex';
-      });
-      el.addEventListener('mousemove', e => {
-        const w = tip.offsetWidth, h = tip.offsetHeight;
+      const updatePos = (e) => {
+        if (!e || e.clientX === undefined) return;
+        const w = tip.offsetWidth || 200, h = tip.offsetHeight || 120;
         tip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 6) + 'px';
         tip.style.top = Math.min(e.clientY + 14, window.innerHeight - h - 6) + 'px';
+      };
+      el.addEventListener('mouseenter', (e) => {
+        tip.innerHTML = tipHtml(k);
+        tip.style.display = 'flex';
+        updatePos(e);
+      });
+      el.addEventListener('mousemove', (e) => {
+        updatePos(e);
       });
       el.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
     });
@@ -1740,7 +1815,7 @@ export class UIController {
     const curTab = this.dbTab || 'monsters';
     const curMonFilter = this.dbMonFilter || 'all';
     const curItemFilter = this.dbItemFilter || 'all';
-    const pct = (v) => `${Math.round(v * 10000) / 100}%`;
+    const pct = (v) => `${(Number(v) * 100).toFixed(2)}%`;
 
     // Where each monster lives
     const mapsOf = (mid) => {
@@ -1861,8 +1936,8 @@ export class UIController {
       const itemBadgeHtml = (it) => {
         if (it.atk) return `<span class="item-badge" style="background:rgba(239,68,68,0.18); border:1px solid rgba(239,68,68,0.35); color:#fca5a5;">⚔️ ATK +${it.atk}</span>`;
         if (it.def) return `<span class="item-badge" style="background:rgba(59,130,246,0.18); border:1px solid rgba(59,130,246,0.35); color:#93c5fd;">🛡️ DEF +${it.def}</span>`;
-        if (it.speedPct) return `<span class="item-badge" style="background:rgba(16,185,129,0.18); border:1px solid rgba(16,185,129,0.35); color:#6ee7b7;">🏇 วิ่ง +${it.speedPct}%</span>`;
-        if (it.lootSpeed) return `<span class="item-badge" style="background:rgba(236,72,153,0.18); border:1px solid rgba(236,72,153,0.35); color:#f472b6;">🐾 เก็บ x${it.lootSpeed}</span>`;
+        if (it.speedPct) return `<span class="item-badge" style="background:rgba(16,185,129,0.18); border:1px solid rgba(16,185,129,0.35); color:#6ee7b7;">🏇 วิ่ง +${Number(it.speedPct.toFixed(2))}%</span>`;
+        if (it.lootSpeed) return `<span class="item-badge" style="background:rgba(236,72,153,0.18); border:1px solid rgba(236,72,153,0.35); color:#f472b6;">🐾 เก็บ x${Number(it.lootSpeed.toFixed(2))}</span>`;
         if (it.heal) return `<span class="item-badge" style="background:rgba(244,63,94,0.18); border:1px solid rgba(244,63,94,0.35); color:#fda4af;">❤️ +${it.heal} HP</span>`;
         if (it.sp) return `<span class="item-badge" style="background:rgba(14,165,233,0.18); border:1px solid rgba(14,165,233,0.35); color:#7dd3fc;">💧 +${it.sp} SP</span>`;
         if (it.exp) return `<span class="item-badge" style="background:rgba(234,179,8,0.18); border:1px solid rgba(234,179,8,0.35); color:#fde047;">⭐ +${it.exp} EXP</span>`;
@@ -1992,7 +2067,7 @@ export class UIController {
         <div style="margin-top:8px; display:flex; flex-direction:column; gap:4px; font-size:0.72rem;">
           <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 7px; background:rgba(236,72,153,0.1); border:1px solid rgba(236,72,153,0.25); border-radius:5px;">
             <span style="display:inline-flex; align-items:center; gap:4px; color:#f472b6;">
-              🐾 <b>Pet สัตว์เลี้ยง</b> <span style="color:#cbd5e1; font-size:0.68rem;">(เก็บของ x${ITEMS['pet_' + id]?.lootSpeed || 1})</span>
+              🐾 <b>Pet สัตว์เลี้ยง</b> <span style="color:#cbd5e1; font-size:0.68rem;">(เก็บของ x${Number((ITEMS['pet_' + mid]?.lootSpeed || 1).toFixed(2))})</span>
             </span>
             <b style="color:#ec4899;">${pct(m.petChance || 0)}</b>
           </div>
@@ -2039,8 +2114,8 @@ export class UIController {
       if (it.atk) statList.push(`<div><span style="color:#fbbf24;">⚔️ ATK:</span> <b style="color:#fff;">+${it.atk}</b></div>`);
       if (it.def) statList.push(`<div><span style="color:#60a5fa;">🛡️ DEF:</span> <b style="color:#fff;">+${it.def}</b></div>`);
       if (it.hp) statList.push(`<div><span style="color:#4ade80;">❤️ HP:</span> <b style="color:#fff;">+${it.hp}</b></div>`);
-      if (it.speedPct) statList.push(`<div><span style="color:#34d399;">⚡ Move Speed:</span> <b style="color:#fff;">+${it.speedPct}%</b></div>`);
-      if (it.lootSpeed) statList.push(`<div><span style="color:#f472b6;">🐾 เก็บของเร็ว:</span> <b style="color:#fff;">x${it.lootSpeed}</b></div>`);
+      if (it.speedPct) statList.push(`<div><span style="color:#34d399;">⚡ Move Speed:</span> <b style="color:#fff;">+${Number(it.speedPct.toFixed(2))}%</b></div>`);
+      if (it.lootSpeed) statList.push(`<div><span style="color:#f472b6;">🐾 เก็บของเร็ว:</span> <b style="color:#fff;">x${Number(it.lootSpeed.toFixed(2))}</b></div>`);
       if (it.heal) statList.push(`<div><span style="color:#f87171;">❤️ ฟื้นฟู HP:</span> <b style="color:#fff;">+${it.heal}</b></div>`);
       if (it.sp) statList.push(`<div><span style="color:#38bdf8;">💧 ฟื้นฟู SP:</span> <b style="color:#fff;">+${it.sp}</b></div>`);
       if (it.exp) statList.push(`<div><span style="color:#facc15;">⭐ เพิ่ม EXP:</span> <b style="color:#fff;">+${it.exp}</b></div>`);
@@ -2306,7 +2381,7 @@ export class UIController {
     body.innerHTML = `
       <div style="${card}"><h4>🎯 สกิลที่ใช้ได้ตอนนี้ (สูงสุด ${SKILL_SLOTS} ช่อง กด 1–${SKILL_SLOTS})</h4>
         <div style="display:flex; gap:6px; margin-top:8px;">${loadoutHtml}</div>
-        <div style="font-size:0.7rem; color:#94a3b8; margin-top:6px;">สกิลติดตัว (Passive) ก็ใช้ 1 ช่องเหมือนกัน • 💧 SP ${Math.floor(pl.currentSp)}/${pl.maxSp} (ฟื้น ${pl.spRegen.toFixed(1)}/วิ)</div></div>
+        <div style="font-size:0.7rem; color:#94a3b8; margin-top:6px;">สกิลติดตัว (Passive) ก็ใช้ 1 ช่องเหมือนกัน • 💧 SP ${Math.floor(pl.currentSp)}/${pl.maxSp} (ฟื้น ${pl.spRegen.toFixed(2)}/วิ)</div></div>
       <div style="${card}"><h4>📖 สกิลที่เรียนแล้ว (${learned.length})</h4>${learnedHtml}</div>
       <div style="${card}"><h4>📕 สมุดสกิลในกระเป๋า</h4>${booksHtml}
         <div style="font-size:0.7rem; color:#94a3b8; margin-top:4px;">สมุดใช้เรียนได้เฉพาะสกิลที่ยังไม่เคยเรียน • สมุดซ้ำขายเป็นเงินได้</div></div>
@@ -2489,158 +2564,487 @@ export class UIController {
     });
     html += '</div>';
 
-    // Pets (rare item drop: looks like the monster) — wear them in the Equipment window
-    const ownedPet = (mid) => (this.player.inventory[`pet_${mid}`] || 0) > 0 || this.player.equipment.pet === `pet_${mid}`;
-    const petCount = Object.keys(MONSTERS).filter(ownedPet).length;
-    html += `<h4 style="margin:16px 0 8px;">🐾 สัตว์เลี้ยงที่เคยได้ (${petCount}/${Object.keys(MONSTERS).length}) <span style="font-size:0.72rem;color:#94a3b8;font-weight:400;">ดรอปหายากจากมอนสเตอร์ เป็นไอเทม — สวมใส่ในกระเป๋า [I] → อุปกรณ์สวมใส่</span></h4>
-      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px;">`;
-    Object.keys(MONSTERS).forEach(mid => {
-      const have = ownedPet(mid);
-      const on = this.player.equipment.pet === `pet_${mid}`;
-      html += `<div style="background:rgba(0,0,0,0.3); border:1px solid ${on ? '#ec4899' : 'rgba(255,255,255,0.08)'}; border-radius:8px; padding:6px; text-align:center; opacity:${have ? 1 : 0.35}; font-size:0.75rem;">
-        <div style="height:46px; display:flex; align-items:center; justify-content:center; font-size:26px;">${have ? monsterIconHtml(mid, MONSTERS[mid].emoji, 44) : '❓'}</div>
-        <div>${have ? MONSTERS[mid].name : '???'}${on ? ' <span style="color:#ec4899;">(สวมอยู่)</span>' : ''}</div></div>`;
-    });
-    html += '</div>';
-
     body.innerHTML = html;
   }
 
-  // 5. Shop & Gacha Modal
+  // 5. NPC Shop Modal (Separate Buy & Sell Tabs)
   renderShopModal() {
     const body = document.getElementById('modal-shop-body');
     if (!body) return;
 
-    let wardrobeHtml = '<div style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; margin-top:8px;">';
-    GACHA_COSTUMES.forEach(c => {
-      const unlocked = this.player.unlockedCostumes.includes(c.id);
-      const isEquipped = Object.values(this.player.costumes).includes(c.id);
-      wardrobeHtml += `
-        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:6px 10px; border-radius:6px; opacity:${unlocked ? '1' : '0.5'};">
-          <span style="font-size:0.82rem;">${c.icon} <b>${c.name}</b></span>
-          ${unlocked ? `
-            <button class="btn-wear-costume" data-id="${c.id}" style="padding:3px 8px; background:${isEquipped ? '#ef4444' : '#a855f7'}; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.72rem;">
-              ${isEquipped ? 'ถอด' : 'สวมใส่'}
-            </button>
-          ` : '<span style="font-size:0.7rem; color:#94a3b8;">ยังไม่มี</span>'}
-        </div>
-      `;
+    // Default main tab: 'buy' or 'sell'
+    if (!this.shopMainTab) this.shopMainTab = 'buy';
+    const mainTab = this.shopMainTab;
+
+    // Preserve scroll position
+    const oldScrollEl = body.querySelector(mainTab === 'sell' ? '.shop-sell-scroll' : '.shop-buy-scroll');
+    const prevScrollTop = oldScrollEl ? oldScrollEl.scrollTop : 0;
+
+    // Available Potions to Buy (Only HP & SP Potions; Yellow EXP Potions removed)
+    const SHOP_POTIONS = [
+      { id: 'hp_potion_s', type: 'hp', tag: 'HP (เล็ก)', color: '#ef4444', desc: 'ฟื้นฟู +60 HP' },
+      { id: 'hp_potion_m', type: 'hp', tag: 'HP (กลาง)', color: '#ef4444', desc: 'ฟื้นฟู +200 HP' },
+      { id: 'hp_potion_l', type: 'hp', tag: 'HP (ใหญ่)', color: '#ef4444', desc: 'ฟื้นฟู +600 HP' },
+      { id: 'sp_potion_s', type: 'sp', tag: 'SP (เล็ก)', color: '#3b82f6', desc: 'ฟื้นฟู +40 SP' },
+      { id: 'sp_potion_m', type: 'sp', tag: 'SP (กลาง)', color: '#3b82f6', desc: 'ฟื้นฟู +120 SP' },
+      { id: 'sp_potion_l', type: 'sp', tag: 'SP (ใหญ่)', color: '#3b82f6', desc: 'ฟื้นฟู +300 SP' },
+    ];
+
+    // All Items in Bag available to sell (excluding currently equipped items)
+    const equippedIds = new Set(Object.values(this.player.equipment || {}).filter(Boolean));
+    const allSellableKeys = Object.keys(this.player.inventory || {}).filter(k => {
+      return ITEMS[k] && this.player.inventory[k] > 0 && !equippedIds.has(k);
     });
-    wardrobeHtml += '</div>';
 
-    body.innerHTML = `
-      <div style="display:grid; grid-template-columns:1fr 1.2fr; gap:14px;">
-        <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
-          <h4>🛒 ร้านค้าของชำ (NPC Merchant)</h4>
-          <p style="font-size:0.78rem; color:#94a3b8; margin:6px 0 10px;">ขายขยะฟาร์ม หรือซื้อโพชั่นเพิ่มเลือด/มานา/EXP</p>
-          <button id="modal-sell-trash" style="width:100%; padding:8px; background:#f59e0b; color:#000; font-weight:700; border:none; border-radius:6px; cursor:pointer; margin-bottom:12px;">💰 ขายขยะทั้งหมด (Sell All Trash)</button>
-          <div style="display:flex; flex-direction:column; gap:6px; max-height:260px; overflow-y:auto; padding-right:4px;">
-            ${[
-              'hp_potion_s', 'hp_potion_m', 'hp_potion_l',
-              'sp_potion_s', 'sp_potion_m', 'sp_potion_l',
-              'exp_potion_s', 'exp_potion_m', 'exp_potion_l'
-            ].filter(id => ITEMS[id]).map(id => {
-              const it = ITEMS[id];
-              return `
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; background:rgba(255,255,255,0.03); padding:4px 8px; border-radius:6px; border:1px solid rgba(255,255,255,0.06);">
-                  <span style="display:flex; align-items:center; gap:6px;">
-                    ${itemIconHtml(id, it.icon, 22)}
-                    <b>${it.name}</b>
-                  </span>
-                  <button class="btn-buy-pot-m" data-id="${id}" data-cost="${it.price}" style="padding:3px 10px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">ซื้อ (${it.price} G)</button>
-                </div>
-              `;
-            }).join('')}
-          </div>
+    // Top Navigation Tabs (Buy vs Sell)
+    const mainTabsHtml = `
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px; margin-bottom:12px; flex-shrink:0;">
+        <div style="display:flex; gap:8px;">
+          <button class="btn-shop-main-tab" data-tab="buy" style="
+            padding:7px 18px; border:none; border-radius:8px; cursor:pointer; font-size:0.86rem; font-weight:700; transition:all 0.15s;
+            background:${mainTab === 'buy' ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : 'rgba(255,255,255,0.06)'};
+            color:${mainTab === 'buy' ? '#fff' : '#94a3b8'};
+            box-shadow:${mainTab === 'buy' ? '0 2px 8px rgba(37,99,235,0.4)' : 'none'};
+          ">🛒 ซื้อของ (Buy)</button>
+          <button class="btn-shop-main-tab" data-tab="sell" style="
+            padding:7px 18px; border:none; border-radius:8px; cursor:pointer; font-size:0.86rem; font-weight:700; transition:all 0.15s;
+            background:${mainTab === 'sell' ? 'linear-gradient(135deg,#059669,#047857)' : 'rgba(255,255,255,0.06)'};
+            color:${mainTab === 'sell' ? '#fff' : '#94a3b8'};
+            box-shadow:${mainTab === 'sell' ? '0 2px 8px rgba(5,150,105,0.4)' : 'none'};
+          ">💰 ขายของ (Sell) <span style="font-size:0.72rem; opacity:0.85;">(${allSellableKeys.length})</span></button>
         </div>
-
-        <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
-          <h4>✨ ตู้สุ่มกาชาแฟชั่น (Fashion Gacha)</h4>
-          <div style="display:flex; gap:8px; margin:10px 0;">
-            <button id="modal-pull-token" style="flex:1; padding:7px; background:linear-gradient(135deg,#a855f7,#ec4899); color:#fff; font-weight:600; border:none; border-radius:6px; cursor:pointer;" ${this.player.gachaTokens >= 1 ? '' : 'disabled'}>🎟️ สุ่มด้วย Token [${this.player.gachaTokens}]</button>
-            <button id="modal-pull-gold" style="flex:1; padding:7px; background:#f59e0b; color:#000; font-weight:600; border:none; border-radius:6px; cursor:pointer;" ${this.player.gold >= 500 ? '' : 'disabled'}>🪙 สุ่ม (500 G)</button>
-          </div>
-          <h5 style="margin-top:10px; font-size:0.85rem;">👗 ตู้เสื้อผ้าแฟชั่น:</h5>
-          ${wardrobeHtml}
+        <div style="display:flex; align-items:center; gap:6px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); padding:4px 12px; border-radius:8px; font-size:0.82rem;">
+          🪙 Gold: <b style="color:#fbbf24; font-size:0.95rem;">${(this.player.gold || 0).toLocaleString()}</b> G
         </div>
       </div>
     `;
 
-    document.getElementById('modal-sell-trash')?.addEventListener('click', () => {
+    let contentHtml = '';
+
+    // ==========================================
+    // TAB 1: BUY POTIONS VIEW
+    // ==========================================
+    if (mainTab === 'buy') {
+      const buyCardsHtml = SHOP_POTIONS.map(pot => {
+        const it = ITEMS[pot.id];
+        if (!it) return '';
+        const owned = this.player.inventory[pot.id] || 0;
+        const canAfford1 = (this.player.gold || 0) >= it.price;
+        const canAfford10 = (this.player.gold || 0) >= it.price * 10;
+
+        // Buff / Effect list (supports multiple buffs cleanly on separate rows)
+        const effects = [];
+        if (it.heal) effects.push({ icon: '❤️', label: `ฟื้นฟู +${it.heal} HP`, color: '#f87171' });
+        if (it.sp) effects.push({ icon: '💧', label: `ฟื้นฟู +${it.sp} SP`, color: '#38bdf8' });
+        if (it.atk) effects.push({ icon: '⚔️', label: `เพิ่มพลังโจมตี +${it.atk}`, color: '#fbbf24' });
+        if (it.def) effects.push({ icon: '🛡️', label: `เพิ่มพลังป้องกัน +${it.def}`, color: '#60a5fa' });
+        if (it.speedPct) effects.push({ icon: '⚡', label: `เพิ่มความเร็วเดิน +${it.speedPct}%`, color: '#34d399' });
+        if (!effects.length && pot.desc) effects.push({ icon: '✨', label: pot.desc, color: '#cbd5e1' });
+        if (!effects.length && it.desc) effects.push({ icon: '✨', label: it.desc, color: '#cbd5e1' });
+
+        return `
+          <div style="
+            display:flex; flex-direction:column; justify-content:space-between; gap:12px;
+            background:rgba(255,255,255,0.03); border:1px solid ${pot.type === 'hp' ? 'rgba(239,68,68,0.3)' : 'rgba(59,130,246,0.3)'};
+            padding:14px; border-radius:12px; box-shadow:0 3px 10px rgba(0,0,0,0.3); transition:all 0.2s;
+          ">
+            <!-- Top: Item Details (รายละเอียดอยู่ข้างบน) -->
+            <div>
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:8px;">
+                <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+                  <div style="width:46px; height:46px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); border-radius:10px; border:1px solid rgba(255,255,255,0.08); flex-shrink:0;">
+                    ${itemIconHtml(pot.id, it.icon, 38)}
+                  </div>
+                  <div style="min-width:0; flex:1;">
+                    <div style="font-size:0.92rem; font-weight:700; color:${pot.color}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                      ${it.name}
+                    </div>
+                    <div style="font-size:0.73rem; color:#94a3b8; display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:2px;">
+                      <span style="color:#fbbf24; font-weight:600;">🪙 ${it.price.toLocaleString()} G</span>
+                      <span style="color:rgba(255,255,255,0.2);">·</span>
+                      <span>มีในกระเป๋า: <b style="color:#f59e0b;">${owned}</b> ขวด</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Category Tag -->
+                <span style="
+                  font-size:0.7rem; padding:2px 8px; border-radius:6px; font-weight:700; flex-shrink:0;
+                  background:${pot.type === 'hp' ? 'rgba(239,68,68,0.15)' : 'rgba(59,130,246,0.15)'};
+                  color:${pot.color}; border:1px solid ${pot.type === 'hp' ? 'rgba(239,68,68,0.3)' : 'rgba(59,130,246,0.3)'};
+                ">${pot.tag}</span>
+              </div>
+
+              <!-- Effect & Buffs Box (กล่องแสดงผลลัพธ์/บัฟเฉพาะ) -->
+              <div style="
+                background:rgba(0,0,0,0.28); border-radius:8px; padding:8px 10px; font-size:0.76rem;
+                border:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; gap:5px;
+              ">
+                ${effects.map(eff => `
+                  <div style="display:flex; align-items:center; gap:6px; color:${eff.color}; font-weight:600;">
+                    <span>${eff.icon}</span> <span>${eff.label}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- Bottom: Action Buttons (เอาปุ่มมาไว้ข้างล่าง) -->
+            <div style="display:flex; gap:8px; margin-top:auto; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06);">
+              <button class="btn-buy-pot" data-id="${pot.id}" data-qty="1" data-cost="${it.price}" ${canAfford1 ? '' : 'disabled'} style="
+                flex:1; padding:8px 10px; border:none; border-radius:6px; font-size:0.78rem; font-weight:700;
+                cursor:${canAfford1 ? 'pointer' : 'not-allowed'};
+                background:${canAfford1 ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : 'rgba(255,255,255,0.08)'};
+                color:${canAfford1 ? '#fff' : '#64748b'};
+                box-shadow:${canAfford1 ? '0 2px 6px rgba(37,99,235,0.35)' : 'none'};
+                transition:all 0.15s;
+              ">ซื้อ x1 (${it.price} G)</button>
+
+              <button class="btn-buy-pot" data-id="${pot.id}" data-qty="10" data-cost="${it.price * 10}" ${canAfford10 ? '' : 'disabled'} style="
+                flex:1; padding:8px 10px; border:none; border-radius:6px; font-size:0.78rem; font-weight:700;
+                cursor:${canAfford10 ? 'pointer' : 'not-allowed'};
+                background:${canAfford10 ? 'linear-gradient(135deg,#059669,#047857)' : 'rgba(255,255,255,0.08)'};
+                color:${canAfford10 ? '#fff' : '#64748b'};
+                box-shadow:${canAfford10 ? '0 2px 6px rgba(5,150,105,0.35)' : 'none'};
+                transition:all 0.15s;
+              ">ซื้อ x10 (${(it.price * 10).toLocaleString()} G)</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      contentHtml = `
+        <div style="display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden;">
+          <div style="margin-bottom:12px;">
+            <p style="font-size:0.78rem; color:#94a3b8; margin:0;">เลือกซื้อโพชั่นฟื้นฟูเลือด (HP) และมานา (SP) สำหรับออกผจญภัย</p>
+          </div>
+          <div class="shop-buy-scroll shop-scroll" style="flex:1; overflow-y:auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(270px, 1fr)); gap:12px; padding-right:4px;">
+            ${buyCardsHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    // ==========================================
+    // TAB 2: SELL INVENTORY VIEW
+    // ==========================================
+    else {
+      if (!this.shopSellTab) this.shopSellTab = 'all';
+      const currentTab = this.shopSellTab;
+      const searchQ = (this.shopSellSearch || '').trim().toLowerCase();
+
+      // Categories
+      const TABS = [
+        { id: 'all', label: '🎒 ทั้งหมด', match: () => true },
+        { id: 'material', label: '🦴 วัสดุ/ขยะ', match: it => it.type === 'material' },
+        { id: 'combat', label: '⚔️ อุปกรณ์', match: it => ['weapon', 'shield', 'outfit', 'back', 'hat', 'hair', 'face', 'mouth', 'pet', 'mount'].includes(it.type) },
+        { id: 'consumable', label: '🧪 ของใช้', match: it => it.type === 'consumable' },
+      ];
+      const currentTabDef = TABS.find(t => t.id === currentTab) || TABS[0];
+
+      // Filter sellable items
+      const filteredSellKeys = allSellableKeys.filter(k => {
+        const it = ITEMS[k];
+        if (!currentTabDef.match(it)) return false;
+        if (searchQ) {
+          const nameMatch = it.name && it.name.toLowerCase().includes(searchQ);
+          const descMatch = it.desc && it.desc.toLowerCase().includes(searchQ);
+          const idMatch = k.toLowerCase().includes(searchQ);
+          return nameMatch || descMatch || idMatch;
+        }
+        return true;
+      });
+
+      // Calculate total trash gold
+      let totalTrashGold = 0;
+      let totalTrashCount = 0;
+      allSellableKeys.forEach(k => {
+        const it = ITEMS[k];
+        if (it && it.type === 'material') {
+          const qty = this.player.inventory[k] || 0;
+          const price = Math.max(1, it.price || 1);
+          totalTrashGold += qty * price;
+          totalTrashCount += qty;
+        }
+      });
+
+      // Sell Sub-Tabs HTML
+      const tabsHtml = `
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          ${TABS.map(t => {
+            const isActive = t.id === currentTab;
+            return `
+              <button class="btn-shop-tab" data-tab="${t.id}" style="
+                padding:4px 10px; border-radius:6px; border:none; cursor:pointer; font-size:0.75rem; font-weight:600;
+                background:${isActive ? '#059669' : 'rgba(255,255,255,0.06)'};
+                color:${isActive ? '#fff' : '#94a3b8'};
+                transition:all 0.15s;
+              ">${t.label}</button>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      // Item Rows HTML
+      let rowsHtml = '';
+      if (filteredSellKeys.length === 0) {
+        rowsHtml = `
+          <div style="text-align:center; padding:40px 10px; color:#64748b; font-size:0.85rem;">
+            📦 ไม่มีไอเทมที่สามารถขายได้ในหมวดนี้
+          </div>
+        `;
+      } else {
+        rowsHtml = filteredSellKeys.map(k => {
+          const it = ITEMS[k];
+          const owned = this.player.inventory[k] || 0;
+          const unitPrice = Math.max(1, it.price || 1);
+          const defaultTotal = unitPrice;
+
+          return `
+            <div style="
+              display:flex; align-items:center; justify-content:space-between; gap:12px;
+              background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06);
+              padding:8px 12px; border-radius:8px; margin-bottom:6px; transition:border 0.15s;
+            ">
+              <!-- Item Info -->
+              <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+                <div style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.3); border-radius:6px; flex-shrink:0;">
+                  ${itemIconHtml(k, it.icon, 30)}
+                </div>
+                <div style="min-width:0;">
+                  <div style="font-size:0.83rem; font-weight:600; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${it.name}
+                  </div>
+                  <div style="font-size:0.72rem; color:#94a3b8; display:flex; gap:6px; align-items:center; margin-top:1px;">
+                    <span style="color:#f59e0b;">มี <b>${owned}</b> ชิ้น</span>
+                    <span>·</span>
+                    <span>ราคาขาย: <b>${unitPrice.toLocaleString()}</b> G/ชิ้น</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sell Stepper and Button -->
+              <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                <div style="display:flex; align-items:center; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:6px; overflow:hidden;">
+                  <button class="btn-shop-dec" data-id="${k}" style="padding:4px 8px; border:none; background:transparent; color:#94a3b8; cursor:pointer; font-size:0.78rem;">-</button>
+                  <input type="number" class="shop-sell-input" data-id="${k}" data-unit-price="${unitPrice}" min="1" max="${owned}" value="1" style="
+                    width:42px; text-align:center; background:transparent; border:none; color:#f8fafc; font-size:0.8rem; font-weight:600; outline:none;
+                  " />
+                  <button class="btn-shop-inc" data-id="${k}" style="padding:4px 8px; border:none; background:transparent; color:#94a3b8; cursor:pointer; font-size:0.78rem;">+</button>
+                  <button class="btn-shop-max" data-id="${k}" style="padding:4px 7px; border:none; border-left:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05); color:#38bdf8; cursor:pointer; font-size:0.7rem; font-weight:700;">Max</button>
+                </div>
+
+                <div style="min-width:70px; text-align:right; font-size:0.78rem; color:#fbbf24; font-weight:700;">
+                  🪙 <span id="sell-gold-val-${k}">${defaultTotal.toLocaleString()}</span> G
+                </div>
+
+                <button class="btn-confirm-sell" data-id="${k}" style="
+                  padding:5px 12px; border:none; border-radius:6px; cursor:pointer; font-size:0.76rem; font-weight:700;
+                  background:linear-gradient(135deg,#f59e0b,#d97706); color:#000; box-shadow:0 2px 6px rgba(245,158,11,0.25);
+                ">💰 ขาย</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      contentHtml = `
+        <div style="display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden;">
+          <!-- Controls Bar -->
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; flex-shrink:0; flex-wrap:wrap;">
+            ${tabsHtml}
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="text" id="shop-sell-search" placeholder="🔍 ค้นหาไอเทม..." value="${this.shopSellSearch || ''}" style="
+                padding:4px 8px; font-size:0.75rem; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); border-radius:6px; color:#f8fafc; outline:none; width:130px;
+              " />
+              <button id="btn-sell-trash-all" ${totalTrashCount > 0 ? '' : 'disabled'} style="
+                padding:5px 12px; border:none; border-radius:6px; font-size:0.75rem; font-weight:700;
+                cursor:${totalTrashCount > 0 ? 'pointer' : 'not-allowed'};
+                background:${totalTrashCount > 0 ? 'linear-gradient(135deg,#f59e0b,#d97706)' : 'rgba(255,255,255,0.06)'};
+                color:${totalTrashCount > 0 ? '#000' : '#64748b'};
+                box-shadow:${totalTrashCount > 0 ? '0 2px 6px rgba(245,158,11,0.3)' : 'none'};
+                white-space:nowrap;
+              ">🗑️ ขายขยะทั้งหมด (${totalTrashGold.toLocaleString()} G)</button>
+            </div>
+          </div>
+
+          <!-- Sell Items List Scroll Area -->
+          <div class="shop-sell-scroll shop-scroll" style="flex:1; overflow-y:auto; padding-right:4px;">
+            ${rowsHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    // Render Full Modal HTML
+    body.innerHTML = `
+      <div style="display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden;">
+        ${mainTabsHtml}
+        <div style="flex:1; min-height:0; overflow:hidden;">
+          ${contentHtml}
+        </div>
+      </div>
+    `;
+
+    // Restore scroll position
+    const newScrollEl = body.querySelector(mainTab === 'sell' ? '.shop-sell-scroll' : '.shop-buy-scroll');
+    if (newScrollEl && prevScrollTop) {
+      newScrollEl.scrollTop = prevScrollTop;
+    }
+
+    // Main Tab Switching
+    body.querySelectorAll('.btn-shop-main-tab').forEach(b => {
+      b.addEventListener('click', (e) => {
+        this.shopMainTab = e.currentTarget.dataset.tab;
+        this.renderShopModal();
+      });
+    });
+
+    // Buy Potion Event Listeners
+    body.querySelectorAll('.btn-buy-pot').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        const qty = parseInt(e.currentTarget.dataset.qty) || 1;
+        const cost = parseInt(e.currentTarget.dataset.cost);
+        if ((this.player.gold || 0) >= cost) {
+          this.player.gold -= cost;
+          this.player.addItem(id, qty);
+          soundEngine.playPotion();
+          this.gameEngine.onLog(`🛒 ซื้อ ${ITEMS[id].name} x${qty} (-${cost.toLocaleString()} Gold)`, 'system');
+          this.renderShopModal();
+          this.updateHUD();
+          if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
+        } else {
+          this.gameEngine.onLog('⚠️ Gold ไม่เพียงพอสำหรับการซื้อ', 'system');
+        }
+      });
+    });
+
+    // Sell Trash All Event Listener
+    document.getElementById('btn-sell-trash-all')?.addEventListener('click', () => {
       let gain = 0;
-      Object.keys(this.player.inventory).forEach(k => {
+      let count = 0;
+      allSellableKeys.forEach(k => {
         const item = ITEMS[k];
         if (item && item.type === 'material') {
-          const qty = this.player.inventory[k];
-          gain += qty * item.price;
+          const qty = this.player.inventory[k] || 0;
+          const price = Math.max(1, item.price || 1);
+          gain += qty * price;
+          count += qty;
           this.player.removeItem(k, qty);
         }
       });
       if (gain > 0) {
         this.player.gold += gain;
-        this.gameEngine.onLog(`💰 ขายไอเทมขยะได้เงิน +${gain.toLocaleString()} Gold!`, 'system');
+        soundEngine.play('coin');
+        this.gameEngine.onLog(`💰 ขายไอเทมขยะและวัตถุดิบ ${count} ชิ้น ได้รับเงิน +${gain.toLocaleString()} Gold!`, 'system');
         this.renderShopModal();
         this.updateHUD();
+        if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
       } else {
         this.gameEngine.onLog('⚠️ ไม่มีไอเทมขยะในกระเป๋า', 'system');
       }
     });
 
-    body.querySelectorAll('.btn-buy-pot-m').forEach(btn => {
+    // Shop Category Tabs
+    body.querySelectorAll('.btn-shop-tab').forEach(b => {
+      b.addEventListener('click', (e) => {
+        this.shopSellTab = e.currentTarget.dataset.tab;
+        this.renderShopModal();
+      });
+    });
+
+    // Shop Search Input
+    const searchInp = body.querySelector('#shop-sell-search');
+    if (searchInp) {
+      searchInp.addEventListener('input', (e) => {
+        this.shopSellSearch = e.target.value;
+        this.renderShopModal();
+        const inp = document.getElementById('shop-sell-search');
+        if (inp) {
+          inp.focus();
+          inp.selectionStart = inp.selectionEnd = inp.value.length;
+        }
+      });
+    }
+
+    // Sell Quantity Steppers & Logic
+    const updateSellRowPrice = (itemId) => {
+      const input = body.querySelector(`.shop-sell-input[data-id="${itemId}"]`);
+      const goldSpan = body.querySelector(`#sell-gold-val-${itemId}`);
+      if (!input || !goldSpan) return;
+      const unitPrice = parseInt(input.dataset.unitPrice) || 1;
+      const max = parseInt(input.max) || 1;
+      let val = parseInt(input.value) || 1;
+      if (val < 1) val = 1;
+      if (val > max) val = max;
+      input.value = val;
+      goldSpan.textContent = (unitPrice * val).toLocaleString();
+    };
+
+    body.querySelectorAll('.btn-shop-dec').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const id = e.currentTarget.dataset.id;
-        const cost = parseInt(e.currentTarget.dataset.cost);
-        if (this.player.gold >= cost) {
-          this.player.gold -= cost;
-          this.player.addItem(id, 1);
-          this.gameEngine.onLog(`🛒 ซื้อ ${ITEMS[id].name}`, 'system');
-          this.renderShopModal();
-          this.updateHUD();
-        } else {
-          this.gameEngine.onLog('⚠️ Gold ไม่เพียงพอ', 'system');
+        const input = body.querySelector(`.shop-sell-input[data-id="${id}"]`);
+        if (input) {
+          input.value = Math.max(1, (parseInt(input.value) || 1) - 1);
+          updateSellRowPrice(id);
         }
       });
     });
 
-    const pullGacha = () => {
-      const picked = GACHA_COSTUMES[Math.floor(Math.random() * GACHA_COSTUMES.length)];
-      if (!this.player.unlockedCostumes.includes(picked.id)) {
-        this.player.unlockedCostumes.push(picked.id);
-        this.gameEngine.onLog(`🎉 กาชาแตก! ได้รับชุดแฟชั่นใหม่: ${picked.name}`, 'relic');
-      } else {
-        this.player.gold += 300;
-        this.gameEngine.onLog(`✨ ได้รับชุดซ้ำ: ${picked.name} (แปลงเป็น +300 Gold)`, 'system');
-      }
-      this.renderShopModal();
-      this.updateHUD();
-    };
-
-    document.getElementById('modal-pull-token')?.addEventListener('click', () => {
-      if (this.player.gachaTokens >= 1) {
-        this.player.gachaTokens--;
-        pullGacha();
-      }
-    });
-
-    document.getElementById('modal-pull-gold')?.addEventListener('click', () => {
-      if (this.player.gold >= 500) {
-        this.player.gold -= 500;
-        pullGacha();
-      }
-    });
-
-    body.querySelectorAll('.btn-wear-costume').forEach(btn => {
+    body.querySelectorAll('.btn-shop-inc').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const id = e.currentTarget.dataset.id;
-        const c = GACHA_COSTUMES.find(item => item.id === id);
-        if (!c) return;
-        if (this.player.costumes[c.slot] === id) {
-          this.player.costumes[c.slot] = null;
-        } else {
-          this.player.costumes[c.slot] = id;
+        const input = body.querySelector(`.shop-sell-input[data-id="${id}"]`);
+        if (input) {
+          const max = parseInt(input.max) || 1;
+          input.value = Math.min(max, (parseInt(input.value) || 1) + 1);
+          updateSellRowPrice(id);
         }
-        this.player.saveToStorage();
+      });
+    });
+
+    body.querySelectorAll('.btn-shop-max').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        const input = body.querySelector(`.shop-sell-input[data-id="${id}"]`);
+        if (input) {
+          input.value = parseInt(input.max) || 1;
+          updateSellRowPrice(id);
+        }
+      });
+    });
+
+    body.querySelectorAll('.shop-sell-input').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const id = e.currentTarget.dataset.id;
+        updateSellRowPrice(id);
+      });
+    });
+
+    // Confirm Sell Single / Multiple Button
+    body.querySelectorAll('.btn-confirm-sell').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        const it = ITEMS[id];
+        if (!it) return;
+        const input = body.querySelector(`.shop-sell-input[data-id="${id}"]`);
+        const owned = this.player.inventory[id] || 0;
+        let qtyToSell = input ? (parseInt(input.value) || 1) : 1;
+        qtyToSell = Math.max(1, Math.min(owned, qtyToSell));
+        if (qtyToSell <= 0) return;
+
+        const unitPrice = Math.max(1, it.price || 1);
+        const totalPrice = unitPrice * qtyToSell;
+
+        this.player.removeItem(id, qtyToSell);
+        this.player.gold += totalPrice;
+        soundEngine.play('coin');
+        this.gameEngine.onLog(`💰 ขาย ${it.name} x${qtyToSell} ได้รับเงิน +${totalPrice.toLocaleString()} Gold`, 'system');
+
+        this.updateHUD();
         this.renderShopModal();
+        if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
       });
     });
   }

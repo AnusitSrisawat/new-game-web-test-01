@@ -532,18 +532,72 @@ export class GameEngine {
     });
   }
 
-  // MOUSE HOVER: highlight the monster under the cursor (same hit area as click-to-attack)
+  // MOUSE HOVER: highlight the monster under the cursor (hit radius scales with monster size)
   handleMouseMove(screenX, screenY) {
     const worldX = screenX / this.zoom + this.camera.x;
     const worldY = screenY / this.zoom + this.camera.y;
-    let best = null, bestD = 85;
+    let best = null, bestD = 999999;
     for (const m of this.monsters) {
       if (m.isDead || m.map !== this.currentZone.id) continue;
+      const baseSize = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
+      const size = baseSize * 1.95;
+      const hitRadius = Math.max(65, size * 0.42);
       const d = Math.hypot(worldX - m.x, worldY - m.y);
-      if (d < bestD) { bestD = d; best = m; }
+      if (d < hitRadius && d < bestD) {
+        bestD = d;
+        best = m;
+      }
     }
     this.hoverMonster = best;
     return best;
+  }
+
+  // Select a monster target and trigger scaled selection particle & shockwave VFX
+  selectTargetMonster(m, logMessage = false) {
+    if (!m || m.isDead) return;
+    const isNew = this.selectedTarget !== m;
+    this.selectedTarget = m;
+    this.updateTargetHUD(m);
+
+    if (isNew) {
+      const baseSize = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
+      const size = baseSize * 1.95;
+      const rx = Math.max(38, size * 0.38);
+      const ry = rx * 0.38;
+      const sp = monsterSprite(m.templateId);
+      const dh = sp ? (size * sp.sh / sp.sw) : size;
+      const feetY = m.y + (m.knockbackY || 0) + 26;
+      const scaleFactor = size / 180;
+
+      // Expanding Shockwave scaled to monster size
+      this.addShockwave(m.x, feetY, '#f59e0b', rx * 1.35);
+
+      // Burst of particles scaled to monster size
+      const count = Math.max(10, Math.round(14 * scaleFactor));
+      for (let i = 0; i < count; i++) {
+        const ang = (i * Math.PI * 2) / count;
+        const px = m.x + Math.cos(ang) * (rx * 0.85);
+        const py = feetY + Math.sin(ang) * (ry * 0.85);
+        this.particles.push({
+          x: px,
+          y: py,
+          vx: Math.cos(ang) * (rx * 1.05),
+          vy: Math.sin(ang) * (ry * 1.05) - 12,
+          color: i % 2 === 0 ? '#fbbf24' : '#ef4444',
+          size: Math.max(4, Math.round(5.5 * scaleFactor)),
+          scale: 1.3,
+          scaleEnd: 0.15,
+          life: 0.42,
+          maxLife: 0.42,
+          blend: 'lighter'
+        });
+      }
+
+      if (logMessage) {
+        this.onLog(`🎯 [คลิกขวา] ล็อคเป้าหมาย: [${m.name} Lv.${m.level}]`, 'system');
+        this.addFloatingText(m.x, m.y - (dh - 28 + 20), '🎯 LOCKED', '#f59e0b', 14);
+      }
+    }
   }
 
   // Ground ring under a monster: 'target' = being attacked / locked, 'hover' = mouse is over it
@@ -553,25 +607,64 @@ export class GameEngine {
     const y = m.y + (m.knockbackY || 0) + 26;
     const baseSize = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
     const size = baseSize * 1.95;
-    const rx = Math.max(38, size * 0.28), ry = rx * 0.38;
+    const rx = Math.max(38, size * 0.38), ry = rx * 0.38;
+    const sp = monsterSprite(m.templateId);
+    const dh = sp ? (size * sp.sh / sp.sw) : size;
+
     ctx.save();
     if (kind === 'target') {
       const pulse = 1 + Math.sin(t * 6) * 0.06;
       ctx.translate(x, y);
       ctx.scale(pulse, pulse);
-      ctx.fillStyle = 'rgba(239,68,68,0.18)';
+
+      // 1. Inner ground ellipse
+      ctx.fillStyle = 'rgba(239,68,68,0.2)';
       ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 10;
+      ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 12;
       ctx.strokeStyle = '#f87171'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
-      // rotating dashed outer ring
+
+      // 2. Rotating dashed outer ring
       ctx.shadowBlur = 0;
       ctx.strokeStyle = '#fecaca'; ctx.lineWidth = 2;
       ctx.setLineDash([10, 8]); ctx.lineDashOffset = -t * 40;
-      ctx.beginPath(); ctx.ellipse(0, 0, rx + 8, ry + 3, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0, 0, rx + 10, ry + 4, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 3. 4 Target reticle corner brackets framing the monster's body
+      const bw = rx * 1.05;
+      const bh = Math.max(32, dh * 0.50);
+      const cy = -dh * 0.48;
+      const bLen = Math.max(8, Math.round(bw * 0.22));
+
+      ctx.strokeStyle = '#f87171';
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 10;
+      ctx.lineWidth = 2.5;
+
+      // Top-Left bracket
+      ctx.beginPath();
+      ctx.moveTo(-bw, cy - bh + bLen);
+      ctx.lineTo(-bw, cy - bh);
+      ctx.lineTo(-bw + bLen, cy - bh);
+      // Top-Right bracket
+      ctx.moveTo(bw - bLen, cy - bh);
+      ctx.lineTo(bw, cy - bh);
+      ctx.lineTo(bw, cy - bh + bLen);
+      // Bottom-Left bracket
+      ctx.beginPath();
+      ctx.moveTo(-bw, cy + bh - bLen);
+      ctx.lineTo(-bw, cy + bh);
+      ctx.lineTo(-bw + bLen, cy + bh);
+      // Bottom-Right bracket
+      ctx.moveTo(bw - bLen, cy + bh);
+      ctx.lineTo(bw, cy + bh);
+      ctx.lineTo(bw, cy + bh - bLen);
+      ctx.stroke();
+
     } else {
       ctx.translate(x, y);
-      ctx.fillStyle = 'rgba(250,204,21,0.12)';
+      ctx.fillStyle = 'rgba(250,204,21,0.14)';
       ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
       ctx.shadowColor = '#facc15'; ctx.shadowBlur = 8;
       ctx.strokeStyle = 'rgba(253,224,71,' + (0.7 + Math.sin(t * 8) * 0.25) + ')';
@@ -588,13 +681,12 @@ export class GameEngine {
 
     const liveMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
     for (const m of liveMonsters) {
+      const baseSize = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
+      const size = baseSize * 1.95;
+      const hitRadius = Math.max(65, size * 0.42);
       const dist = Math.hypot(worldX - m.x, worldY - m.y);
-      if (dist < 65) {
-        this.selectedTarget = m;
-        this.updateTargetHUD(m);
-        this.onLog(`🎯 [คลิกขวา] ล็อคเป้าหมาย: [${m.name} Lv.${m.level}]`, 'system');
-        this.addFloatingText(m.x, m.y - 25, '🎯 LOCKED', '#f59e0b', 14);
-        this.addShockwave(m.x, m.y, '#f59e0b', 30);
+      if (dist < hitRadius) {
+        this.selectTargetMonster(m, true);
         return;
       }
     }
@@ -607,10 +699,12 @@ export class GameEngine {
 
     const liveMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
     for (const m of liveMonsters) {
+      const baseSize = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
+      const size = baseSize * 1.95;
+      const hitRadius = Math.max(65, size * 0.42);
       const dist = Math.hypot(worldX - m.x, worldY - m.y);
-      if (dist < 65) {
-        this.selectedTarget = m;
-        this.updateTargetHUD(m);
+      if (dist < hitRadius) {
+        this.selectTargetMonster(m, false);
         const distToPlayer = Math.hypot(m.x - this.playerEntity.x, m.y - this.playerEntity.y);
         const attackRange = this.player.attackRange;
         if (distToPlayer <= attackRange) {
@@ -1773,8 +1867,7 @@ export class GameEngine {
           .filter(c => c.d <= maxDist)
           .sort((a, b) => a.d - b.d);
         if (candidates.length > 0) {
-          this.selectedTarget = candidates[0].m;
-          this.updateTargetHUD(this.selectedTarget);
+          this.selectTargetMonster(candidates[0].m, false);
         }
       }
 
@@ -2009,6 +2102,35 @@ export class GameEngine {
       ft.x += ft.vx * dt;
       ft.y += ft.vy * dt;
       if (ft.life <= 0) this.floatingTexts.splice(i, 1);
+    }
+
+    // Continuous ambient particle sparkles on selected target (scaled to monster size)
+    if (this.selectedTarget && !this.selectedTarget.isDead && this.selectedTarget.map === this.currentZone.id) {
+      this.targetParticleTimer = (this.targetParticleTimer || 0) + dt;
+      if (this.targetParticleTimer >= 0.06) {
+        this.targetParticleTimer = 0;
+        const m = this.selectedTarget;
+        const baseSize = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
+        const size = baseSize * 1.95;
+        const rx = Math.max(38, size * 0.38);
+        const ry = rx * 0.38;
+        const feetY = m.y + (m.knockbackY || 0) + 26;
+        const ang = Math.random() * Math.PI * 2;
+        const scaleFactor = size / 180;
+        this.particles.push({
+          x: m.x + Math.cos(ang) * rx,
+          y: feetY + Math.sin(ang) * ry,
+          vx: (Math.random() - 0.5) * (6 * scaleFactor),
+          vy: -16 - Math.random() * (22 * scaleFactor),
+          color: Math.random() < 0.6 ? '#fbbf24' : '#ef4444',
+          size: Math.max(3, 4.5 * scaleFactor),
+          scale: 1.1,
+          scaleEnd: 0.1,
+          life: 0.38,
+          maxLife: 0.38,
+          blend: 'lighter'
+        });
+      }
     }
 
     // Update Particles

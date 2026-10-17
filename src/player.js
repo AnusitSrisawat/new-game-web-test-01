@@ -168,7 +168,7 @@ export class Player {
     return Math.floor((30 + this.baseLevel * 2 + this.stats.int * 4) * (1 + this.skillBonus('bonusSpPct') / 100));
   }
 
-  get spRegen() { return 1 + this.stats.int * 0.1; }       // SP per second
+  get spRegen() { return parseFloat((1 + this.stats.int * 0.1).toFixed(2)); }       // SP per second
 
   // Sum of a stat over the worn outfit + left-hand item (the weapon is counted where it is used)
   gearSum(key) {
@@ -194,7 +194,8 @@ export class Player {
   // Move speed: +0.3% per AGI (cap +40%) plus skill bonuses. AGI 5 => +1.5%, AGI 100 => +30%.
   get moveMul() {
     const agiBonus = Math.min(0.4, this.stats.agi * 0.003);
-    return 1 + agiBonus + this.skillBonus('bonusMovePct') / 100 + (this.riding ? (this.mountItem.speedPct || 0) / 100 : 0);
+    const speed = 1 + agiBonus + this.skillBonus('bonusMovePct') / 100 + (this.riding ? (this.mountItem.speedPct || 0) / 100 : 0);
+    return parseFloat(speed.toFixed(4));
   }
 
   // Calculate Total Combined Stats
@@ -266,7 +267,7 @@ export class Player {
       if (relic && relic.statBonus.critRate) rate += relic.statBonus.critRate;
     });
     rate += this.skillBonus('bonusCritPct') / 100;
-    return Math.min(0.75, rate);
+    return parseFloat(Math.min(0.75, rate).toFixed(4));
   }
 
   // Gain EXP (levels gate rare gear; each level gives stat points)

@@ -1362,18 +1362,45 @@ body, html {
 .pc-name { max-width: 96px; }
 .hud-top-left { width: 250px; }
 
-/* Free-floating, draggable windows: several can stay open while you play */
+/* Free-floating, draggable windows: stay strictly inside screen boundaries */
 .game-modal {
   top: 70px; left: calc(50% - 340px);
   transform: none;
-  width: min(680px, 94vw);
-  max-width: none;
+  width: min(680px, calc(100vw - 20px));
+  max-width: calc(100vw - 20px) !important;
+  max-height: calc(100vh - 24px) !important;
+  box-sizing: border-box;
   transition: opacity 0.15s ease;
+  overflow: hidden;
+}
+#modal-status {
+  width: min(860px, calc(100vw - 20px)) !important;
+  max-width: calc(100vw - 20px) !important;
+  max-height: calc(100vh - 24px) !important;
+  left: calc(50% - 430px);
 }
 #modal-inventory {
-  width: min(960px, 98vw);
-  height: min(670px, 90vh);
+  width: min(960px, calc(100vw - 20px)) !important;
+  max-width: calc(100vw - 20px) !important;
+  height: min(670px, calc(100vh - 24px)) !important;
+  max-height: calc(100vh - 24px) !important;
   left: calc(50% - 480px);
+}
+#modal-shop {
+  width: min(940px, calc(100vw - 20px)) !important;
+  max-width: calc(100vw - 20px) !important;
+  height: min(670px, calc(100vh - 24px)) !important;
+  max-height: calc(100vh - 24px) !important;
+  left: calc(50% - 470px);
+}
+#modal-shop .modal-body {
+  height: calc(100% - 48px);
+  max-height: calc(100% - 48px);
+  padding: 12px 14px;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 #modal-inventory .modal-body {
   height: calc(100% - 48px);
@@ -1385,8 +1412,10 @@ body, html {
   flex-direction: column;
 }
 #modal-info {
-  width: min(880px, 96vw);
-  height: min(650px, 88vh);
+  width: min(880px, calc(100vw - 20px)) !important;
+  max-width: calc(100vw - 20px) !important;
+  height: min(650px, calc(100vh - 24px)) !important;
+  max-height: calc(100vh - 24px) !important;
   left: calc(50% - 440px);
 }
 #modal-info .modal-body {
@@ -1495,10 +1524,19 @@ body, html {
   text-align: center;
 }
 @media (max-width: 900px) {
-  #modal-info {
+  #modal-info, #modal-status, #modal-shop {
     left: 2vw !important;
     width: 96vw !important;
-    height: 90vh !important;
+    max-height: 94vh !important;
+  }
+}
+@media (max-height: 720px) {
+  .game-modal {
+    top: 8px !important;
+    max-height: calc(100vh - 16px) !important;
+  }
+  .modal-body {
+    max-height: calc(100vh - 62px) !important;
   }
 }
 @media (max-width: 960px) {
