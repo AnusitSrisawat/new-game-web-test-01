@@ -1,5 +1,6 @@
 // Content added on top of data.js: monsters + the 3 items each one drops (pictures come from sprites.js).
 import { ITEM_SHEET_IDS, MONSTER_SPRITES, dropItemIds } from './sprites.js';
+import { NEW_OUTFITS, NEW_WINGS } from './gear_catalog.js';
 
 const title = (id) => id.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
 const SHEET_EMOJI = { starter: '🌱', beasts: '🐾', bandits: '🗡️', fantasy: '✨', others: '🔮', skeleton: '💀' };
@@ -250,6 +251,14 @@ export function installPlayerGear(ITEMS) {
   piece('back', 'back_dragon', 'wings_dragon', 'Purple Dragon Bat Wings', '🦇', 270, 150, { atk: 3, price: 700, desc: 'ปีกมังกรค้างคาวสีม่วง' });
   piece('back', 'back_fairy', 'wings_fairy', 'Green Butterfly Fairy Wings', '🦋', 200, 160, { def: 1, hp: 20, price: 700, desc: 'ปีกผีเสื้อภูตสีเขียว' });
   piece('back', 'back_cape', 'cape_red', 'Flowing Red Knight Cape', '🧣', 150, 215, { def: 3, price: 500, desc: 'ผ้าคลุมอัศวินสีแดง' });
+
+  // 88 Outfits & 84 Wings (from clothes & wings sheets)
+  for (const o of NEW_OUTFITS) {
+    piece('outfit', o.id, o.part, o.name, o.icon, o.partW, o.partY, { def: o.def, hp: o.hp, price: o.price, desc: o.desc });
+  }
+  for (const w of NEW_WINGS) {
+    piece('back', w.id, w.part, w.name, w.icon, w.partW, w.partY, { atk: w.atk, def: w.def, hp: w.hp, price: w.price, desc: w.desc });
+  }
   add({ id: 'shield_lion', name: 'Golden Lion Crest Shield', type: 'shield', icon: '🛡️', def: 6, hp: 20, price: 300, desc: 'โล่ตราสิงโตทอง (มือซ้าย)' });
   add({ id: 'shield_rune', name: 'Magic Rune Buckler', type: 'shield', icon: '🔵', def: 4, hp: 35, price: 300, desc: 'โล่กลมอักษรรูนเรืองแสง (มือซ้าย)' });
   add({ id: 'mount_runner', name: 'Yellow Feathered Runner', type: 'mount', icon: '🐤', speedPct: 40, price: 1200, desc: 'นกวิ่งขนฟูสีทอง สัตว์ขี่ — ความเร็วเดิน +40% (กด R ขึ้นขี่/ลง)' });
