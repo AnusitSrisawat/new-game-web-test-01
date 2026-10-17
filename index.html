@@ -283,13 +283,66 @@
       <div class="modal-body" id="modal-enhance-body"></div>
     </div>
 
-    <!-- 6. Party Invitation Toast Popup -->
+    <!-- 6. Inspect Player Modal -->
+    <div class="game-modal" id="modal-inspect" style="display: none; width: 660px; max-width: 95vw;">
+      <div class="modal-header">
+        <div class="modal-title" id="inspect-modal-title">🔍 ส่องข้อมูลตัวละคร (Inspect Player)</div>
+        <button class="btn-modal-close" data-close="modal-inspect">✕</button>
+      </div>
+      <div class="modal-body" id="modal-inspect-body"></div>
+    </div>
+
+    <!-- 7. Player Context Menu (Right Click Popup) -->
+    <div id="player-context-menu" class="player-context-menu" style="display: none;"></div>
+
+    <!-- 8. Party Invitation Toast Popup -->
     <div id="party-invite-toast" class="party-invite-popup" style="display: none;">
       <div class="invite-header">💌 คำเชิญร่วมปาร์ตี้</div>
       <div class="invite-desc" id="party-invite-desc">ผู้เล่นชวนคุณเข้าปาร์ตี้</div>
       <div class="invite-actions">
         <button id="btn-party-accept" class="btn-invite-accept">ยอมรับ</button>
         <button id="btn-party-decline" class="btn-invite-decline">ปฏิเสธ</button>
+      </div>
+    </div>
+
+    <!-- 9. PvP Duel Challenge Popup -->
+    <div id="duel-invite-toast" class="duel-invite-popup" style="display: none;">
+      <div class="invite-header">⚔️ คำท้าดวลตัวต่อตัว!</div>
+      <div class="invite-desc" id="duel-invite-desc">ผู้เล่นขอท้าดวล PvP กับคุณ</div>
+      <div class="invite-actions">
+        <button id="btn-duel-accept" class="btn-duel-accept">⚔️ ยอมรับการดวล</button>
+        <button id="btn-duel-decline" class="btn-duel-decline">ปฏิเสธ</button>
+      </div>
+    </div>
+
+    <!-- 10. Active Duel HUD Overlay (Top-Center) -->
+    <div id="duel-hud-overlay" class="duel-hud-overlay" style="display: none;">
+      <div class="duel-card left">
+        <div class="duel-player-header">
+          <span class="duel-name" id="duel-p1-name">Challenger</span>
+          <span class="duel-lv" id="duel-p1-lv">Lv. 1</span>
+        </div>
+        <div class="duel-hp-bar">
+          <div class="duel-hp-fill" id="duel-p1-hp-fill" style="width: 100%;"></div>
+        </div>
+        <div class="duel-hp-val" id="duel-p1-hp-text">100 / 100</div>
+      </div>
+
+      <div class="duel-center">
+        <div class="duel-vs-badge" id="duel-vs-badge">⚔️ VS ⚔️</div>
+        <div class="duel-timer" id="duel-timer-tag">⏱️ 90s</div>
+        <button id="btn-duel-forfeit" class="btn-duel-forfeit" title="กดยอมแพ้การดวล">🏳️ ขอยอมแพ้</button>
+      </div>
+
+      <div class="duel-card right">
+        <div class="duel-player-header">
+          <span class="duel-name" id="duel-p2-name">Defender</span>
+          <span class="duel-lv" id="duel-p2-lv">Lv. 1</span>
+        </div>
+        <div class="duel-hp-bar">
+          <div class="duel-hp-fill" id="duel-p2-hp-fill" style="width: 100%;"></div>
+        </div>
+        <div class="duel-hp-val" id="duel-p2-hp-text">100 / 100</div>
       </div>
     </div>
   </div>

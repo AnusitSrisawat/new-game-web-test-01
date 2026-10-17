@@ -674,11 +674,37 @@ export class GameEngine {
     ctx.restore();
   }
 
-  // RIGHT-CLICK: Select Target
-  handleRightClick(screenX, screenY) {
+  // RIGHT-CLICK: Context Menu on Player OR Select Monster Target
+  handleRightClick(screenX, screenY, clientX = screenX, clientY = screenY) {
     const worldX = screenX / this.zoom + this.camera.x;
     const worldY = screenY / this.zoom + this.camera.y;
 
+    // 1. Check if clicking on another player in the current map
+    if (this.network && this.network.otherPlayers) {
+      for (const op of this.network.otherPlayers.values()) {
+        const opMap = op.currentMap || 'meadows';
+        if (opMap === this.currentZone.id) {
+          const dist = Math.hypot(worldX - op.x, worldY - (op.y - 10));
+          if (dist < 65) {
+            if (this.uiController) {
+              this.uiController.showPlayerContextMenu(clientX, clientY, op, false);
+            }
+            return;
+          }
+        }
+      }
+    }
+
+    // 2. Check if clicking on self
+    const p = this.playerEntity;
+    if (Math.hypot(worldX - p.x, worldY - (p.y - 10)) < 65) {
+      if (this.uiController) {
+        this.uiController.showPlayerContextMenu(clientX, clientY, this.player, true);
+      }
+      return;
+    }
+
+    // 3. Fallback to selecting monster target
     const liveMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
     for (const m of liveMonsters) {
       const baseSize = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
@@ -697,6 +723,25 @@ export class GameEngine {
     const worldX = screenX / this.zoom + this.camera.x;
     const worldY = screenY / this.zoom + this.camera.y;
 
+    // A. If in active duel, check clicking on duel opponent
+    if (this.activeDuel && this.activeDuel.state === 'active') {
+      const opp = this.network?.otherPlayers?.get(this.activeDuel.opponentId);
+      if (opp && (opp.currentMap || 'meadows') === this.currentZone.id) {
+        const dist = Math.hypot(worldX - opp.x, worldY - (opp.y - 10));
+        if (dist < 55) {
+          const distToPlayer = Math.hypot(opp.x - this.playerEntity.x, opp.y - this.playerEntity.y);
+          if (distToPlayer <= this.player.attackRange + 35) {
+            this.tryDuelAttack(opp);
+          } else {
+            this.playerEntity.targetX = opp.x;
+            this.playerEntity.targetY = opp.y;
+          }
+          return;
+        }
+      }
+    }
+
+    // B. Check clicking on monster
     const liveMonsters = this.monsters.filter(m => !m.isDead && m.map === this.currentZone.id);
     for (const m of liveMonsters) {
       const baseSize = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
@@ -1791,6 +1836,111 @@ export class GameEngine {
     }
   }
 
+  // Attack opponent in 1v1 PvP Duel
+  tryDuelAttack(opp) {
+    const p = this.playerEntity;
+    if (p.attackCooldown > 0) return false;
+    p.facing = opp.x >= p.x ? 1 : -1;
+    p.isAttacking = true;
+    p.attackAnimTimer = ATTACK_ANIM;
+
+    let aspd = this.player.aspd;
+    if (p.buffs.berserk > 0) aspd *= 1.5;
+    if (p.buffs.concentration > 0) aspd *= 1.25;
+    p.attackCooldown = 1.0 / aspd;
+
+    const isCrit = Math.random() <= this.player.critRate;
+    let damage = Math.max(1, this.player.attack);
+    const variance = 0.9 + Math.random() * 0.2;
+    damage = Math.floor(damage * variance);
+    if (isCrit) damage = Math.floor(damage * this.player.critDamage);
+
+    const weapon = this.player.weaponInfo;
+    soundEngine?.play(isCrit ? 'critHit' : 'swordSlash');
+    this.addSlashEffect(opp.x, opp.y, p.facing, isCrit ? 'heavy' : 'normal');
+    this.spawnHitVFX(opp.x, opp.y, isCrit, p.facing);
+
+    if (this.network && this.activeDuel) {
+      this.network.sendAttackAction({
+        weaponType: weapon.type,
+        targetId: opp.id
+      });
+      this.network.sendDuelHit(this.activeDuel.id, damage, isCrit);
+    }
+    return true;
+  }
+
+  // ------------------------------ PVP DUEL ------------------------------
+  onDuelStart(duel) {
+    const isP1 = duel.p1Id === this.network?.myPlayerId;
+    this.activeDuel = {
+      ...duel,
+      isP1,
+      opponentId: isP1 ? duel.p2Id : duel.p1Id,
+      opponentName: isP1 ? duel.p2Name : duel.p1Name,
+      opponentLevel: isP1 ? duel.p2Level : duel.p1Level,
+      state: 'countdown'
+    };
+    soundEngine?.play('warCry');
+    this.onLog(`⚔️ เริ่มต้นการดวลตัวต่อตัวกับ [${this.activeDuel.opponentName}]! เตรียมตัว...`, 'combat');
+    this.uiController?.startDuel(this.activeDuel);
+  }
+
+  onDuelFight(duelId) {
+    if (!this.activeDuel) return;
+    this.activeDuel.state = 'active';
+    soundEngine?.play('critHit');
+    this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 45, '🔥 FIGHT!', '#ef4444', 24);
+    this.uiController?.setDuelFight();
+  }
+
+  onDuelUpdate(hitData) {
+    if (!this.activeDuel) return;
+    this.activeDuel.hp1 = hitData.hp1;
+    this.activeDuel.hp2 = hitData.hp2;
+
+    const isMeVictim = hitData.targetId === this.network?.myPlayerId;
+
+    if (isMeVictim) {
+      soundEngine?.play('playerHurt');
+      this.spawnPlayerHurtVFX(this.playerEntity.x, this.playerEntity.y, hitData.damage);
+      this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 25, `-${hitData.damage}`, '#ef4444', 16);
+    } else {
+      const opp = this.network?.otherPlayers?.get(hitData.targetId);
+      if (opp) {
+        soundEngine?.play('swordSlash');
+        this.addSlashEffect(opp.x, opp.y, 1, hitData.isCrit ? 'heavy' : 'normal');
+        this.spawnHitVFX(opp.x, opp.y, hitData.isCrit, 1);
+        this.addFloatingText(opp.x, opp.y - 25, `${hitData.isCrit ? '💥 ' : ''}-${hitData.damage}`, hitData.isCrit ? '#fbbf24' : '#f87171', hitData.isCrit ? 18 : 14);
+      }
+    }
+
+    this.uiController?.updateDuelHUD(hitData);
+  }
+
+  onDuelEnd(endData) {
+    const isWinner = endData.winnerId === this.network?.myPlayerId;
+    const isDraw = endData.reason === 'draw';
+
+    if (isWinner) {
+      soundEngine?.play('levelUp');
+      this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 50, '🏆 ชัยชนะ (VICTORY)!', '#fbbf24', 26);
+      this.onLog(`🏆 คุณได้รับชัยชนะในการดวลกับ [${endData.loserName}]!`, 'combat');
+    } else if (isDraw) {
+      this.onLog(`⚔️ การดวลสิ้นสุดลงโดยเสมอกัน!`, 'combat');
+    } else {
+      soundEngine?.play('playerDie');
+      this.addFloatingText(this.playerEntity.x, this.playerEntity.y - 50, '💀 พ่ายแพ้ (DEFEAT)', '#ef4444', 24);
+      this.onLog(`💀 คุณพ่ายแพ้การดวลให้กับ [${endData.winnerName}]`, 'combat');
+    }
+
+    // Restore full HP
+    this.player.currentHp = this.player.maxHp;
+    this.uiController?.updateHUD();
+    this.uiController?.endDuel(endData);
+    this.activeDuel = null;
+  }
+
   applyMonsterDamage(damage) {
     soundEngine.play('playerHurt');
     this.player.currentHp = Math.max(0, this.player.currentHp - damage);
@@ -2881,6 +3031,21 @@ export class GameEngine {
     const facing = op.facing || 1;
     const legOffset = op.isMoving ? Math.sin((op.walkFrame || 0) * 0.8) * 5 : 0;
 
+    // 0. If this is our active duel opponent, draw glowing red duel arena ring under feet
+    const isDuelOpponent = this.activeDuel && this.activeDuel.opponentId === op.id;
+    if (isDuelOpponent) {
+      ctx.save();
+      const ringT = performance.now() / 1000;
+      ctx.strokeStyle = `rgba(239, 68, 68, ${0.7 + Math.sin(ringT * 6) * 0.25})`;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.ellipse(x, y + 6, 26, 12, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // 1. Draw Player Character Body & Weapon
     this.drawPlayerSprite(ctx, x, y, facing, legOffset, false, op);
 
@@ -2892,15 +3057,15 @@ export class GameEngine {
     const isPartyMember = this.network && this.network.currentParty && this.network.currentParty.members && this.network.currentParty.members.some(m => m.id === op.id);
 
     // Name & Party Indicator
-    ctx.fillStyle = isPartyMember ? '#38bdf8' : '#4ade80';
+    ctx.fillStyle = isDuelOpponent ? '#ef4444' : (isPartyMember ? '#38bdf8' : '#4ade80');
     ctx.shadowColor = 'rgba(0,0,0,0.95)';
     ctx.shadowBlur = 4;
-    const partyIcon = isPartyMember ? '🚩 [Party] ' : '👥 ';
+    const partyIcon = isDuelOpponent ? '⚔️ [DUEL] ' : (isPartyMember ? '🚩 [Party] ' : '👥 ');
     ctx.fillText(`${partyIcon}${op.name}`, x, y - 44 - PLAYER_TAG_UP);
 
     // Job Title & Level
     ctx.font = '9px sans-serif';
-    ctx.fillStyle = '#cbd5e1';
+    ctx.fillStyle = isDuelOpponent ? '#fca5a5' : '#cbd5e1';
     ctx.fillText(`Lv.${op.level || 1}`, x, y - 34 - PLAYER_TAG_UP);
 
     // Mini Overhead Health Bar
@@ -2910,7 +3075,7 @@ export class GameEngine {
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
     ctx.fillRect(x - 20, y - 30 - PLAYER_TAG_UP, 40, 4);
-    ctx.fillStyle = isPartyMember ? '#38bdf8' : (hpPct > 0.4 ? '#22c55e' : '#ef4444');
+    ctx.fillStyle = isDuelOpponent ? '#ef4444' : (isPartyMember ? '#38bdf8' : (hpPct > 0.4 ? '#22c55e' : '#ef4444'));
     ctx.fillRect(x - 20, y - 30 - PLAYER_TAG_UP, 40 * hpPct, 4);
 
     ctx.restore();

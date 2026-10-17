@@ -164,8 +164,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Initialize Player & Engine
   const player = new Player();
   const game = new GameEngine(canvas, minimapCanvas, player, addLog);
-  window.__game = game; // handy for debugging / tests
+  window.__game = game;
+  window.game = game;
+  window.player = player;
   const ui = new UIController(player, game);
+  window.ui = ui;
   game.setUIController(ui);
 
   // 2. Initialize Multiplayer Network Sync (WebSocket)
@@ -321,9 +324,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const clickY = e.clientY - rect.top;
 
     if (e.button === 2) {
-      // Right Click: Select / Lock Target
+      // Right Click: Select / Lock Target or Open Player Context Menu
       e.preventDefault();
-      game.handleRightClick(clickX, clickY);
+      game.handleRightClick(clickX, clickY, e.clientX, e.clientY);
     } else if (e.button === 0) {
       // Left Click: Attack or Move
       game.handleLeftClick(clickX, clickY);

@@ -459,6 +459,40 @@ let nextPartyId = 1;
 const invites = new Map();       // targetPlayerId -> Set<partyId>
 const joinRequests = new Map();  // partyId -> Set<requesterPlayerId>
 
+// Duels (1v1 PvP)
+// duel: { id, p1Id, p1Name, p1Level, p2Id, p2Name, p2Level, map, state: 'countdown'|'active'|'ended', countdown, duration, hp1, maxHp1, hp2, maxHp2 }
+const duels = new Map();
+let nextDuelId = 1;
+const duelInvites = new Map(); // targetPlayerId -> { challengerId, timestamp }
+
+function finishDuel(duel, winner, loser, reason = 'knockout') {
+  if (!duel || duel.state === 'ended') return;
+  duel.state = 'ended';
+  const wId = winner ? winner.id : null;
+  const wName = winner ? winner.name : 'ไม่มีผู้ชนะ';
+  const lId = loser ? loser.id : null;
+  const lName = loser ? loser.name : '';
+  const msg = {
+    type: 'duel_end',
+    duelId: duel.id,
+    winnerId: wId,
+    winnerName: wName,
+    loserId: lId,
+    loserName: lName,
+    reason
+  };
+  if (winner) sendToPlayer(winner.id, msg);
+  if (loser) sendToPlayer(loser.id, msg);
+  sendToMap(duel.map, {
+    type: 'chat',
+    text: winner && loser
+      ? `🏆 [${winner.name}] ได้รับชัยชนะในการดวลกับ [${loser.name}]!`
+      : `⚔️ การดวลสิ้นสุดลง (${reason === 'draw' ? 'เสมอ' : 'ยกเลิก'})`,
+    channel: 'world'
+  });
+  duels.delete(duel.id);
+}
+
 // 3. WebSocket Server
 const wss = new WebSocketServer({ server, maxPayload: 16 * 1024 });
 let nextPlayerId = 1;
@@ -810,6 +844,14 @@ wss.on('connection', (ws) => {
           if (data.mount !== undefined) p.mount = typeof data.mount === 'string' && ITEMS[data.mount]?.type === 'mount' ? data.mount : null;
           if (data.riding !== undefined) p.riding = data.riding === true && !!p.mount;
           if (data.pet !== undefined) { p.pet = typeof data.pet === 'string' && MONSTERS[data.pet] ? data.pet : null; p.hasPet = !!p.pet; }
+          if (data.weapon !== undefined) p.weapon = typeof data.weapon === 'string' ? data.weapon : null;
+          if (data.equipment && typeof data.equipment === 'object') p.equipment = data.equipment;
+          if (data.itemEnhance && typeof data.itemEnhance === 'object') p.itemEnhance = data.itemEnhance;
+          if (data.stats && typeof data.stats === 'object') p.stats = data.stats;
+          if (data.atk !== undefined) p.atk = clampInt(data.atk, 0, 1000000, 10);
+          if (data.matk !== undefined) p.matk = clampInt(data.matk, 0, 1000000, 0);
+          if (data.maxSp !== undefined) p.maxSp = clampInt(data.maxSp, 0, 500000, 50);
+          if (data.sp !== undefined) p.sp = clampInt(data.sp, 0, p.maxSp || 50, 50);
           if (ZONE_IDS.has(data.currentMap)) p.currentMap = data.currentMap;
           syncMember(p);
           broadcast({ type: 'player_profile_updated', player: p }, ws);
@@ -847,6 +889,13 @@ wss.on('connection', (ws) => {
           p.y = Math.min(md.height, Math.max(0, num(data.y, md.spawn.y)));
           broadcast({ type: 'player_changed_map', playerId: p.id, mapId: p.currentMap, x: p.x, y: p.y });
           syncMember(p);
+          duels.forEach(duel => {
+            if (duel.p1Id === p.id || duel.p2Id === p.id) {
+              const oppId = duel.p1Id === p.id ? duel.p2Id : duel.p1Id;
+              const opponent = Array.from(players.values()).find(pl => pl.id === oppId);
+              finishDuel(duel, opponent, p, 'forfeit');
+            }
+          });
           // fresh monster positions for the map the player just entered
           safeSend(ws, {
             type: 'monsters_sync',
@@ -963,15 +1012,40 @@ wss.on('connection', (ws) => {
         }
 
         case 'party_invite': {
-          const party = p.partyId && parties.get(p.partyId);
-          if (!party) break;
+          let party = p.partyId && parties.get(p.partyId);
+          if (!party) {
+            // Automatically create a party for inviter
+            const partyId = `party_${nextPartyId++}`;
+            party = {
+              id: partyId,
+              name: `${p.name}'s Party`,
+              leaderId: p.id,
+              leaderName: p.name,
+              members: [],
+              settings: { expShare: 'share', autoAccept: false, minLevel: 1, maxLevel: 999 }
+            };
+            parties.set(partyId, party);
+            addToParty(party, p);
+            safeSend(ws, {
+              type: 'chat',
+              text: `🚩 ปาร์ตี้ [${party.name}] ถูกสร้างอัตโนมัติเพื่อชวนเพื่อน!`,
+              channel: 'system'
+            });
+          }
           if (party.leaderId !== p.id) {
             safeSend(ws, { type: 'chat', text: '⚠️ เฉพาะหัวหน้าปาร์ตี้เท่านั้นที่เชิญได้', channel: 'system' });
             break;
           }
-          if (party.members.length >= MAX_PARTY_SIZE) break;
+          if (party.members.length >= MAX_PARTY_SIZE) {
+            safeSend(ws, { type: 'chat', text: '⚠️ ปาร์ตี้เต็มแล้ว (สูงสุด 6 คน)', channel: 'system' });
+            break;
+          }
           const target = Array.from(players.values()).find(pl => pl.id === data.targetPlayerId);
-          if (!target || target.partyId || target.id === p.id) break;
+          if (!target || target.id === p.id) break;
+          if (target.partyId) {
+            safeSend(ws, { type: 'chat', text: `⚠️ [${target.name}] มีปาร์ตี้อยู่แล้ว`, channel: 'system' });
+            break;
+          }
           if (!levelAllowed(party, target.level)) {
             safeSend(ws, {
               type: 'chat',
@@ -988,7 +1062,7 @@ wss.on('connection', (ws) => {
             partyName: party.name,
             leaderName: p.name
           });
-          safeSend(ws, { type: 'chat', text: `💌 ส่งคำเชิญไปยัง [${target.name}] แล้ว`, channel: 'system' });
+          safeSend(ws, { type: 'chat', text: `💌 ส่งคำเชิญเข้าร่วมปาร์ตี้ไปยัง [${target.name}] แล้ว`, channel: 'system' });
           break;
         }
 
@@ -1123,6 +1197,157 @@ wss.on('connection', (ws) => {
           break;
         }
 
+        // ------------------------------ PVP DUEL ------------------------------
+        case 'duel_request': {
+          const target = Array.from(players.values()).find(pl => pl.id === data.targetPlayerId);
+          if (!target || target.id === p.id) {
+            safeSend(ws, { type: 'chat', text: '⚠️ ไม่พบผู้เล่นเป้าหมายสำหรับท้าดวล', channel: 'system' });
+            break;
+          }
+          if (target.currentMap !== p.currentMap) {
+            safeSend(ws, { type: 'chat', text: `⚠️ [${target.name}] อยู่คนละแผนที่`, channel: 'system' });
+            break;
+          }
+          const pInDuel = Array.from(duels.values()).some(d => d.state !== 'ended' && (d.p1Id === p.id || d.p2Id === p.id));
+          if (pInDuel) {
+            safeSend(ws, { type: 'chat', text: '⚠️ คุณกำลังอยู่ในการดวลอยู่แล้ว', channel: 'system' });
+            break;
+          }
+          const targetInDuel = Array.from(duels.values()).some(d => d.state !== 'ended' && (d.p1Id === target.id || d.p2Id === target.id));
+          if (targetInDuel) {
+            safeSend(ws, { type: 'chat', text: `⚠️ [${target.name}] กำลังอยู่ในการดวล`, channel: 'system' });
+            break;
+          }
+          duelInvites.set(target.id, { challengerId: p.id, timestamp: Date.now() });
+          sendToPlayer(target.id, {
+            type: 'duel_invited',
+            challengerId: p.id,
+            challengerName: p.name,
+            challengerLevel: p.level || 1
+          });
+          safeSend(ws, { type: 'chat', text: `⚔️ ส่งคำท้าดวลตัวต่อตัวไปยัง [${target.name}] แล้ว...`, channel: 'system' });
+          break;
+        }
+
+        case 'duel_response': {
+          const inv = duelInvites.get(p.id);
+          if (!inv || inv.challengerId !== data.challengerId) break;
+          duelInvites.delete(p.id);
+          const ch = Array.from(players.values()).find(pl => pl.id === data.challengerId);
+          if (!data.accept) {
+            if (ch) sendToPlayer(ch.id, { type: 'chat', text: `🛡️ [${p.name}] ปฏิเสธคำท้าดวล`, channel: 'system' });
+            safeSend(ws, { type: 'chat', text: `🛡️ ปฏิเสธคำท้าดวลแล้ว`, channel: 'system' });
+            break;
+          }
+          if (!ch || ch.currentMap !== p.currentMap) {
+            safeSend(ws, { type: 'chat', text: '⚠️ ผู้ท้าดวลไม่อยู่ในแผนที่นี้แล้ว', channel: 'system' });
+            break;
+          }
+          const duelId = `duel_${nextDuelId++}`;
+          const duel = {
+            id: duelId,
+            p1Id: ch.id,
+            p1Name: ch.name,
+            p1Level: ch.level || 1,
+            p2Id: p.id,
+            p2Name: p.name,
+            p2Level: p.level || 1,
+            map: p.currentMap,
+            state: 'countdown',
+            countdown: 3,
+            duration: 90,
+            hp1: ch.maxHp,
+            maxHp1: ch.maxHp,
+            hp2: p.maxHp,
+            maxHp2: p.maxHp
+          };
+          duels.set(duelId, duel);
+          const startMsg = {
+            type: 'duel_start',
+            duel: {
+              id: duel.id,
+              p1Id: duel.p1Id,
+              p1Name: duel.p1Name,
+              p1Level: duel.p1Level,
+              p2Id: duel.p2Id,
+              p2Name: duel.p2Name,
+              p2Level: duel.p2Level,
+              countdown: 3,
+              duration: 90,
+              hp1: duel.hp1,
+              maxHp1: duel.maxHp1,
+              hp2: duel.hp2,
+              maxHp2: duel.maxHp2
+            }
+          };
+          sendToPlayer(ch.id, startMsg);
+          sendToPlayer(p.id, startMsg);
+          sendToMap(p.currentMap, {
+            type: 'chat',
+            text: `⚔️ การดวลตัวต่อตัวระหว่าง [${ch.name}] VS [${p.name}] เริ่มต้นขึ้นแล้ว!`,
+            channel: 'world'
+          });
+          break;
+        }
+
+        case 'duel_hit': {
+          const duel = duels.get(data.duelId);
+          if (!duel || duel.state !== 'active') break;
+          if (p.id !== duel.p1Id && p.id !== duel.p2Id) break;
+          const isP1 = p.id === duel.p1Id;
+          const oppId = isP1 ? duel.p2Id : duel.p1Id;
+          const opp = Array.from(players.values()).find(pl => pl.id === oppId);
+          if (!opp || opp.currentMap !== p.currentMap) break;
+
+          const rawDmg = clampInt(data.damage, 1, Math.floor(maxDamageForLevel(p.level) * 3), 1);
+          // Apply target defense reduction (MMORPG formula: dmg * 100 / (100 + def))
+          const oppDef = opp.def || 0;
+          const damage = Math.max(1, Math.floor(rawDmg * (100 / (100 + oppDef))));
+          const isCrit = data.isCrit === true;
+
+          if (isP1) {
+            duel.hp2 = Math.max(1, duel.hp2 - damage);
+          } else {
+            duel.hp1 = Math.max(1, duel.hp1 - damage);
+          }
+
+          const hitUpdate = {
+            type: 'duel_update',
+            duelId: duel.id,
+            attackerId: p.id,
+            targetId: opp.id,
+            damage,
+            isCrit,
+            skillId: cleanText(data.skillId, 40) || null,
+            hp1: duel.hp1,
+            maxHp1: duel.maxHp1,
+            hp2: duel.hp2,
+            maxHp2: duel.maxHp2
+          };
+          sendToPlayer(duel.p1Id, hitUpdate);
+          sendToPlayer(duel.p2Id, hitUpdate);
+
+          if (duel.hp1 <= 1) {
+            finishDuel(duel, opp, p, 'knockout');
+          } else if (duel.hp2 <= 1) {
+            finishDuel(duel, p, opp, 'knockout');
+          }
+          break;
+        }
+
+        case 'duel_surrender': {
+          const duel = duels.get(data.duelId);
+          if (!duel || duel.state === 'ended') break;
+          if (p.id === duel.p1Id) {
+            const opp = Array.from(players.values()).find(pl => pl.id === duel.p2Id);
+            finishDuel(duel, opp, p, 'surrender');
+          } else if (p.id === duel.p2Id) {
+            const opp = Array.from(players.values()).find(pl => pl.id === duel.p1Id);
+            finishDuel(duel, opp, p, 'surrender');
+          }
+          break;
+        }
+
         case 'chat': {
           const text = cleanText(data.text, 200);
           if (!text || !takeToken(limits.chat, now, CHAT_PER_SECOND, CHAT_BURST)) break;
@@ -1153,6 +1378,16 @@ wss.on('connection', (ws) => {
       removeFromParty(p, 'leave');
       invites.delete(p.id);
       players.delete(ws);
+      duels.forEach(duel => {
+        if (duel.p1Id === p.id) {
+          const opponent = Array.from(players.values()).find(pl => pl.id === duel.p2Id);
+          finishDuel(duel, opponent, p, 'forfeit');
+        } else if (duel.p2Id === p.id) {
+          const opponent = Array.from(players.values()).find(pl => pl.id === duel.p1Id);
+          finishDuel(duel, opponent, p, 'forfeit');
+        }
+      });
+      duelInvites.delete(p.id);
       broadcast({ type: 'player_left', playerId: p.id });
       broadcast({
         type: 'chat',
@@ -1171,6 +1406,30 @@ setInterval(() => {
   const now = performance.now();
   const dt = (now - lastTick) / 1000;
   lastTick = now;
+
+  // ---- Tick Duels ----
+  duels.forEach((duel, duelId) => {
+    if (duel.state === 'countdown') {
+      duel.countdown -= dt;
+      if (duel.countdown <= 0) {
+        duel.state = 'active';
+        const fightMsg = { type: 'duel_fight', duelId };
+        sendToPlayer(duel.p1Id, fightMsg);
+        sendToPlayer(duel.p2Id, fightMsg);
+      }
+    } else if (duel.state === 'active') {
+      duel.duration -= dt;
+      if (duel.duration <= 0) {
+        const p1 = Array.from(players.values()).find(pl => pl.id === duel.p1Id);
+        const p2 = Array.from(players.values()).find(pl => pl.id === duel.p2Id);
+        const p1Pct = duel.hp1 / (duel.maxHp1 || 1);
+        const p2Pct = duel.hp2 / (duel.maxHp2 || 1);
+        if (p1Pct > p2Pct) finishDuel(duel, p1, p2, 'timeout');
+        else if (p2Pct > p1Pct) finishDuel(duel, p2, p1, 'timeout');
+        else finishDuel(duel, null, null, 'draw');
+      }
+    }
+  });
 
   monsters.forEach(m => {
     if (m.isDead) {

@@ -199,6 +199,29 @@ export class NetworkManager {
         this.game.onRewardFromServer(msg);
         break;
 
+      case 'duel_invited':
+        this.game.onLog(`⚔️ [${msg.challengerName}] ขอท้าดวลตัวต่อตัวกับคุณ!`, 'combat');
+        if (this.game.uiController) {
+          this.game.uiController.showDuelInvite(msg.challengerId, msg.challengerName, msg.challengerLevel);
+        }
+        break;
+
+      case 'duel_start':
+        this.game.onDuelStart(msg.duel);
+        break;
+
+      case 'duel_fight':
+        this.game.onDuelFight(msg.duelId);
+        break;
+
+      case 'duel_update':
+        this.game.onDuelUpdate(msg);
+        break;
+
+      case 'duel_end':
+        this.game.onDuelEnd(msg);
+        break;
+
       case 'party_list':
         this.partyList = msg.parties || [];
         if (this.game.uiController) this.game.uiController.onPartyListReceived(this.partyList);
@@ -293,8 +316,15 @@ export class NetworkManager {
       weapon: this.player.equipment.weapon || null,
       weaponType: this.player.weaponInfo.type,
       def: this.player.defense,
+      atk: this.player.attack || 10,
+      matk: this.player.displayMatk || 0,
       hp: this.player.currentHp,
       maxHp: this.player.maxHp,
+      sp: this.player.currentSp || 0,
+      maxSp: this.player.maxSp || 50,
+      equipment: this.player.equipment,
+      itemEnhance: this.player.itemEnhance,
+      stats: this.player.stats,
       currentMap: this.game ? this.game.currentZone.id : 'meadows'
     });
   }
@@ -357,6 +387,22 @@ export class NetworkManager {
     this.send({
       type: 'party_leave'
     });
+  }
+
+  sendDuelRequest(targetPlayerId) {
+    this.send({ type: 'duel_request', targetPlayerId });
+  }
+
+  sendDuelResponse(challengerId, accept) {
+    this.send({ type: 'duel_response', challengerId, accept });
+  }
+
+  sendDuelHit(duelId, damage, isCrit = false, skillId = null) {
+    this.send({ type: 'duel_hit', duelId, damage, isCrit, skillId });
+  }
+
+  sendDuelSurrender(duelId) {
+    this.send({ type: 'duel_surrender', duelId });
   }
 
   sendChat(text, channel = 'world') {

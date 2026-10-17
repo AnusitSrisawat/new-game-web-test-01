@@ -60,7 +60,8 @@ export class UIController {
       'modal-zones': () => this.renderZonesModal(),
       'modal-auto': () => this.renderAutoModal(),
       'modal-skills': () => this.renderSkillsModal(),
-      'modal-info': () => this.renderInfoModal()
+      'modal-info': () => this.renderInfoModal(),
+      'modal-inspect': () => this.renderInspectModal()
     };
 
     this.initEventListeners();
@@ -129,6 +130,46 @@ export class UIController {
       const partyId = toast ? toast.dataset.partyId : null;
       if (partyId && this.gameEngine.network) this.gameEngine.network.sendDeclineParty(partyId);
       if (toast) toast.style.display = 'none';
+    });
+
+    // PvP Duel Invitation Accept & Decline
+    document.getElementById('btn-duel-accept')?.addEventListener('click', () => {
+      const toast = document.getElementById('duel-invite-toast');
+      const challengerId = toast ? toast.dataset.challengerId : null;
+      if (challengerId && this.gameEngine.network) {
+        this.gameEngine.network.sendDuelResponse(challengerId, true);
+      }
+      if (toast) toast.style.display = 'none';
+    });
+
+    document.getElementById('btn-duel-decline')?.addEventListener('click', () => {
+      const toast = document.getElementById('duel-invite-toast');
+      const challengerId = toast ? toast.dataset.challengerId : null;
+      if (challengerId && this.gameEngine.network) {
+        this.gameEngine.network.sendDuelResponse(challengerId, false);
+      }
+      if (toast) toast.style.display = 'none';
+    });
+
+    // Duel Forfeit Button
+    document.getElementById('btn-duel-forfeit')?.addEventListener('click', () => {
+      if (this.gameEngine?.activeDuel && this.gameEngine.network) {
+        this.gameEngine.network.sendDuelSurrender(this.gameEngine.activeDuel.id);
+      }
+    });
+
+    // Close Player Context Menu on clicking outside
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('player-context-menu');
+      if (menu && menu.style.display !== 'none' && !menu.contains(e.target)) {
+        menu.style.display = 'none';
+      }
+    });
+    document.addEventListener('contextmenu', (e) => {
+      const menu = document.getElementById('player-context-menu');
+      if (menu && menu.style.display !== 'none' && !menu.contains(e.target)) {
+        menu.style.display = 'none';
+      }
     });
 
     // Close Modal Buttons
@@ -1163,20 +1204,31 @@ export class UIController {
 
   hideStatInfo() { document.getElementById('stat-info-tip')?.remove(); }
 
-  // Live Paper-doll Preview of the player character inside the inventory / equipment window
-  drawPlayerPreview(canvas) {
+  // Live Paper-doll Preview of the player character inside the inventory / equipment window or inspect modal
+  drawPlayerPreview(canvas, customProfile = null) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    const zoom = this.previewZoom || 1.0;
-    const panX = this.previewPanX || 0;
-    const panY = this.previewPanY || 0;
+    const zoom = customProfile ? 1.0 : (this.previewZoom || 1.0);
+    const panX = customProfile ? 0 : (this.previewPanX || 0);
+    const panY = customProfile ? 0 : (this.previewPanY || 0);
 
-    const eq = this.player.equipment || {};
+    const eq = customProfile?.equipment || (customProfile ? {
+      hat: customProfile.hat,
+      hair: customProfile.hair,
+      face: customProfile.face,
+      mouth: customProfile.mouth,
+      head: customProfile.head,
+      outfit: customProfile.outfit,
+      back: customProfile.back,
+      offhand: customProfile.shield,
+      weapon: customProfile.weapon,
+      mount: customProfile.mount
+    } : this.player.equipment) || {};
     const mountId = eq.mount;
-    const isRiding = !!(this.player.isMounted && mountId && ITEMS[mountId]);
+    const isRiding = !!(customProfile ? customProfile.riding : (this.player.isMounted && mountId && ITEMS[mountId]));
 
     const look = {
       hat: ITEMS[eq.hat],
@@ -4119,9 +4171,10 @@ export class UIController {
     const membersHtml = party.members.map(m => {
       const isMe = m.id === myId;
       const isMemLeader = m.id === party.leaderId;
-      const actions = isLeader && !isMe ? `
+      const inspectBtn = !isMe ? `<button class="btn-pm-inspect" data-id="${esc(m.id)}" style="${btn('#0284c7')}">🔍 ส่องของ</button>` : '';
+      const actions = `${inspectBtn}${isLeader && !isMe ? `
         <button class="btn-pm-leader" data-id="${esc(m.id)}" style="${btn('#d97706')}">👑 มอบหัวหน้า</button>
-        <button class="btn-pm-kick" data-id="${esc(m.id)}" style="${btn('#dc2626')}">เตะ</button>` : '';
+        <button class="btn-pm-kick" data-id="${esc(m.id)}" style="${btn('#dc2626')}">เตะ</button>` : ''}`;
       return `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; background:rgba(255,255,255,0.03); border:1px solid ${isMemLeader ? '#fbbf24' : 'rgba(255,255,255,0.08)'}; padding:8px 12px; border-radius:6px; margin-bottom:6px;">
           <div>
@@ -4180,6 +4233,16 @@ export class UIController {
     }));
     body.querySelectorAll('.btn-party-invite-more').forEach(b => b.addEventListener('click', e => {
       net?.sendInviteParty(e.currentTarget.dataset.target);
+    }));
+    body.querySelectorAll('.btn-pm-inspect').forEach(b => b.addEventListener('click', e => {
+      const targetId = e.currentTarget.dataset.id;
+      const targetOp = net?.otherPlayers?.get(targetId);
+      if (targetOp) {
+        this.openInspectModal(targetOp);
+      } else {
+        const mem = party.members.find(m => m.id === targetId);
+        if (mem) this.openInspectModal(mem);
+      }
     }));
   }
 
@@ -4288,5 +4351,309 @@ export class UIController {
     el.querySelector('.btn-invite-decline').addEventListener('click', () => answer(false));
     host.appendChild(el);
     setTimeout(() => el.remove(), 60000);
+  }
+
+  // ==========================================================================
+  // PLAYER CONTEXT MENU (Right Click)
+  // ==========================================================================
+  showPlayerContextMenu(screenX, screenY, targetProfile, isSelf = false) {
+    const menu = document.getElementById('player-context-menu');
+    if (!menu) return;
+
+    const name = targetProfile.name || 'Unknown';
+    const level = targetProfile.level || targetProfile.baseLevel || 1;
+    const targetId = targetProfile.id;
+
+    let itemsHtml = '';
+    if (isSelf) {
+      itemsHtml = `
+        <button class="ctx-menu-item" id="ctx-self-status">📊 ดูสเตตัส [C]</button>
+        <button class="ctx-menu-item" id="ctx-self-inv">🎒 กระเป๋าเก็บของ [I]</button>
+        <button class="ctx-menu-item" id="ctx-self-enhance">⚔️ โรงตีบวก & Option [U]</button>
+      `;
+    } else {
+      itemsHtml = `
+        <button class="ctx-menu-item" id="ctx-inspect">🔍 ส่องข้อมูล & ดูของ</button>
+        <button class="ctx-menu-item" id="ctx-party-invite">🚩 ชวนเข้าปาร์ตี้</button>
+        <button class="ctx-menu-item duel" id="ctx-duel-challenge">⚔️ ท้าดวลตัวต่อตัว (PvP)</button>
+        <button class="ctx-menu-item" id="ctx-whisper">💬 ส่งข้อความกระซิบ</button>
+      `;
+    }
+
+    menu.innerHTML = `
+      <div class="ctx-menu-header">
+        <span class="ctx-menu-name">👤 ${name}</span>
+        <span class="ctx-menu-lv">Lv.${level}</span>
+      </div>
+      <div class="ctx-menu-body" style="display:flex; flex-direction:column; gap:2px;">
+        ${itemsHtml}
+      </div>
+    `;
+
+    // Position clamping within viewport
+    const menuWidth = 200;
+    const menuHeight = isSelf ? 130 : 175;
+    const posX = Math.max(10, Math.min(window.innerWidth - menuWidth - 10, screenX));
+    const posY = Math.max(10, Math.min(window.innerHeight - menuHeight - 10, screenY));
+
+    menu.style.left = `${posX}px`;
+    menu.style.top = `${posY}px`;
+    menu.style.display = 'flex';
+
+    if (isSelf) {
+      menu.querySelector('#ctx-self-status')?.addEventListener('click', () => {
+        this.openModal('modal-status', () => this.renderStatusModal());
+        menu.style.display = 'none';
+      });
+      menu.querySelector('#ctx-self-inv')?.addEventListener('click', () => {
+        this.openModal('modal-inventory', () => this.renderInventoryModal());
+        menu.style.display = 'none';
+      });
+      menu.querySelector('#ctx-self-enhance')?.addEventListener('click', () => {
+        this.openModal('modal-enhance', () => this.renderEnhanceModal());
+        menu.style.display = 'none';
+      });
+    } else {
+      menu.querySelector('#ctx-inspect')?.addEventListener('click', () => {
+        this.openInspectModal(targetProfile);
+        menu.style.display = 'none';
+      });
+      menu.querySelector('#ctx-party-invite')?.addEventListener('click', () => {
+        if (this.gameEngine?.network) {
+          this.gameEngine.network.sendInviteParty(targetId);
+          this.gameEngine.onLog(`💌 ส่งคำเชิญ [${name}] เข้าร่วมปาร์ตี้...`, 'system');
+        }
+        menu.style.display = 'none';
+      });
+      menu.querySelector('#ctx-duel-challenge')?.addEventListener('click', () => {
+        if (this.gameEngine?.network) {
+          this.gameEngine.network.sendDuelRequest(targetId);
+          this.gameEngine.onLog(`⚔️ ส่งคำท้าดวลตัวต่อตัวไปยัง [${name}]...`, 'combat');
+        }
+        menu.style.display = 'none';
+      });
+      menu.querySelector('#ctx-whisper')?.addEventListener('click', () => {
+        const chatInput = document.getElementById('chatInput');
+        if (chatInput) {
+          chatInput.value = `/w ${name} `;
+          chatInput.focus();
+        }
+        menu.style.display = 'none';
+      });
+    }
+  }
+
+  // ==========================================================================
+  // INSPECT PLAYER MODAL
+  // ==========================================================================
+  openInspectModal(targetProfile) {
+    this.inspectedTarget = targetProfile;
+    this.openModal('modal-inspect', () => this.renderInspectModal());
+  }
+
+  renderInspectModal() {
+    const body = document.getElementById('modal-inspect-body');
+    const titleEl = document.getElementById('inspect-modal-title');
+    if (!body) return;
+
+    const op = this.inspectedTarget || {};
+    const name = op.name || 'Unknown';
+    const level = op.level || 1;
+    if (titleEl) titleEl.innerHTML = `🔍 ตรวจสอบ: <b>${name}</b> (Lv.${level})`;
+
+    const eq = op.equipment || {
+      weapon: op.weapon,
+      offhand: op.shield,
+      hat: op.hat,
+      hair: op.hair,
+      face: op.face,
+      mouth: op.mouth,
+      head: op.head,
+      outfit: op.outfit,
+      back: op.back,
+      pet: op.pet,
+      mount: op.mount
+    };
+    const enhMap = op.itemEnhance || {};
+    const stats = op.stats || { str: 5, agi: 5, vit: 5, int: 5, dex: 5, luk: 5 };
+
+    const slots = [
+      { slot: 'weapon', label: 'อาวุธ', icon: '⚔️' },
+      { slot: 'offhand', label: 'โล่ / รอง', icon: '🛡️' },
+      { slot: 'outfit', label: 'ชุดแฟชั่น', icon: '👗' },
+      { slot: 'hat', label: 'หมวก', icon: '🎩' },
+      { slot: 'hair', label: 'ทรงผม', icon: '💇' },
+      { slot: 'face', label: 'หน้าตา', icon: '👀' },
+      { slot: 'mouth', label: 'ปาก', icon: '👄' },
+      { slot: 'head', label: 'หัว', icon: '👑' },
+      { slot: 'back', label: 'ปีก / ผ้าคลุม', icon: '🕊️' },
+      { slot: 'pet', label: 'สัตว์เลี้ยง', icon: '🐾' },
+      { slot: 'mount', label: 'สัตว์ขี่', icon: '🐺' }
+    ];
+
+    const slotsHtml = slots.map(s => {
+      const itemId = eq[s.slot];
+      const it = itemId && ITEMS[itemId];
+      const enh = enhMap[itemId] || 0;
+      const enhLevel = typeof enh === 'object' ? (enh.level || 0) : enh;
+      const enhBadge = enhLevel > 0 ? `<span class="inspect-refine-tag">+${enhLevel}</span>` : '';
+      const iconHtml = it ? itemIconHtml(itemId, 40) : `<span style="font-size:24px; opacity:0.4;">${s.icon}</span>`;
+      const itemName = it ? (it.name || itemId) : s.label;
+
+      return `
+        <div class="inspect-slot-card" data-slot="${s.slot}" data-id="${itemId || ''}" style="${it ? 'border-color: rgba(56,189,248,0.4);' : 'border-color: rgba(255,255,255,0.08); opacity:0.75;'}">
+          ${enhBadge}
+          <div class="inspect-slot-icon">${iconHtml}</div>
+          <div class="inspect-slot-name" style="${it ? 'color:#e2e8f0;' : 'color:#64748b;'}">${itemName}</div>
+        </div>
+      `;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="inspect-container">
+        <!-- Left: Paperdoll Preview -->
+        <div class="inspect-preview-card">
+          <div class="inspect-avatar-box">
+            <canvas id="inspect-player-preview" width="160" height="190"></canvas>
+          </div>
+          <div style="margin-top:10px; text-align:center;">
+            <div style="font-size:0.95rem; font-weight:900; color:#38bdf8;">${name}</div>
+            <div style="font-size:0.75rem; color:#94a3b8; font-weight:700;">Lv. ${level} · Map: ${op.currentMap || 'meadows'}</div>
+          </div>
+        </div>
+
+        <!-- Right: Equipment Slots & Stats -->
+        <div>
+          <div style="font-size:0.78rem; font-weight:800; color:#cbd5e1; margin-bottom:6px;">📦 อุปกรณ์สวมใส่</div>
+          <div class="inspect-gear-grid">
+            ${slotsHtml}
+          </div>
+
+          <div style="font-size:0.78rem; font-weight:800; color:#cbd5e1; margin-bottom:6px;">📊 ค่าสถานะตัวละคร</div>
+          <div class="inspect-stats-card">
+            <div class="inspect-stat-row"><span class="inspect-stat-label">❤️ HP:</span><span class="inspect-stat-val" style="color:#4ade80;">${(op.hp || op.maxHp || 200).toLocaleString()} / ${(op.maxHp || 200).toLocaleString()}</span></div>
+            <div class="inspect-stat-row"><span class="inspect-stat-label">⚔️ ATK:</span><span class="inspect-stat-val" style="color:#f87171;">${op.atk || 10}</span></div>
+            <div class="inspect-stat-row"><span class="inspect-stat-label">🛡️ DEF:</span><span class="inspect-stat-val" style="color:#60a5fa;">${op.def || 0}</span></div>
+            <div class="inspect-stat-row"><span class="inspect-stat-label">💪 STR:</span><span class="inspect-stat-val">${stats.str || 5}</span></div>
+            <div class="inspect-stat-row"><span class="inspect-stat-label">👟 AGI:</span><span class="inspect-stat-val">${stats.agi || 5}</span></div>
+            <div class="inspect-stat-row"><span class="inspect-stat-label">❤️ VIT:</span><span class="inspect-stat-val">${stats.vit || 5}</span></div>
+            <div class="inspect-stat-row"><span class="inspect-stat-label">🔮 INT:</span><span class="inspect-stat-val">${stats.int || 5}</span></div>
+            <div class="inspect-stat-row"><span class="inspect-stat-label">🎯 DEX:</span><span class="inspect-stat-val">${stats.dex || 5}</span></div>
+            <div class="inspect-stat-row"><span class="inspect-stat-label">🍀 LUK:</span><span class="inspect-stat-val">${stats.luk || 5}</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Render avatar paperdoll
+    const canvas = body.querySelector('#inspect-player-preview');
+    if (canvas) {
+      this.drawPlayerPreview(canvas, op);
+    }
+
+    // Attach item tooltips to slots
+    body.querySelectorAll('.inspect-slot-card').forEach(card => {
+      const id = card.dataset.id;
+      if (id && ITEMS[id]) {
+        card.addEventListener('mouseenter', (e) => {
+          const enh = enhMap[id] || 0;
+          const enhLevel = typeof enh === 'object' ? (enh.level || 0) : enh;
+          this.showItemTooltip(e, ITEMS[id], enhLevel);
+        });
+        card.addEventListener('mouseleave', () => this.hideItemTooltip());
+      }
+    });
+  }
+
+  // ==========================================================================
+  // PVP DUEL UI
+  // ==========================================================================
+  showDuelInvite(challengerId, challengerName, challengerLevel) {
+    const toast = document.getElementById('duel-invite-toast');
+    const desc = document.getElementById('duel-invite-desc');
+    if (!toast || !desc) return;
+
+    toast.dataset.challengerId = challengerId;
+    desc.innerHTML = `ผู้เล่น <b>${challengerName}</b> (Lv.${challengerLevel}) ขอท้าดวลตัวต่อตัวกับคุณ!`;
+    toast.style.display = 'block';
+
+    // Auto dismiss in 15 seconds
+    clearTimeout(this.duelInviteTimeout);
+    this.duelInviteTimeout = setTimeout(() => {
+      if (toast.style.display !== 'none') {
+        toast.style.display = 'none';
+        if (this.gameEngine?.network) {
+          this.gameEngine.network.sendDuelResponse(challengerId, false);
+        }
+      }
+    }, 15000);
+  }
+
+  startDuel(duelData) {
+    const overlay = document.getElementById('duel-hud-overlay');
+    if (!overlay) return;
+
+    overlay.style.display = 'flex';
+    document.getElementById('duel-p1-name').textContent = duelData.p1Name;
+    document.getElementById('duel-p1-lv').textContent = `Lv.${duelData.p1Level}`;
+    document.getElementById('duel-p2-name').textContent = duelData.p2Name;
+    document.getElementById('duel-p2-lv').textContent = `Lv.${duelData.p2Level}`;
+
+    document.getElementById('duel-p1-hp-fill').style.width = '100%';
+    document.getElementById('duel-p2-hp-fill').style.width = '100%';
+    document.getElementById('duel-p1-hp-text').textContent = `${duelData.hp1} / ${duelData.maxHp1}`;
+    document.getElementById('duel-p2-hp-text').textContent = `${duelData.hp2} / ${duelData.maxHp2}`;
+
+    let cd = 3;
+    const badge = document.getElementById('duel-vs-badge');
+    const timerTag = document.getElementById('duel-timer-tag');
+    badge.textContent = `⚔️ ${cd} ⚔️`;
+    badge.style.color = '#fbbf24';
+    timerTag.textContent = 'เตรียมตัว...';
+
+    clearInterval(this.duelCountdownInterval);
+    this.duelCountdownInterval = setInterval(() => {
+      cd--;
+      if (cd > 0) {
+        badge.textContent = `⚔️ ${cd} ⚔️`;
+      } else {
+        clearInterval(this.duelCountdownInterval);
+        badge.textContent = `🔥 FIGHT! 🔥`;
+        badge.style.color = '#ef4444';
+        timerTag.textContent = '⏱️ 90s';
+      }
+    }, 1000);
+  }
+
+  setDuelFight() {
+    const badge = document.getElementById('duel-vs-badge');
+    if (badge) {
+      badge.textContent = `🔥 FIGHT! 🔥`;
+      badge.style.color = '#ef4444';
+    }
+  }
+
+  updateDuelHUD(hitData) {
+    const p1Fill = document.getElementById('duel-p1-hp-fill');
+    const p2Fill = document.getElementById('duel-p2-hp-fill');
+    const p1Text = document.getElementById('duel-p1-hp-text');
+    const p2Text = document.getElementById('duel-p2-hp-text');
+
+    if (p1Fill && p1Text) {
+      const p1Pct = Math.max(0, Math.min(100, (hitData.hp1 / (hitData.maxHp1 || 1)) * 100));
+      p1Fill.style.width = `${p1Pct}%`;
+      p1Text.textContent = `${hitData.hp1} / ${hitData.maxHp1}`;
+    }
+    if (p2Fill && p2Text) {
+      const p2Pct = Math.max(0, Math.min(100, (hitData.hp2 / (hitData.maxHp2 || 1)) * 100));
+      p2Fill.style.width = `${p2Pct}%`;
+      p2Text.textContent = `${hitData.hp2} / ${hitData.maxHp2}`;
+    }
+  }
+
+  endDuel(endData) {
+    clearInterval(this.duelCountdownInterval);
+    const overlay = document.getElementById('duel-hud-overlay');
+    if (overlay) overlay.style.display = 'none';
   }
 }
