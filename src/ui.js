@@ -29,6 +29,7 @@ export class UIController {
     this.gameEngine = gameEngine;
     this.openWindows = new Set(); // several windows can stay open at once
     this.zCounter = 100;
+    this.questTab = 'active'; // 'active' | 'completed'
     this.windowRenderers = {
       'modal-status': () => this.renderStatusModal(),
       'modal-party': () => this.renderPartyModal(),
@@ -2480,43 +2481,184 @@ export class UIController {
     const body = document.getElementById('modal-quests-body');
     if (!body) return;
 
-    let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
+    if (!this.questTab) this.questTab = 'active';
+
+    const activeQuests = [];
+    const completedQuests = [];
+    let unclaimedCount = 0;
+
     QUESTS.forEach(q => {
       const st = this.player.questProgress[q.id] || { progress: 0, completed: false, claimed: false };
-      const pct = Math.min(100, (st.progress / q.requiredCount) * 100);
-
-      html += `
-        <div class="quest-card" data-qid="${q.id}" title="คลิกเพื่อไปยังแมพที่ต้องล่า" style="cursor:pointer; background:rgba(0,0,0,0.3); border:1px solid ${st.completed ? '#10b981' : 'rgba(255,255,255,0.08)'}; border-radius:8px; padding:10px;">
-          <div style="display:flex; justify-content:space-between; font-size:0.88rem; margin-bottom:4px;">
-            <b>${q.title}</b>
-            <span style="color:${st.completed ? '#34d399' : '#94a3b8'};">${st.claimed ? '✅ รับรางวัลแล้ว' : st.completed ? '🎉 สำเร็จ!' : `${st.progress}/${q.requiredCount}`}</span>
-          </div>
-          <p style="font-size:0.78rem; color:#94a3b8; margin-bottom:6px;">${q.desc}</p>
-          <div style="width:100%; height:6px; background:#1e293b; border-radius:3px; overflow:hidden; margin-bottom:6px;">
-            <div style="height:100%; width:${pct}%; background:#3b82f6;"></div>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:#f59e0b;">
-            <span>รางวัล: +${q.rewardGold} Gold, +${q.rewardExp} Base EXP, +${q.rewardTokens} Gacha Token</span>
-            ${!st.claimed ? `
-              <button class="btn-claim-q" data-id="${q.id}" ${st.completed ? '' : 'disabled'} style="padding:4px 10px; background:${st.completed ? '#10b981' : '#475569'}; color:#fff; border:none; border-radius:4px; cursor:${st.completed ? 'pointer' : 'not-allowed'}; font-weight:600;">รับรางวัล</button>
-            ` : ''}
-          </div>
-        </div>
-      `;
+      if (!st.claimed) {
+        activeQuests.push(q);
+      }
+      if (st.completed) {
+        completedQuests.push(q);
+      }
+      if (st.completed && !st.claimed) {
+        unclaimedCount++;
+      }
     });
-    html += '</div>';
+
+    // Sort ready-to-claim quests to the top
+    activeQuests.sort((a, b) => {
+      const stA = this.player.questProgress[a.id] || {};
+      const stB = this.player.questProgress[b.id] || {};
+      const readyA = stA.completed && !stA.claimed ? 1 : 0;
+      const readyB = stB.completed && !stB.claimed ? 1 : 0;
+      return readyB - readyA;
+    });
+
+    completedQuests.sort((a, b) => {
+      const stA = this.player.questProgress[a.id] || {};
+      const stB = this.player.questProgress[b.id] || {};
+      const readyA = stA.completed && !stA.claimed ? 1 : 0;
+      const readyB = stB.completed && !stB.claimed ? 1 : 0;
+      return readyB - readyA;
+    });
+
+    let html = `
+      <div class="quest-tabs">
+        <button class="quest-tab-btn ${this.questTab === 'active' ? 'active' : ''}" data-qtab="active">
+          📋 เควสต์ที่มี
+          <span class="quest-tab-badge">${activeQuests.length}</span>
+          ${unclaimedCount > 0 ? `<span class="quest-tab-alert">${unclaimedCount} รอรับ</span>` : ''}
+        </button>
+        <button class="quest-tab-btn ${this.questTab === 'completed' ? 'active' : ''}" data-qtab="completed">
+          ✅ เควสต์ที่สำเร็จแล้ว
+          <span class="quest-tab-badge">${completedQuests.length}</span>
+        </button>
+      </div>
+    `;
+
+    const displayList = this.questTab === 'active' ? activeQuests : completedQuests;
+
+    if (displayList.length === 0) {
+      if (this.questTab === 'active') {
+        html += `
+          <div class="quest-empty-state">
+            <div class="quest-empty-icon">🏆</div>
+            <div class="quest-empty-title">ยอดเยี่ยมมาก! คุณทำเควสต์ทั้งหมดสำเร็จแล้ว</div>
+            <div class="quest-empty-desc">ไม่มีเควสต์ที่ค้างอยู่ คุณสามารถดูประวัติเควสต์และของรางวัลที่ได้รับได้ที่แท็บ "เควสต์ที่สำเร็จแล้ว"</div>
+            <button class="quest-empty-btn" id="btn-goto-completed-quests">ดูเควสต์ที่สำเร็จแล้ว ➔</button>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="quest-empty-state">
+            <div class="quest-empty-icon">📜</div>
+            <div class="quest-empty-title">ยังไม่มีเควสต์ที่สำเร็จ</div>
+            <div class="quest-empty-desc">ออกสำรวจแผนที่และล่ามอนสเตอร์ตามภารกิจ เพื่อรับเหรียญทอง, ค่าประสบการณ์ และ Gacha Token!</div>
+            <button class="quest-empty-btn" id="btn-goto-active-quests">ดูเควสต์ที่มี ➔</button>
+          </div>
+        `;
+      }
+    } else {
+      html += '<div style="display:flex; flex-direction:column; gap:8px;">';
+      displayList.forEach(q => {
+        const st = this.player.questProgress[q.id] || { progress: 0, completed: false, claimed: false };
+        const pct = Math.min(100, (st.progress / q.requiredCount) * 100);
+        const zone = ZONES.find(z => z.monsters && z.monsters.includes(q.targetMonster));
+        const mon = MONSTERS[q.targetMonster];
+        const isReadyClaim = st.completed && !st.claimed;
+
+        html += `
+          <div class="quest-card ${isReadyClaim ? 'ready-claim' : ''} ${st.claimed ? 'claimed' : ''}" data-qid="${q.id}" ${!st.claimed ? 'title="คลิกเพื่อเดินทางไปยังแมพของมอนสเตอร์"' : ''} style="${!st.claimed ? 'cursor:pointer;' : ''}">
+            <div class="quest-card-header">
+              <div class="quest-card-title">
+                <span>${q.title}</span>
+              </div>
+              <div>
+                ${st.claimed
+                  ? '<span class="quest-status-badge claimed">✅ สำเร็จแล้ว</span>'
+                  : isReadyClaim
+                  ? '<span class="quest-status-badge ready">🎉 สำเร็จ! พร้อมรับรางวัล</span>'
+                  : `<span class="quest-status-badge ongoing">⏳ กำลังทำ (${st.progress}/${q.requiredCount})</span>`
+                }
+              </div>
+            </div>
+
+            <div class="quest-card-desc">${q.desc}</div>
+
+            <div class="quest-meta-row">
+              <span class="quest-target-tag">🎯 เป้าหมาย: <b>${mon ? mon.name : q.targetMonster}</b></span>
+              <span class="quest-location-tag">📍 แผนที่: <b>${zone ? zone.name : 'ทั่วไป'}</b></span>
+            </div>
+
+            <div class="quest-progress-wrap">
+              <div class="quest-progress-track">
+                <div class="quest-progress-bar ${st.completed ? 'green' : 'blue'}" style="width:${pct}%;"></div>
+              </div>
+              <span class="quest-progress-num" style="color:${st.completed ? '#4ade80' : '#38bdf8'};">
+                ${st.completed ? '100%' : `${st.progress}/${q.requiredCount}`}
+              </span>
+            </div>
+
+            <div class="quest-footer-row">
+              <div class="quest-rewards-text">
+                <span>🪙 +${q.rewardGold.toLocaleString()} G</span>
+                <span>✨ +${q.rewardExp.toLocaleString()} EXP</span>
+                <span>🎟️ +${q.rewardTokens} Token</span>
+              </div>
+              <div class="quest-actions">
+                ${isReadyClaim ? `
+                  <button class="btn-claim-q" data-id="${q.id}">🎁 รับรางวัล</button>
+                ` : !st.claimed ? `
+                  <button class="btn-travel-q" data-qid="${q.id}" title="เดินทางไปยังแมพนี้">📍 ไปยังแมพ</button>
+                ` : `
+                  <span class="quest-done-tag">✨ รับรางวัลแล้ว</span>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
+    }
 
     body.innerHTML = html;
 
-    body.querySelectorAll('.quest-card').forEach(el => {
-      el.addEventListener('click', (e) => {
-        if (e.target.closest('button')) return;
-        this.promptQuestTravel(el.dataset.qid);
+    // Tab buttons event
+    body.querySelectorAll('.quest-tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        this.questTab = e.currentTarget.dataset.qtab;
+        this.renderQuestsModal();
       });
     });
 
+    // Empty state switch buttons
+    body.querySelector('#btn-goto-completed-quests')?.addEventListener('click', () => {
+      this.questTab = 'completed';
+      this.renderQuestsModal();
+    });
+    body.querySelector('#btn-goto-active-quests')?.addEventListener('click', () => {
+      this.questTab = 'active';
+      this.renderQuestsModal();
+    });
+
+    // Travel to monster location
+    body.querySelectorAll('.quest-card').forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        const qid = el.dataset.qid;
+        const st = this.player.questProgress[qid];
+        if (!st || !st.claimed) {
+          this.promptQuestTravel(qid);
+        }
+      });
+    });
+
+    body.querySelectorAll('.btn-travel-q').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.promptQuestTravel(btn.dataset.qid);
+      });
+    });
+
+    // Claim reward button
     body.querySelectorAll('.btn-claim-q').forEach(btn => {
       btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const id = e.currentTarget.dataset.id;
         const q = QUESTS.find(item => item.id === id);
         const st = this.player.questProgress[id];
@@ -2526,7 +2668,7 @@ export class UIController {
           this.player.gachaTokens += q.rewardTokens;
           this.player.gainExp(q.rewardExp);
           this.player.saveToStorage();
-          this.gameEngine.onLog(`🎁 รับรางวัลเควสต์: +${q.rewardGold} Gold, +${q.rewardTokens} Token`, 'quest');
+          this.gameEngine.onLog(`🎁 รับรางวัลเควสต์: +${q.rewardGold} Gold, +${q.rewardTokens} Token, +${q.rewardExp} EXP`, 'quest');
           this.renderQuestsModal();
           this.updateHUD();
         }
