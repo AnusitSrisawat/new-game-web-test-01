@@ -131,6 +131,11 @@
 - **Coloring:** สไตล์ Cel-Shading 2-3 ระดับสี (Base Color, Soft Shadow, Crisp Highlight)
 - **Cozy & Warm Aesthetic:** ใช้พาเลตต์สีที่สดใส อบอุ่น มีชีวิตชีวา (Vibrant Fantasy RPG)
 
+### 4.3 ข้อกำหนดสำคัญ: ห้ามมีเงาที่พื้น (CRITICAL: No Floor/Ground Shadow)
+- **ตัวละคร/ชุด/อุปกรณ์ทุกชิ้นต้องไม่มีเงาตกกระทบบนพื้น (ABSOLUTELY NO FLOOR SHADOW, NO GROUND SHADOW, NO CONTACT SHADOW UNDER FEET)**
+- เช่น เมื่อตัวละครยืน หรือชุดวางตั้งอยู่ **เท้าและรองเท้าต้องลอยอยู่บนพื้นเรียบสะอาดตา ไม่มีเงาวงรีดำหรือคราบเงามืดใต้เท้า**
+- **เหตุผล:** ระบบเกมมีโค้ดวาดเงาวงรีใต้เท้า (`Layer 0: เงาใต้ตัว (Shadow Ellipse)`) แบบไดนามิกบน Canvas ให้อยู่แล้ว หากภาพมีเงาติดพื้นมาด้วย เครื่องมือตัดภาพจะตัดติดเงาดำใต้เท้า ทำให้สไปรต์ตัวละครในเกมมีเงาซ้อนทับกัน (Double Shadows) ไม่สวยงาม
+
 ---
 
 ## 5. แผนการต่อยอดเข้ากับโค้ดเกม (Code Integration Roadmap)
