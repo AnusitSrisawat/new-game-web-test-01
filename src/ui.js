@@ -2539,7 +2539,115 @@ export class UIController {
   }
 
   // Enhancement & Option System Modal (ตีบวก & สุ่มออปชั่น)
-  // Enhancement & Option System Modal (ตีบวก & สุ่มออปชั่น)
+  async executeEnhanceStepByStep(itemId, totalCount = 1) {
+    if (this.isEnhancing) return;
+    this.isEnhancing = true;
+    this.enhanceCancelRequested = false;
+    this.enhanceStepProgress = { current: 0, total: totalCount, success: 0, fail: 0 };
+
+    const itName = ITEMS[itemId]?.name || itemId;
+
+    for (let i = 0; i < totalCount; i++) {
+      // Check if user requested cancel or window was closed
+      if (this.enhanceCancelRequested || !this.openWindows.has('modal-enhance')) {
+        if (this.enhanceCancelRequested) {
+          this.gameEngine?.onLog(`⏹️ หยุดการตีบวกต่อเนื่อง (${i}/${totalCount} ครั้ง)`, 'system');
+        }
+        break;
+      }
+
+      const curEnh = this.player.getItemEnhance(itemId);
+      if (!curEnh || curEnh.level >= 25) {
+        if (curEnh && curEnh.level >= 25) {
+          this.gameEngine?.onLog(`👑 ${itName} ตีบวกถึงระดับสูงสุด (+25) แล้ว!`, 'system');
+        }
+        break;
+      }
+
+      const cost = this.player.getEnhanceCost(curEnh.level);
+      if (this.player.gold < cost) {
+        this.gameEngine?.onLog(`🪙 ทองไม่พอสำหรับการตีบวกขั้นต่อไป (ต้องการ ${cost.toLocaleString()} Gold)`, 'system');
+        break;
+      }
+
+      this.enhanceStepProgress.current = i + 1;
+
+      // 1. Strike animation phase (Hammer swings down + sparks)
+      this.enhanceAnimationState = {
+        phase: 'striking',
+        status: 'striking'
+      };
+      this.renderEnhanceModal();
+      soundEngine?.play('powerStrike');
+
+      // Wait for hammer strike motion to connect
+      await new Promise(r => setTimeout(r, 260));
+
+      if (this.enhanceCancelRequested || !this.openWindows.has('modal-enhance')) {
+        break;
+      }
+
+      // 2. Execute enhancement roll
+      const res = this.player.enhanceItem(itemId);
+      if (!res.ok) {
+        this.gameEngine?.onLog(`🚫 ${res.reason}`, 'system');
+        break;
+      }
+
+      // 3. Result animation phase (Sparks/flash, outcome badge, sound)
+      if (res.broken) {
+        this.enhanceStepProgress.fail++;
+        this.enhanceAnimationState = {
+          phase: 'result',
+          status: 'broken',
+          message: '💥 แตกหักสูญหาย!'
+        };
+        soundEngine?.play('monsterDie');
+        this.gameEngine?.onLog(`💥 ไอเท็มแตกหัก! ${itName} สลายไปจากการตีบวกที่ล้มเหลว...`, 'combat');
+        this.selectedEnhanceItemId = null;
+        this.renderEnhanceModal();
+        this.updateHUD();
+        if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
+        if (this.openWindows.has('modal-status')) this.renderStatusModal();
+        await new Promise(r => setTimeout(r, 800));
+        break;
+      } else if (res.success) {
+        this.enhanceStepProgress.success++;
+        const unlockMsg = res.unlockedNewSlot ? ` 🔓 ปลดล็อกช่อง Option!` : '';
+        this.enhanceAnimationState = {
+          phase: 'result',
+          status: 'success',
+          message: `✨ สำเร็จ! +${res.newLevel}`
+        };
+        soundEngine?.play('ironGuard');
+        this.gameEngine?.onLog(`✨ ตีบวกสำเร็จ! ${itName} เพิ่มเป็น +${res.newLevel}!${unlockMsg}`, 'system');
+      } else {
+        this.enhanceStepProgress.fail++;
+        this.enhanceAnimationState = {
+          phase: 'result',
+          status: 'fail',
+          message: `💥 ล้มเหลว! (เหลือ +${res.level})`
+        };
+        soundEngine?.play('playerHurt');
+        this.gameEngine?.onLog(`💥 ตีบวกล้มเหลว! ${itName} ลดลงเหลือ +${res.level}`, 'combat');
+      }
+
+      this.renderEnhanceModal();
+      this.updateHUD();
+      if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
+      if (this.openWindows.has('modal-status')) this.renderStatusModal();
+
+      // Pause to let player see result and updated level/stats before next strike
+      await new Promise(r => setTimeout(r, 380));
+    }
+
+    // Finished or cancelled
+    this.enhanceAnimationState = null;
+    this.isEnhancing = false;
+    this.enhanceStepProgress = null;
+    this.renderEnhanceModal();
+  }
+
   renderEnhanceModal() {
     const body = document.getElementById('modal-enhance-body');
     if (!body) return;
@@ -2607,7 +2715,7 @@ export class UIController {
 
     // 1. Top Bar: Tabs & Player Gold
     const tabsHtml = `
-      <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:10px; flex-shrink:0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:10px; flex-shrink:0; ${this.isEnhancing ? 'pointer-events:none; opacity:0.6;' : ''}">
         <div style="display:flex; gap:8px;">
           <button class="btn-enhance-tab ${this.enhanceTab === 'enhance' ? 'active' : ''}" data-tab="enhance" style="
             padding:6px 14px; border:none; border-radius:6px; font-size:0.82rem; font-weight:700; cursor:pointer; transition:all 0.15s;
@@ -2622,8 +2730,14 @@ export class UIController {
             box-shadow:${this.enhanceTab === 'options' ? '0 2px 8px rgba(59,130,246,0.35)' : 'none'};
           ">✨ สุ่มออปชั่น (Options)</button>
         </div>
-        <div style="font-size:0.85rem; font-weight:700; color:#fbbf24; background:rgba(0,0,0,0.35); padding:4px 12px; border-radius:20px; border:1px solid rgba(245,158,11,0.3);">
-          🪙 ทองของคุณ: <b>${pl.gold.toLocaleString()}</b>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <div style="font-size:0.85rem; font-weight:700; color:#fbbf24; background:rgba(0,0,0,0.35); padding:4px 12px; border-radius:20px; border:1px solid rgba(245,158,11,0.3);">
+            🪙 ทองของคุณ: <b>${pl.gold.toLocaleString()}</b>
+          </div>
+          <button id="btn-add-test-gold" title="เพิ่มทองทดสอบ (+1,000,000 G)" style="
+            background:rgba(245,158,11,0.2); border:1px solid rgba(245,158,11,0.5); color:#fbbf24; border-radius:6px;
+            padding:3px 8px; cursor:pointer; font-weight:800; font-size:0.72rem; transition:all 0.12s;
+          ">+ 1M G</button>
         </div>
       </div>
     `;
@@ -2634,6 +2748,7 @@ export class UIController {
         flex: 0 0 290px; width: 290px; display: flex; flex-direction: column; gap: 8px;
         background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 10px; padding: 10px; box-sizing: border-box; height: 100%; min-height: 0; overflow-y: auto;
+        ${this.isEnhancing ? 'pointer-events:none; opacity:0.6;' : ''}
       ">
         <div style="font-size:0.75rem; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:4px; border-bottom:1px solid rgba(255,255,255,0.06);">
           🛡️ สวมใส่อยู่ (Equipped)
@@ -2796,8 +2911,32 @@ export class UIController {
           <div style="flex:1; display:flex; flex-direction:column; gap:10px; height:100%; min-height:0; overflow-y:auto; padding-right:4px;">
             ${headerCard}
 
-            <!-- Compare Level Box -->
-            <div style="display:flex; align-items:center; justify-content:center; gap:20px; padding:12px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+            <!-- Compare Level Box with Dynamic Animation Overlay -->
+            <div id="enhance-compare-box" class="${this.enhanceAnimationState?.status === 'success' ? 'box-enhance-success' : (this.enhanceAnimationState?.status === 'fail' || this.enhanceAnimationState?.status === 'broken' ? 'box-enhance-fail' : '')}" style="
+              position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; gap:20px; padding:16px 12px;
+              background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; min-height:85px; box-sizing:border-box;
+            ">
+              ${this.enhanceAnimationState ? `
+                <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.55); z-index:10; pointer-events:none; border-radius:10px;">
+                  ${this.enhanceAnimationState.phase === 'striking' ? `
+                    <div class="anim-hammer-strike" style="font-size:52px; filter:drop-shadow(0 0 16px #f59e0b);">🔨</div>
+                    <div class="anim-spark-burst" style="font-size:42px;">💥</div>
+                  ` : this.enhanceAnimationState.phase === 'result' ? `
+                    <div class="badge-pop-in" style="
+                      display:flex; flex-direction:column; align-items:center; gap:3px;
+                      background:${this.enhanceAnimationState.status === 'success' ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.95), rgba(21, 128, 61, 0.95))' : this.enhanceAnimationState.status === 'broken' ? 'linear-gradient(135deg, rgba(0,0,0,0.95), rgba(127, 29, 29, 0.95))' : 'linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(185, 28, 28, 0.95))'};
+                      border:2px solid ${this.enhanceAnimationState.status === 'success' ? '#4ade80' : this.enhanceAnimationState.status === 'broken' ? '#ef4444' : '#fca5a5'};
+                      padding:8px 20px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.6);
+                    ">
+                      <span style="font-size:26px;">${this.enhanceAnimationState.status === 'success' ? '✨' : this.enhanceAnimationState.status === 'broken' ? '☠️' : '💥'}</span>
+                      <span style="font-size:0.95rem; font-weight:900; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.9); white-space:nowrap;">
+                        ${this.enhanceAnimationState.message}
+                      </span>
+                    </div>
+                  ` : ''}
+                </div>
+              ` : ''}
+
               <div style="display:flex; flex-direction:column; align-items:center;">
                 <span style="font-size:0.72rem; color:#94a3b8;">ระดับปัจจุบัน</span>
                 <span style="font-size:1.6rem; font-weight:900; color:${enhanceColor(curLevel)}; text-shadow:0 0 10px ${enhanceColor(curLevel)}55;">+${curLevel}</span>
@@ -2857,34 +2996,56 @@ export class UIController {
               </div>
             `}
 
-            <!-- Action Buttons (x1, x5, x10) -->
+            <!-- Action Buttons (x1, x5, x10) or Active Enhancing Status -->
             ${!isMax ? `
               <div style="margin-top:auto; display:flex; flex-direction:column; gap:6px;">
-                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
-                  <button class="btn-do-enhance-batch" data-count="1" data-id="${curItem.id}" ${canAfford ? '' : 'disabled'} style="
-                    padding:9px 4px; border:none; border-radius:8px; font-size:0.82rem; font-weight:800; cursor:${canAfford ? 'pointer' : 'not-allowed'};
-                    background:${canAfford ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#475569'};
-                    color:${canAfford ? '#000' : '#94a3b8'};
-                    box-shadow:${canAfford ? '0 2px 8px rgba(245,158,11,0.35)' : 'none'};
-                    transition:all 0.15s;
-                  ">🔨 ตีบวก 1 ครั้ง</button>
+                ${this.isEnhancing ? `
+                  <div style="
+                    padding:10px 14px; background:rgba(15, 23, 42, 0.95); border:1px solid #f59e0b; border-radius:8px;
+                    display:flex; align-items:center; justify-content:space-between; gap:12px; box-shadow:0 0 16px rgba(245, 158, 11, 0.25);
+                  ">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <span style="font-size:24px; display:inline-block; animation:popIn 0.5s infinite alternate;">🔨</span>
+                      <div>
+                        <div style="font-size:0.86rem; font-weight:800; color:#fbbf24;">กำลังตีบวก... (${this.enhanceStepProgress?.current || 1}/${this.enhanceStepProgress?.total || 1})</div>
+                        <div style="font-size:0.72rem; color:#94a3b8;">สำเร็จ ${this.enhanceStepProgress?.success || 0} ครั้ง · ล้มเหลว ${this.enhanceStepProgress?.fail || 0} ครั้ง</div>
+                      </div>
+                    </div>
+                    ${(this.enhanceStepProgress?.total > 1) ? `
+                      <button id="btn-cancel-enhance" style="
+                        padding:6px 14px; border:none; border-radius:6px; font-size:0.8rem; font-weight:800; cursor:pointer;
+                        background:linear-gradient(135deg, #ef4444, #dc2626); color:#fff; box-shadow:0 2px 8px rgba(239,68,68,0.4);
+                        transition:all 0.15s;
+                      ">⏹️ หยุด</button>
+                    ` : ''}
+                  </div>
+                ` : `
+                  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+                    <button class="btn-do-enhance-batch" data-count="1" data-id="${curItem.id}" ${canAfford ? '' : 'disabled'} style="
+                      padding:9px 4px; border:none; border-radius:8px; font-size:0.82rem; font-weight:800; cursor:${canAfford ? 'pointer' : 'not-allowed'};
+                      background:${canAfford ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#475569'};
+                      color:${canAfford ? '#000' : '#94a3b8'};
+                      box-shadow:${canAfford ? '0 2px 8px rgba(245,158,11,0.35)' : 'none'};
+                      transition:all 0.15s;
+                    ">🔨 ตีบวก 1 ครั้ง</button>
 
-                  <button class="btn-do-enhance-batch" data-count="5" data-id="${curItem.id}" ${canAfford ? '' : 'disabled'} style="
-                    padding:9px 4px; border:none; border-radius:8px; font-size:0.82rem; font-weight:800; cursor:${canAfford ? 'pointer' : 'not-allowed'};
-                    background:${canAfford ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#475569'};
-                    color:${canAfford ? '#fff' : '#94a3b8'};
-                    box-shadow:${canAfford ? '0 2px 8px rgba(59,130,246,0.35)' : 'none'};
-                    transition:all 0.15s;
-                  ">⚡ ตีบวก 5 ครั้ง</button>
+                    <button class="btn-do-enhance-batch" data-count="5" data-id="${curItem.id}" ${canAfford ? '' : 'disabled'} style="
+                      padding:9px 4px; border:none; border-radius:8px; font-size:0.82rem; font-weight:800; cursor:${canAfford ? 'pointer' : 'not-allowed'};
+                      background:${canAfford ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#475569'};
+                      color:${canAfford ? '#fff' : '#94a3b8'};
+                      box-shadow:${canAfford ? '0 2px 8px rgba(59,130,246,0.35)' : 'none'};
+                      transition:all 0.15s;
+                    ">⚡ ตีบวก 5 ครั้ง</button>
 
-                  <button class="btn-do-enhance-batch" data-count="10" data-id="${curItem.id}" ${canAfford ? '' : 'disabled'} style="
-                    padding:9px 4px; border:none; border-radius:8px; font-size:0.82rem; font-weight:800; cursor:${canAfford ? 'pointer' : 'not-allowed'};
-                    background:${canAfford ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : '#475569'};
-                    color:${canAfford ? '#fff' : '#94a3b8'};
-                    box-shadow:${canAfford ? '0 2px 8px rgba(139,92,246,0.35)' : 'none'};
-                    transition:all 0.15s;
-                  ">🔥 ตีบวก 10 ครั้ง</button>
-                </div>
+                    <button class="btn-do-enhance-batch" data-count="10" data-id="${curItem.id}" ${canAfford ? '' : 'disabled'} style="
+                      padding:9px 4px; border:none; border-radius:8px; font-size:0.82rem; font-weight:800; cursor:${canAfford ? 'pointer' : 'not-allowed'};
+                      background:${canAfford ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : '#475569'};
+                      color:${canAfford ? '#fff' : '#94a3b8'};
+                      box-shadow:${canAfford ? '0 2px 8px rgba(139,92,246,0.35)' : 'none'};
+                      transition:all 0.15s;
+                    ">🔥 ตีบวก 10 ครั้ง</button>
+                  </div>
+                `}
               </div>
             ` : ''}
           </div>
@@ -3020,17 +3181,19 @@ export class UIController {
     `;
 
     // Event Listeners:
-    // Tab switching
+    // Tab switching (prevent switching while enhancing)
     body.querySelectorAll('.btn-enhance-tab').forEach(btn => {
       btn.addEventListener('click', e => {
+        if (this.isEnhancing) return;
         this.enhanceTab = e.currentTarget.dataset.tab;
         this.renderEnhanceModal();
       });
     });
 
-    // Selecting an item from the left column
+    // Selecting an item from the left column (prevent switching while enhancing)
     body.querySelectorAll('.enhance-item-pick').forEach(el => {
       el.addEventListener('click', e => {
+        if (this.isEnhancing) return;
         const id = e.currentTarget.dataset.id;
         if (id && ITEMS[id]) {
           this.selectedEnhanceItemId = id;
@@ -3039,59 +3202,34 @@ export class UIController {
       });
     });
 
-    // Do enhance buttons (1, 5, 10 attempts)
+    // Do enhance buttons (1, 5, 10 attempts executed sequentially one by one with strike animation)
     body.querySelectorAll('.btn-do-enhance-batch').forEach(btn => {
       btn.addEventListener('click', e => {
+        if (this.isEnhancing) return;
         const id = e.currentTarget.dataset.id;
         const count = parseInt(e.currentTarget.dataset.count, 10) || 1;
         if (!id) return;
-        const itName = ITEMS[id]?.name || id;
-
-        if (count === 1) {
-          const res = this.player.enhanceItem(id);
-          if (res.ok) {
-            if (res.broken) {
-              soundEngine?.play('monsterDie');
-              this.gameEngine?.onLog(`💥 ไอเท็มแตกหัก! ${itName} สลายไปจากการตีบวกที่ล้มเหลว...`, 'combat');
-              this.selectedEnhanceItemId = null;
-            } else if (res.success) {
-              soundEngine?.play('ironGuard');
-              const unlockMsg = res.unlockedNewSlot ? ` 🔓 ปลดล็อกช่อง Option ใหม่แล้ว!` : '';
-              this.gameEngine?.onLog(`✨ ตีบวกสำเร็จ! ${itName} เพิ่มเป็น +${res.newLevel}!${unlockMsg}`, 'system');
-            } else {
-              soundEngine?.play('playerHurt');
-              this.gameEngine?.onLog(`💥 ตีบวกล้มเหลว! ${itName} ลดลงเหลือ +${res.level}`, 'combat');
-            }
-            this.renderEnhanceModal();
-            this.updateHUD();
-            if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
-            if (this.openWindows.has('modal-status')) this.renderStatusModal();
-          } else {
-            this.gameEngine?.onLog(`🚫 ${res.reason}`, 'system');
-          }
-        } else {
-          // Batch enhance (5 or 10 times)
-          const res = this.player.enhanceItemBatch(id, count);
-          if (res.ok) {
-            if (res.broken) {
-              soundEngine?.play('monsterDie');
-              this.gameEngine?.onLog(`💥 ตีบวก ${res.attemptsRun} ครั้ง: ไอเท็มแตกหักสูญหาย! ${itName} สลายไป...`, 'combat');
-              this.selectedEnhanceItemId = null;
-            } else {
-              if (res.successCount > res.failCount) soundEngine?.play('ironGuard');
-              else soundEngine?.play('playerHurt');
-              const unlockMsg = res.unlockedNewSlot ? ` 🔓 ปลดล็อกช่อง Option ใหม่!` : '';
-              this.gameEngine?.onLog(`🔨 ตีบวก ${res.attemptsRun} ครั้ง: สำเร็จ ${res.successCount} ครั้ง, ล้มเหลว ${res.failCount} ครั้ง (ระดับปัจจุบัน: +${res.finalLevel})${unlockMsg}`, 'system');
-            }
-            this.renderEnhanceModal();
-            this.updateHUD();
-            if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
-            if (this.openWindows.has('modal-status')) this.renderStatusModal();
-          } else {
-            this.gameEngine?.onLog(`🚫 ${res.reason}`, 'system');
-          }
-        }
+        this.executeEnhanceStepByStep(id, count);
       });
+    });
+
+    // Stop / Cancel button for ongoing enhancement
+    const cancelBtn = body.querySelector('#btn-cancel-enhance');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        this.enhanceCancelRequested = true;
+        cancelBtn.textContent = '⏳ กำลังหยุด...';
+        cancelBtn.disabled = true;
+      });
+    }
+
+    // Quick Add Gold helper for testing
+    body.querySelector('#btn-add-test-gold')?.addEventListener('click', () => {
+      this.player.gold += 1000000;
+      this.player.saveToStorage();
+      this.updateHUD();
+      this.renderEnhanceModal();
+      this.gameEngine?.onLog('🪙 ได้รับทองทดสอบ +1,000,000 Gold', 'system');
     });
 
     // Toggle option lock button

@@ -178,6 +178,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const handleSendChat = () => {
     const txt = chatInput.value.trim();
     if (txt) {
+      if (txt.startsWith('/gold ')) {
+        const amt = parseInt(txt.split(' ')[1], 10) || 500000;
+        player.gold = amt;
+        player.saveToStorage();
+        ui.updateHUD();
+        if (ui.openWindows.has('modal-enhance')) ui.renderEnhanceModal();
+        addLog(`💰 ปรับเงินทองเป็น ${amt.toLocaleString()} Gold`, 'system');
+        chatInput.value = '';
+        return;
+      }
       network.sendChat(txt, sendChannel());
       chatInput.value = '';
     }
