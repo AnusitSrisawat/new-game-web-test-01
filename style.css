@@ -1428,6 +1428,22 @@ body, html {
   flex-direction: column;
   gap: 8px;
 }
+#modal-enhance {
+  width: min(920px, calc(100vw - 20px)) !important;
+  max-width: calc(100vw - 20px) !important;
+  height: min(670px, calc(100vh - 24px)) !important;
+  max-height: calc(100vh - 24px) !important;
+  left: calc(50% - 460px);
+}
+#modal-enhance .modal-body {
+  height: calc(100% - 48px);
+  max-height: calc(100% - 48px);
+  padding: 12px 14px;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
 .mon-grid-scroll {
   flex: 1 1 0;
   min-height: 0;

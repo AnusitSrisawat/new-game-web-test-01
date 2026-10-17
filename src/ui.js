@@ -23,6 +23,24 @@ const SKILL_ICONS = {
 const RARITY = { common: ['ธรรมดา', '#94a3b8'], uncommon: ['ไม่ธรรมดา', '#22c55e'], rare: ['หายาก', '#3b82f6'], epic: ['ตำนาน', '#f59e0b'] };
 const WEAPON_REQ = { any: 'อาวุธใดก็ได้', melee: 'ดาบ/ไม้/มือเปล่า', bow: 'ธนู', staff: 'คฑา' };
 
+const STAT_INFO = {
+  str: { label: 'STR', name: 'พลังกาย (STR)', icon: '💪', color: '#f87171' },
+  agi: { label: 'AGI', name: 'ความว่องไว (AGI)', icon: '👟', color: '#4ade80' },
+  vit: { label: 'VIT', name: 'ความอึด (VIT)', icon: '❤️', color: '#f59e0b' },
+  int: { label: 'INT', name: 'สติปัญญา (INT)', icon: '🔮', color: '#60a5fa' },
+  dex: { label: 'DEX', name: 'ความชำนาญ (DEX)', icon: '🎯', color: '#a78bfa' },
+  luk: { label: 'LUK', name: 'โชคลาภ (LUK)', icon: '🍀', color: '#facc15' }
+};
+
+function enhanceColor(level) {
+  if (level >= 25) return '#fbbf24';
+  if (level >= 20) return '#ef4444';
+  if (level >= 15) return '#f59e0b';
+  if (level >= 10) return '#c084fc';
+  if (level >= 5) return '#38bdf8';
+  return '#4ade80';
+}
+
 export class UIController {
   constructor(player, gameEngine) {
     this.player = player;
@@ -35,6 +53,7 @@ export class UIController {
       'modal-party': () => this.renderPartyModal(),
       'modal-inventory': () => this.renderInventoryModal(),
       'modal-craft': () => this.renderCraftModal(),
+      'modal-enhance': () => this.renderEnhanceModal(),
       'modal-quests': () => this.renderQuestsModal(),
       'modal-relics': () => this.renderRelicsModal(),
       'modal-shop': () => this.renderShopModal(),
@@ -62,6 +81,7 @@ export class UIController {
       { id: 'btn-open-info', modalId: 'modal-info', render: () => this.renderInfoModal() },
       { id: 'btn-open-skills', modalId: 'modal-skills', render: () => this.renderSkillsModal() },
       { id: 'btn-open-craft', modalId: 'modal-craft', render: () => this.renderCraftModal() },
+      { id: 'btn-open-enhance', modalId: 'modal-enhance', render: () => this.renderEnhanceModal() },
       { id: 'btn-open-quests', modalId: 'modal-quests', render: () => this.renderQuestsModal() },
       { id: 'btn-open-relics', modalId: 'modal-relics', render: () => this.renderRelicsModal() },
       { id: 'btn-open-shop', modalId: 'modal-shop', render: () => this.renderShopModal() },
@@ -208,6 +228,7 @@ export class UIController {
       else if (key === 'p') this.toggleModal('modal-party', () => this.renderPartyModal());
       else if (key === 'i') this.toggleModal('modal-inventory', () => this.renderInventoryModal());
       else if (key === 'b') this.toggleModal('modal-craft', () => this.renderCraftModal());
+      else if (key === 'u') this.toggleModal('modal-enhance', () => this.renderEnhanceModal());
       else if (key === 'j') this.toggleModal('modal-quests', () => this.renderQuestsModal());
       else if (key === 't') this.toggleModal('modal-relics', () => this.renderRelicsModal());
       else if (key === 'k') this.toggleModal('modal-shop', () => this.renderShopModal());
@@ -389,7 +410,7 @@ export class UIController {
   refreshOpenWindows() {
     if (this.openWindows.size === 0) return;
     const pl = this.player;
-    const sig = JSON.stringify([pl.gold, pl.gachaTokens, pl.baseLevel, pl.statPoints, pl.inventory, pl.equipment, pl.questProgress, pl.collectedRelics.length, pl.learnedSkills, pl.skillBooks, pl.skillLoadout]);
+    const sig = JSON.stringify([pl.gold, pl.gachaTokens, pl.baseLevel, pl.statPoints, pl.inventory, pl.equipment, pl.itemEnhancements, pl.questProgress, pl.collectedRelics.length, pl.learnedSkills, pl.skillBooks, pl.skillLoadout]);
     if (sig === this.lastWindowSig) return;
     this.lastWindowSig = sig;
     const a = document.activeElement;
@@ -1006,6 +1027,7 @@ export class UIController {
               const bs = 'height:28px; border:none; border-radius:5px; color:#fff; cursor:pointer; font-size:0.75rem; font-weight:700; touch-action:none; padding:0 8px; white-space:nowrap; transition:all 0.15s;';
               const canAdd = pendLeft > 0, canSub = pend[k] > 0;
               const addBtn = (n, label, bg) => canAdd ? `<button class="btn-stat-add" data-stat="${k}" data-amt="${n}" style="${bs} background:${bg};">${label}</button>` : '';
+              const optBonus = pl.gearOptionBonus ? pl.gearOptionBonus(k) : 0;
               return `
               <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.06);">
                 <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
@@ -1015,6 +1037,7 @@ export class UIController {
                   ">${k}</span>
                   <div style="display:flex; align-items:baseline; gap:5px; white-space:nowrap;">
                     <span style="font-size:1.02rem; font-weight:700; color:#f8fafc;">${(pl.stats[k] || 0).toLocaleString()}</span>
+                    ${optBonus > 0 ? `<span style="color:#38bdf8; font-size:0.78rem; font-weight:700; background:rgba(56,189,248,0.12); padding:1px 5px; border-radius:4px; border:1px solid rgba(56,189,248,0.25);" title="โบนัสจาก Option อุปกรณ์">+${optBonus}</span>` : ''}
                     ${pend[k] ? `<span style="color:#4ade80; font-size:0.85rem; font-weight:700; background:rgba(74,222,128,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(74,222,128,0.3);">+${pend[k].toLocaleString()}</span>` : ''}
                   </div>
                 </div>
@@ -1394,20 +1417,24 @@ export class UIController {
     const slotCardHtml = (gs) => {
       const itemId = this.player.equipment[gs.slot];
       const it = itemId ? ITEMS[itemId] : null;
+      const enh = itemId ? this.player.getItemEnhance(itemId) : null;
+      const enhLevel = enh ? enh.level : 0;
       return `
         <div class="equip-slot-card" data-slot="${gs.slot}" data-id="${itemId || ''}" style="
+          position: relative;
           display: flex; align-items: center; gap: 7px;
           background: ${it ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)'};
           border: 1px solid ${it ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255, 255, 255, 0.08)'};
           border-radius: 8px; padding: 5px 8px; user-select: none; transition: all 0.15s;
           cursor: ${it && gs.slot !== 'head' ? 'pointer' : 'default'};
           height: 38px; box-sizing: border-box;
-        " title="${it ? `${it.name} (คลิก ✕ หรือการ์ดเพื่อถอดคืนกระเป๋า)` : `${gs.label} (ว่าง)`}">
-          <div style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); border-radius: 6px; flex-shrink: 0; font-size: 16px;">
+        " title="${it ? `${enhLevel > 0 ? `+${enhLevel} ` : ''}${it.name} (คลิก ✕ หรือการ์ดเพื่อถอดคืนกระเป๋า)` : `${gs.label} (ว่าง)`}">
+          <div style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); border-radius: 6px; flex-shrink: 0; font-size: 16px; position:relative;">
             ${it ? itemIconHtml(it.id, it.icon, 26) : `<span style="opacity: 0.35; font-size: 14px;">${gs.icon}</span>`}
           </div>
-          <div style="flex: 1; min-width: 0; font-size: 0.74rem; font-weight: 700; color: ${it ? '#93c5fd' : '#64748b'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            ${gs.label}
+          <div style="flex: 1; min-width: 0; font-size: 0.74rem; font-weight: 700; color: ${it ? '#93c5fd' : '#64748b'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:4px;">
+            ${enhLevel > 0 ? `<span style="background:${enhanceColor(enhLevel)}; color:#000; font-size:0.65rem; font-weight:900; padding:1px 4px; border-radius:4px; line-height:1;">+${enhLevel}</span>` : ''}
+            <span>${gs.label}</span>
           </div>
           ${it && gs.slot !== 'head' ? `
             <button class="btn-slot-unequip" data-slot="${gs.slot}" title="ถอดชิ้นนี้คืนกระเป๋า" style="
@@ -1447,9 +1474,12 @@ export class UIController {
     } else {
       shown.forEach(k => {
         const item = ITEMS[k];
+        const enh = this.player.getItemEnhance(k);
+        const enhLevel = enh ? enh.level : 0;
         invHtml += `
           <div class="inv-slot" data-id="${k}" title="${item.name}" style="${slotStyle} border:1px solid rgba(255,255,255,0.1);">
             <span style="font-size:28px; display:flex;">${itemIconHtml(k, item.icon, 40)}</span>
+            ${enhLevel > 0 ? `<span style="position:absolute; top:2px; left:3px; font-size:0.68rem; font-weight:900; color:${enhanceColor(enhLevel)}; text-shadow:0 0 3px #000, 0 1px 2px #000; z-index:2; pointer-events:none;">+${enhLevel}</span>` : ''}
             <span style="position:absolute; right:3px; bottom:1px; font-size:0.68rem; color:#f59e0b; text-shadow:0 0 3px #000; font-weight:700;">${this.player.inventory[k] > 1 ? this.player.inventory[k] : ''}</span>
           </div>`;
       });
@@ -1719,26 +1749,60 @@ export class UIController {
       const isGear = GEAR_TYPES.includes(item.type);
       const curId = isGear ? this.player.equipment[SLOT_OF_TYPE[item.type]] : null;
       const cur = (curId && curId !== k) ? ITEMS[curId] : null;
-      const head = (it, tag, tagColor) => `<div style="font-weight:700; font-size:0.85rem;">${it.name}</div><div style="color:${tagColor}; font-size:0.7rem; margin-bottom:4px;">${tag}</div>`;
-      const stats = (it, other) => STAT_ROWS.filter(([f]) => it[f] || (other && other[f])).map(([f, label]) => {
-        const rawV = it[f] || 0;
+
+      const enh = this.player.getItemEnhance(k);
+      const curEnh = curId ? this.player.getItemEnhance(curId) : null;
+
+      const head = (it, tag, tagColor, eLev = 0) => {
+        const pfx = eLev > 0 ? `<span style="color:${enhanceColor(eLev)}; font-weight:800;">+${eLev}</span> ` : '';
+        const tagExtra = eLev > 0 ? ` <span style="color:${enhanceColor(eLev)}; font-weight:600;">(ประสิทธิภาพ +${eLev}%)</span>` : '';
+        return `<div style="font-weight:700; font-size:0.85rem;">${pfx}${it.name}</div><div style="color:${tagColor}; font-size:0.7rem; margin-bottom:4px;">${tag}${tagExtra}</div>`;
+      };
+
+      const stats = (it, other, eLev = 0, otherELev = 0) => STAT_ROWS.filter(([f]) => it[f] || (other && other[f])).map(([f, label]) => {
+        const mult = 1 + (eLev * 0.01);
+        const rawBase = it[f] || 0;
+        const rawV = typeof rawBase === 'number' ? (f === 'speedPct' || f === 'lootSpeed' ? rawBase * mult : Math.round(rawBase * mult)) : rawBase;
         const v = typeof rawV === 'number' ? Number(rawV.toFixed(2)) : rawV;
+
         let extra = '';
+        if (eLev > 0 && typeof rawBase === 'number' && (v - rawBase) !== 0) {
+          extra += ` <span style="color:#38bdf8; font-size:0.68rem;">(+${Number((v - rawBase).toFixed(2))})</span>`;
+        }
         if (other) {
-          const rawO = other[f] || 0;
+          const otherMult = 1 + (otherELev * 0.01);
+          const rawOtherBase = other[f] || 0;
+          const rawO = typeof rawOtherBase === 'number' ? (f === 'speedPct' || f === 'lootSpeed' ? rawOtherBase * otherMult : Math.round(rawOtherBase * otherMult)) : rawOtherBase;
           const oVal = typeof rawO === 'number' ? Number(rawO.toFixed(2)) : rawO;
           const d = Number((v - oVal).toFixed(2));
-          if (d !== 0) extra = ` <span style="color:${d > 0 ? '#4ade80' : '#f87171'};">(${d > 0 ? '+' : ''}${d})</span>`;
+          if (d !== 0) extra += ` <span style="color:${d > 0 ? '#4ade80' : '#f87171'};">(${d > 0 ? '+' : ''}${d})</span>`;
         }
         return row(label, f === 'lootSpeed' ? `x${v}` : f === 'speedPct' ? `+${v}%` : `+${v}`, extra);
       }).join('');
+
+      const renderOptionsSection = (eData) => {
+        if (!eData || eData.level < 5) return '';
+        const unlocked = this.player.getUnlockedOptionSlots(eData.level);
+        const opts = eData.options || [];
+        return `
+          <div style="margin-top:6px; padding-top:4px; border-top:1px dashed rgba(255,255,255,0.15); font-size:0.72rem;">
+            <div style="color:#fbbf24; font-weight:700; margin-bottom:2px;">✦ ออปชั่นเสริม (${opts.length}/${unlocked} ช่อง):</div>
+            ${opts.map((opt, i) => {
+              const info = STAT_INFO[opt.stat] || { label: opt.stat.toUpperCase(), icon: '✨' };
+              return `<div style="color:#93c5fd; padding-left:4px;">${info.icon} ${info.label} <b style="color:#f8fafc;">+${opt.value}</b></div>`;
+            }).join('')}
+            ${unlocked > opts.length ? `<div style="color:#94a3b8; font-style:italic; padding-left:4px;">• ว่าง ${unlocked - opts.length} ช่อง (ไปสุ่มที่แท็บ Option)</div>` : ''}
+          </div>
+        `;
+      };
+
       const typeLabel = { weapon: 'อาวุธ (มือขวา)', hat: 'หมวก', hair: 'ทรงผม', face: 'หน้าตา', mouth: 'ปาก', head: 'หัว', outfit: 'ชุด', back: 'ปีก / ผ้าคลุม', shield: 'โล่ (มือซ้าย)', mount: 'สัตว์ขี่', pet: 'สัตว์เลี้ยง (Pet)', consumable: 'ของใช้', material: 'วัสดุ' }[item.type] || '';
       const lv = item.reqLevel > 1 ? row('เลเวลที่ต้องการ', `Lv.${item.reqLevel}`, '').replace('<span style="text-align:right; font-weight:600;">', `<span style="text-align:right; font-weight:600; color:${this.player.baseLevel >= item.reqLevel ? '#e2e8f0' : '#ef4444'};">`) : '';
       const hint = isGear ? (curId === k ? '<div style="color:#4ade80; margin-top:4px;">สวมอยู่ (คลิกเพื่อถอด)</div>' : '<div style="color:#60a5fa; margin-top:4px;">คลิกเพื่อสวมใส่ทันที</div>')
         : (item.type === 'consumable' ? '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อใช้</div>' : '');
-      const main = panel(head(item, typeLabel, '#94a3b8'), stats(item, cur) + lv + (item.desc ? `<div style="color:#cbd5e1; margin-top:4px; font-size:0.72rem;">${item.desc}</div>` : '') + hint, '#3b82f6');
+      const main = panel(head(item, typeLabel, '#94a3b8', enh?.level || 0), stats(item, cur, enh?.level || 0, curEnh?.level || 0) + renderOptionsSection(enh) + lv + (item.desc ? `<div style="color:#cbd5e1; margin-top:4px; font-size:0.72rem;">${item.desc}</div>` : '') + hint, '#3b82f6');
       if (!cur) return main;
-      const cmp = panel(head(cur, 'ที่สวมอยู่ตอนนี้', '#4ade80'), stats(cur, null) + (cur.desc ? `<div style="color:#cbd5e1; margin-top:4px; font-size:0.72rem;">${cur.desc}</div>` : ''), '#16a34a');
+      const cmp = panel(head(cur, 'ที่สวมอยู่ตอนนี้', '#4ade80', curEnh?.level || 0), stats(cur, null, curEnh?.level || 0) + renderOptionsSection(curEnh) + (cur.desc ? `<div style="color:#cbd5e1; margin-top:4px; font-size:0.72rem;">${cur.desc}</div>` : ''), '#16a34a');
       return main + cmp;
     };
 
@@ -2474,6 +2538,517 @@ export class UIController {
         }
       });
     });
+  }
+
+  // Enhancement & Option System Modal (ตีบวก & สุ่มออปชั่น)
+  renderEnhanceModal() {
+    const body = document.getElementById('modal-enhance-body');
+    if (!body) return;
+
+    if (!this.enhanceTab) this.enhanceTab = 'enhance'; // 'enhance' | 'options'
+    const pl = this.player;
+
+    const GEAR_SLOTS = [
+      { slot: 'weapon', label: 'อาวุธขวา', icon: '⚔️' },
+      { slot: 'offhand', label: 'โล่ซ้าย', icon: '🛡️' },
+      { slot: 'outfit', label: 'ชุดแฟชั่น', icon: '🥋' },
+      { slot: 'back', label: 'ปีก/ผ้าคลุม', icon: '🪽' },
+      { slot: 'hat', label: 'หมวก', icon: '🎩' },
+      { slot: 'hair', label: 'ทรงผม', icon: '💇' },
+      { slot: 'face', label: 'ใบหน้า', icon: '👀' },
+      { slot: 'mouth', label: 'ปาก', icon: '👄' },
+      { slot: 'pet', label: 'สัตว์เลี้ยง', icon: '🐾' },
+      { slot: 'mount', label: 'สัตว์ขี่', icon: '🐎' }
+    ];
+
+    const equippedSlots = GEAR_SLOTS.map(gs => ({
+      slot: gs.slot,
+      label: gs.label,
+      icon: gs.icon,
+      itemId: pl.equipment[gs.slot]
+    }));
+
+    const equippedIds = new Set(Object.values(pl.equipment).filter(Boolean));
+    const bagGearIds = Object.keys(pl.inventory).filter(id => {
+      const it = ITEMS[id];
+      return it && pl.inventory[id] > 0 && GEAR_TYPES.includes(it.type) && !equippedIds.has(id);
+    });
+
+    // Default selection
+    const allValidIds = [...equippedSlots.map(s => s.itemId).filter(Boolean), ...bagGearIds];
+    if (!this.selectedEnhanceItemId || !ITEMS[this.selectedEnhanceItemId] || !allValidIds.includes(this.selectedEnhanceItemId)) {
+      this.selectedEnhanceItemId = pl.equipment.weapon || allValidIds[0] || null;
+    }
+
+    const curItem = this.selectedEnhanceItemId ? ITEMS[this.selectedEnhanceItemId] : null;
+    const curEnh = this.selectedEnhanceItemId ? pl.getItemEnhance(this.selectedEnhanceItemId) : { level: 0, options: [] };
+    const curLevel = curEnh.level;
+    const unlockedSlots = pl.getUnlockedOptionSlots(curLevel);
+
+    // Mini dots helper for left column
+    const renderMiniDots = (eData) => {
+      const lev = eData ? eData.level : 0;
+      const unl = pl.getUnlockedOptionSlots(lev);
+      const opts = (eData && eData.options) ? eData.options : [];
+      let dots = '';
+      for (let i = 0; i < 5; i++) {
+        if (i < opts.length) {
+          dots += `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#38bdf8; margin:0 1px;" title="Option ${i+1}: ${opts[i].stat.toUpperCase()} +${opts[i].value}"></span>`;
+        } else if (i < unl) {
+          dots += `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#94a3b8; margin:0 1px;" title="Option ${i+1}: ว่าง (สุ่มได้)"></span>`;
+        } else {
+          dots += `<span style="display:inline-block; width:5px; height:5px; border-radius:50%; border:1px solid rgba(255,255,255,0.25); margin:0 1px;" title="ล็อก (ต้อง +${(i+1)*5})"></span>`;
+        }
+      }
+      return `<span style="display:inline-flex; align-items:center; gap:1px; margin-left:auto;">${dots}</span>`;
+    };
+
+    // 1. Top Bar: Tabs & Player Gold
+    const tabsHtml = `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:10px; flex-shrink:0;">
+        <div style="display:flex; gap:8px;">
+          <button class="btn-enhance-tab ${this.enhanceTab === 'enhance' ? 'active' : ''}" data-tab="enhance" style="
+            padding:6px 14px; border:none; border-radius:6px; font-size:0.82rem; font-weight:700; cursor:pointer; transition:all 0.15s;
+            background:${this.enhanceTab === 'enhance' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'rgba(255,255,255,0.06)'};
+            color:${this.enhanceTab === 'enhance' ? '#000' : '#cbd5e1'};
+            box-shadow:${this.enhanceTab === 'enhance' ? '0 2px 8px rgba(245,158,11,0.35)' : 'none'};
+          ">🔨 ตีบวกอุปกรณ์ (Refine)</button>
+          <button class="btn-enhance-tab ${this.enhanceTab === 'options' ? 'active' : ''}" data-tab="options" style="
+            padding:6px 14px; border:none; border-radius:6px; font-size:0.82rem; font-weight:700; cursor:pointer; transition:all 0.15s;
+            background:${this.enhanceTab === 'options' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'rgba(255,255,255,0.06)'};
+            color:${this.enhanceTab === 'options' ? '#fff' : '#cbd5e1'};
+            box-shadow:${this.enhanceTab === 'options' ? '0 2px 8px rgba(59,130,246,0.35)' : 'none'};
+          ">✨ สุ่มออปชั่น (Options)</button>
+        </div>
+        <div style="font-size:0.85rem; font-weight:700; color:#fbbf24; background:rgba(0,0,0,0.35); padding:4px 12px; border-radius:20px; border:1px solid rgba(245,158,11,0.3);">
+          🪙 ทองของคุณ: <b>${pl.gold.toLocaleString()}</b>
+        </div>
+      </div>
+    `;
+
+    // 2. Left Column: Gear selection list
+    const leftColHtml = `
+      <div style="
+        flex: 0 0 290px; width: 290px; display: flex; flex-direction: column; gap: 8px;
+        background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px; padding: 10px; box-sizing: border-box; height: 100%; min-height: 0; overflow-y: auto;
+      ">
+        <div style="font-size:0.75rem; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:4px; border-bottom:1px solid rgba(255,255,255,0.06);">
+          🛡️ สวมใส่อยู่ (Equipped)
+        </div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          ${equippedSlots.map(es => {
+            const it = es.itemId ? ITEMS[es.itemId] : null;
+            const eData = es.itemId ? pl.getItemEnhance(es.itemId) : null;
+            const lev = eData ? eData.level : 0;
+            const isSel = this.selectedEnhanceItemId === es.itemId && es.itemId;
+            return `
+              <div class="enhance-item-pick ${isSel ? 'selected' : ''}" data-id="${es.itemId || ''}" style="
+                display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:6px;
+                background:${isSel ? 'rgba(59, 130, 246, 0.25)' : it ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.01)'};
+                border:1px solid ${isSel ? '#3b82f6' : it ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)'};
+                cursor:${it ? 'pointer' : 'default'}; opacity:${it ? '1' : '0.45'}; transition:all 0.12s;
+              ">
+                <div style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); border-radius:4px; font-size:14px; flex-shrink:0;">
+                  ${it ? itemIconHtml(it.id, it.icon, 22) : es.icon}
+                </div>
+                <div style="flex:1; min-width:0; font-size:0.75rem; font-weight:700; color:${it ? (isSel ? '#fff' : '#cbd5e1') : '#64748b'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:4px;">
+                  ${lev > 0 ? `<span style="background:${enhanceColor(lev)}; color:#000; font-size:0.62rem; font-weight:900; padding:1px 3px; border-radius:3px;">+${lev}</span>` : ''}
+                  <span>${it ? it.name : `${es.label} (ว่าง)`}</span>
+                </div>
+                ${it ? renderMiniDots(eData) : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div style="font-size:0.75rem; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:4px; border-bottom:1px solid rgba(255,255,255,0.06); margin-top:8px;">
+          🎒 อุปกรณ์ในกระเป๋า (Bag)
+        </div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          ${bagGearIds.length === 0 ? `<div style="font-size:0.72rem; color:#64748b; padding:8px 4px; text-align:center;">ไม่มีอุปกรณ์อื่นในกระเป๋า</div>` : bagGearIds.map(id => {
+            const it = ITEMS[id];
+            const eData = pl.getItemEnhance(id);
+            const lev = eData ? eData.level : 0;
+            const isSel = this.selectedEnhanceItemId === id;
+            return `
+              <div class="enhance-item-pick ${isSel ? 'selected' : ''}" data-id="${id}" style="
+                display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:6px;
+                background:${isSel ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255,255,255,0.03)'};
+                border:1px solid ${isSel ? '#3b82f6' : 'rgba(255,255,255,0.07)'};
+                cursor:pointer; transition:all 0.12s;
+              ">
+                <div style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); border-radius:4px; font-size:14px; flex-shrink:0;">
+                  ${itemIconHtml(it.id, it.icon, 22)}
+                </div>
+                <div style="flex:1; min-width:0; font-size:0.75rem; font-weight:700; color:${isSel ? '#fff' : '#cbd5e1'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:4px;">
+                  ${lev > 0 ? `<span style="background:${enhanceColor(lev)}; color:#000; font-size:0.62rem; font-weight:900; padding:1px 3px; border-radius:3px;">+${lev}</span>` : ''}
+                  <span>${it.name}</span>
+                </div>
+                ${renderMiniDots(eData)}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    // 3. Right Column: Action / Workspace
+    let rightColHtml = '';
+    if (!curItem) {
+      rightColHtml = `
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94a3b8; font-size:0.9rem; gap:10px;">
+          <span style="font-size:36px;">🔨</span>
+          <span>กรุณาเลือกอุปกรณ์ที่ต้องการเสริมพลังจากรายการด้านซ้าย</span>
+        </div>
+      `;
+    } else {
+      const typeLabel = { weapon: 'อาวุธ (มือขวา)', hat: 'หมวก', hair: 'ทรงผม', face: 'หน้าตา', mouth: 'ปาก', head: 'หัว', outfit: 'ชุดแฟชั่น', back: 'ปีก / ผ้าคลุม', shield: 'โล่ (มือซ้าย)', mount: 'สัตว์ขี่', pet: 'สัตว์เลี้ยง (Pet)' }[curItem.type] || 'อุปกรณ์';
+
+      // Item Header Card
+      const headerCard = `
+        <div style="display:flex; align-items:center; gap:12px; background:rgba(15, 23, 42, 0.7); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:10px 14px; flex-shrink:0;">
+          <div style="width:48px; height:48px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); border:1px solid ${enhanceColor(curLevel)}; border-radius:8px; flex-shrink:0; position:relative; box-shadow:0 0 12px ${enhanceColor(curLevel)}44;">
+            ${itemIconHtml(curItem.id, curItem.icon, 40)}
+            ${curLevel > 0 ? `<span style="position:absolute; bottom:1px; right:2px; font-size:0.68rem; font-weight:900; color:${enhanceColor(curLevel)}; text-shadow:0 0 3px #000;">+${curLevel}</span>` : ''}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+              ${curLevel > 0 ? `<span style="background:${enhanceColor(curLevel)}; color:#000; font-size:0.72rem; font-weight:900; padding:1px 6px; border-radius:4px;">+${curLevel}</span>` : ''}
+              <b style="font-size:1.02rem; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${curItem.name}</b>
+            </div>
+            <div style="font-size:0.72rem; color:#94a3b8; display:flex; align-items:center; gap:8px;">
+              <span>${typeLabel}</span>
+              <span>·</span>
+              <span style="color:${enhanceColor(curLevel)}; font-weight:700;">ประสิทธิภาพ +${curLevel}%</span>
+              <span>·</span>
+              <span style="color:#38bdf8;">ปลดล็อก Option ${unlockedSlots}/5 ช่อง</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      if (this.enhanceTab === 'enhance') {
+        const isMax = curLevel >= 25;
+        const nextLevel = curLevel + 1;
+        const rate = isMax ? 0 : pl.getEnhanceRate(curLevel);
+        const cost = isMax ? 0 : pl.getEnhanceCost(curLevel);
+        const canAfford = pl.gold >= cost;
+
+        // Stat progression calculation
+        const STAT_KEYS_TO_CHECK = [
+          ['atk', 'พลังโจมตี (ATK)'],
+          ['def', 'พลังป้องกัน (DEF)'],
+          ['hp', 'พลังชีวิต (HP)'],
+          ['speedPct', 'ความเร็วเคลื่อนที่'],
+          ['lootSpeed', 'ความเร็วเก็บของ']
+        ];
+        const activeStats = STAT_KEYS_TO_CHECK.filter(([f]) => curItem[f]);
+
+        const statsTableHtml = activeStats.length === 0 ? `
+          <div style="padding:10px; background:rgba(0,0,0,0.25); border-radius:6px; color:#94a3b8; font-size:0.75rem; text-align:center;">
+            ไอเท็มชิ้นนี้ไม่มีสเตตัสพื้นฐาน การตีบวกจะช่วยปลดล็อกช่องสุ่ม Option (ทุกๆ +5 ปลด 1 ช่อง สูงสุด 5 ช่อง)
+          </div>
+        ` : `
+          <div style="display:flex; flex-direction:column; gap:4px; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:8px 12px;">
+            ${activeStats.map(([f, label]) => {
+              const base = curItem[f];
+              const curVal = f === 'speedPct' || f === 'lootSpeed' ? Number((base * (1 + curLevel * 0.01)).toFixed(2)) : Math.round(base * (1 + curLevel * 0.01));
+              const nextVal = isMax ? curVal : (f === 'speedPct' || f === 'lootSpeed' ? Number((base * (1 + nextLevel * 0.01)).toFixed(2)) : Math.round(base * (1 + nextLevel * 0.01)));
+              const fmt = v => f === 'lootSpeed' ? `x${v}` : f === 'speedPct' ? `+${v}%` : `+${v}`;
+              return `
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.76rem; padding:2px 0;">
+                  <span style="color:#94a3b8;">${label}</span>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="color:#cbd5e1; font-weight:600;">${fmt(curVal)}</span>
+                    ${!isMax ? `<span style="color:#38bdf8; font-size:0.7rem;">➔</span><span style="color:#4ade80; font-weight:700;">${fmt(nextVal)}</span>` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+
+        // Milestones for Option Slots (+5, +10, +15, +20, +25)
+        const milestonesHtml = `
+          <div style="display:flex; flex-direction:column; gap:6px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:8px 12px;">
+            <div style="font-size:0.74rem; font-weight:700; color:#fbbf24; display:flex; justify-content:space-between;">
+              <span>✦ ปลดล็อกช่อง Option (${unlockedSlots}/5 ช่อง)</span>
+              <span style="color:#94a3b8; font-size:0.7rem;">ปลดทุกๆ +5 ระดับ</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px;">
+              ${[5, 10, 15, 20, 25].map((target, idx) => {
+                const isPassed = curLevel >= target;
+                const isNext = !isPassed && curLevel >= target - 5;
+                return `
+                  <div style="
+                    display:flex; flex-direction:column; align-items:center; justify-content:center; padding:5px 2px; border-radius:6px;
+                    background:${isPassed ? 'rgba(34, 197, 94, 0.15)' : isNext ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.03)'};
+                    border:1px solid ${isPassed ? '#22c55e' : isNext ? '#3b82f6' : 'rgba(255,255,255,0.08)'};
+                  ">
+                    <span style="font-size:0.68rem; font-weight:700; color:${isPassed ? '#4ade80' : isNext ? '#93c5fd' : '#64748b'};">ช่องที่ ${idx + 1}</span>
+                    <span style="font-size:0.74rem; font-weight:900; color:${isPassed ? '#fff' : isNext ? '#60a5fa' : '#94a3b8'};">+${target}</span>
+                    <span style="font-size:0.62rem; color:${isPassed ? '#4ade80' : '#64748b'};">${isPassed ? '✓ ปลดแล้ว' : '🔒 ล็อก'}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+
+        // Success Rate bar color
+        const rateColor = rate === 100 ? '#22c55e' : rate >= 70 ? '#3b82f6' : rate >= 50 ? '#f59e0b' : '#ef4444';
+
+        rightColHtml = `
+          <div style="flex:1; display:flex; flex-direction:column; gap:10px; height:100%; min-height:0; overflow-y:auto; padding-right:4px;">
+            ${headerCard}
+
+            <!-- Compare Level Box -->
+            <div style="display:flex; align-items:center; justify-content:center; gap:20px; padding:12px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+              <div style="display:flex; flex-direction:column; align-items:center;">
+                <span style="font-size:0.72rem; color:#94a3b8;">ระดับปัจจุบัน</span>
+                <span style="font-size:1.6rem; font-weight:900; color:${enhanceColor(curLevel)}; text-shadow:0 0 10px ${enhanceColor(curLevel)}55;">+${curLevel}</span>
+                <span style="font-size:0.68rem; color:#cbd5e1;">+${curLevel}% ประสิทธิภาพ</span>
+              </div>
+              <span style="font-size:22px; color:#f59e0b;">➔</span>
+              <div style="display:flex; flex-direction:column; align-items:center;">
+                <span style="font-size:0.72rem; color:#94a3b8;">ระดับถัดไป</span>
+                <span style="font-size:1.6rem; font-weight:900; color:${isMax ? '#fbbf24' : enhanceColor(nextLevel)}; text-shadow:0 0 10px ${enhanceColor(nextLevel)}55;">
+                  ${isMax ? 'MAX' : `+${nextLevel}`}
+                </span>
+                <span style="font-size:0.68rem; color:#cbd5e1;">${isMax ? 'ระดับสูงสุด' : `+${nextLevel}% ประสิทธิภาพ`}</span>
+              </div>
+            </div>
+
+            <!-- Stats table -->
+            ${statsTableHtml}
+
+            <!-- Option Milestones -->
+            ${milestonesHtml}
+
+            <!-- Rate & Cost Card -->
+            ${isMax ? `
+              <div style="padding:14px; background:rgba(34, 197, 94, 0.15); border:1px solid #22c55e; border-radius:8px; text-align:center; color:#4ade80; font-weight:700; font-size:0.85rem;">
+                👑 ไอเท็มชิ้นนี้ถึงระดับสูงสุด (+25) แล้ว! ปลดล็อกช่อง Option ครบทั้ง 5 ช่อง
+              </div>
+            ` : `
+              <div style="display:flex; flex-direction:column; gap:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.82rem;">
+                  <span style="color:#94a3b8;">โอกาสสำเร็จ:</span>
+                  <b style="color:${rateColor}; font-size:0.95rem;">${rate}%</b>
+                </div>
+                <div style="width:100%; height:6px; background:#1e293b; border-radius:3px; overflow:hidden;">
+                  <div style="width:${rate}%; height:100%; background:${rateColor}; transition:width 0.2s;"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; padding-top:4px; border-top:1px solid rgba(255,255,255,0.06);">
+                  <span style="color:#94a3b8;">ค่าใช้จ่าย:</span>
+                  <b style="color:${canAfford ? '#f59e0b' : '#ef4444'}; font-size:0.95rem;">🪙 ${cost.toLocaleString()} Gold</b>
+                </div>
+                <div style="font-size:0.68rem; color:#94a3b8; font-style:italic;">
+                  🛡️ หากล้มเหลว: ระดับการตีบวกจะไม่ลดลง และไอเท็มปลอดภัยไม่แตกหัก
+                </div>
+              </div>
+            `}
+
+            <!-- Action Button -->
+            ${!isMax ? `
+              <button id="btn-do-enhance" data-id="${curItem.id}" ${canAfford ? '' : 'disabled'} style="
+                margin-top:auto; padding:10px; border:none; border-radius:8px; font-size:0.92rem; font-weight:800; cursor:${canAfford ? 'pointer' : 'not-allowed'};
+                background:${canAfford ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#475569'};
+                color:${canAfford ? '#000' : '#94a3b8'};
+                box-shadow:${canAfford ? '0 4px 14px rgba(245,158,11,0.4)' : 'none'};
+                transition:all 0.15s;
+              ">🔨 เริ่มการตีบวก (🪙 ${cost.toLocaleString()} Gold)</button>
+            ` : ''}
+          </div>
+        `;
+      } else {
+        // Tab 2: Options
+        const rerollAllCost = pl.getOptionRerollCost(null);
+        const rerollSlotCost = pl.getOptionRerollCost(0);
+        const canAffordAll = pl.gold >= rerollAllCost;
+        const curOptions = curEnh.options || [];
+
+        rightColHtml = `
+          <div style="flex:1; display:flex; flex-direction:column; gap:10px; height:100%; min-height:0; overflow-y:auto; padding-right:4px;">
+            ${headerCard}
+
+            <!-- Rules info banner -->
+            <div style="padding:8px 12px; background:rgba(59, 130, 246, 0.12); border:1px solid rgba(59, 130, 246, 0.3); border-radius:8px; font-size:0.73rem; color:#93c5fd; display:flex; flex-direction:column; gap:2px;">
+              <div style="font-weight:700; color:#38bdf8;">💡 กฎการสุ่ม Option:</div>
+              <div>• ปลดล็อก 1 ช่อง ทุกๆ การตีบวก +5 (ปัจจุบันปลดล็อกแล้ว <b>${unlockedSlots}/5 ช่อง</b>)</div>
+              <div>• สเตตัสพื้นฐานที่สุ่มได้: <b>STR, AGI, VIT, INT, DEX, LUK</b> (ค่าพลัง +1 ถึง +5 ต่อช่อง)</div>
+            </div>
+
+            <!-- Option Slots List (5 slots) -->
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              ${[0, 1, 2, 3, 4].map(idx => {
+                const isUnlocked = idx < unlockedSlots;
+                const opt = isUnlocked ? curOptions[idx] : null;
+                const canAffordSlot = pl.gold >= rerollSlotCost;
+                const info = opt ? (STAT_INFO[opt.stat] || { label: opt.stat.toUpperCase(), name: opt.stat.toUpperCase(), icon: '✨', color: '#38bdf8' }) : null;
+                const tierColor = opt ? (opt.value >= 5 ? '#fbbf24' : opt.value >= 4 ? '#c084fc' : opt.value >= 3 ? '#38bdf8' : '#4ade80') : '#94a3b8';
+
+                if (!isUnlocked) {
+                  return `
+                    <div style="
+                      display:flex; align-items:center; justify-content:space-between; padding:8px 12px;
+                      background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.1); border-radius:8px; opacity:0.55;
+                    ">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:16px;">🔒</span>
+                        <div style="font-size:0.76rem; color:#94a3b8;">
+                          <b>ช่องที่ ${idx + 1}:</b> ล็อกอยู่ (ต้องตีบวกไอเท็มชิ้นนี้ถึง <b style="color:#f59e0b;">+${(idx + 1) * 5}</b>)
+                        </div>
+                      </div>
+                    </div>
+                  `;
+                }
+
+                return `
+                  <div style="
+                    display:flex; align-items:center; justify-content:space-between; padding:8px 12px;
+                    background:rgba(0,0,0,0.3); border:1px solid ${opt ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.08)'}; border-radius:8px;
+                  ">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <div style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); border-radius:6px; font-size:16px;">
+                        ${opt ? info.icon : '❓'}
+                      </div>
+                      <div>
+                        <div style="font-size:0.72rem; color:#94a3b8;">ช่องที่ ${idx + 1}</div>
+                        ${opt ? `
+                          <div style="display:flex; align-items:center; gap:6px;">
+                            <b style="font-size:0.86rem; color:#f8fafc;">${info.name}</b>
+                            <span style="font-size:0.82rem; font-weight:900; color:${tierColor}; background:${tierColor}22; padding:1px 6px; border-radius:4px; border:1px solid ${tierColor}44;">+${opt.value}</span>
+                          </div>
+                        ` : `
+                          <div style="font-size:0.8rem; color:#f59e0b; font-style:italic;">ยังไม่ได้สุ่มสเตตัส (กดสุ่มเพื่อรับพลัง)</div>
+                        `}
+                      </div>
+                    </div>
+                    <button class="btn-reroll-slot" data-slot="${idx}" data-id="${curItem.id}" ${canAffordSlot ? '' : 'disabled'} style="
+                      padding:4px 10px; border:none; border-radius:6px; font-size:0.74rem; font-weight:700; cursor:${canAffordSlot ? 'pointer' : 'not-allowed'};
+                      background:${canAffordSlot ? 'rgba(59,130,246,0.25)' : '#475569'}; color:${canAffordSlot ? '#93c5fd' : '#94a3b8'};
+                      border:1px solid ${canAffordSlot ? '#3b82f6' : 'transparent'}; transition:all 0.12s;
+                    ">🎲 สุ่มช่องนี้ (🪙 ${rerollSlotCost})</button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- Bulk Reroll Action -->
+            <div style="margin-top:auto; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; gap:6px;">
+              <button id="btn-reroll-all" data-id="${curItem.id}" ${unlockedSlots > 0 && canAffordAll ? '' : 'disabled'} style="
+                padding:10px; border:none; border-radius:8px; font-size:0.92rem; font-weight:800;
+                cursor:${unlockedSlots > 0 && canAffordAll ? 'pointer' : 'not-allowed'};
+                background:${unlockedSlots > 0 && canAffordAll ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : '#475569'};
+                color:${unlockedSlots > 0 && canAffordAll ? '#fff' : '#94a3b8'};
+                box-shadow:${unlockedSlots > 0 && canAffordAll ? '0 4px 14px rgba(59,130,246,0.35)' : 'none'};
+                transition:all 0.15s;
+              ">🎲 สุ่มใหม่ทุกช่องที่ปลดล็อก (🪙 ${rerollAllCost.toLocaleString()} Gold)</button>
+              ${unlockedSlots === 0 ? `<div style="font-size:0.72rem; color:#ef4444; text-align:center;">* ต้องตีบวกไอเท็มชิ้นนี้อย่างน้อย +5 เพื่อปลดล็อกช่อง Option แรก</div>` : ''}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // Combine everything into body
+    body.innerHTML = `
+      ${tabsHtml}
+      <div style="display:flex; gap:12px; height:calc(100% - 46px); min-height:0; overflow:hidden;">
+        ${leftColHtml}
+        ${rightColHtml}
+      </div>
+    `;
+
+    // Event Listeners:
+    // Tab switching
+    body.querySelectorAll('.btn-enhance-tab').forEach(btn => {
+      btn.addEventListener('click', e => {
+        this.enhanceTab = e.currentTarget.dataset.tab;
+        this.renderEnhanceModal();
+      });
+    });
+
+    // Selecting an item from the left column
+    body.querySelectorAll('.enhance-item-pick').forEach(el => {
+      el.addEventListener('click', e => {
+        const id = e.currentTarget.dataset.id;
+        if (id && ITEMS[id]) {
+          this.selectedEnhanceItemId = id;
+          this.renderEnhanceModal();
+        }
+      });
+    });
+
+    // Do enhance button
+    const enhanceBtn = body.querySelector('#btn-do-enhance');
+    if (enhanceBtn) {
+      enhanceBtn.addEventListener('click', e => {
+        const id = e.currentTarget.dataset.id;
+        if (!id) return;
+        const res = this.player.enhanceItem(id);
+        if (res.ok) {
+          if (res.success) {
+            soundEngine?.play('ironGuard');
+            const unlockMsg = res.unlockedNewSlot ? ` 🔓 ปลดล็อกช่อง Option ใหม่แล้ว!` : '';
+            this.gameEngine?.onLog(`✨ ตีบวกสำเร็จ! ${ITEMS[id].name} เพิ่มเป็น +${res.newLevel}!${unlockMsg}`, 'system');
+          } else {
+            soundEngine?.play('playerHurt');
+            this.gameEngine?.onLog(`💥 ตีบวกล้มเหลว! ${ITEMS[id].name} ระดับคงเดิมที่ +${res.level}`, 'combat');
+          }
+          this.renderEnhanceModal();
+          this.updateHUD();
+          if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
+          if (this.openWindows.has('modal-status')) this.renderStatusModal();
+        } else {
+          this.gameEngine?.onLog(`🚫 ${res.reason}`, 'system');
+        }
+      });
+    }
+
+    // Reroll single slot button
+    body.querySelectorAll('.btn-reroll-slot').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const id = e.currentTarget.dataset.id;
+        const slotIdx = parseInt(e.currentTarget.dataset.slot, 10);
+        if (!id || isNaN(slotIdx)) return;
+        const res = this.player.rerollItemOptionSlot(id, slotIdx);
+        if (res.ok) {
+          soundEngine?.play('coin');
+          const info = STAT_INFO[res.option.stat] || { label: res.option.stat.toUpperCase() };
+          this.gameEngine?.onLog(`🎲 สุ่ม Option ช่องที่ ${slotIdx + 1} ได้: ${info.label} +${res.option.value}`, 'system');
+          this.renderEnhanceModal();
+          this.updateHUD();
+          if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
+          if (this.openWindows.has('modal-status')) this.renderStatusModal();
+        } else {
+          this.gameEngine?.onLog(`🚫 ${res.reason}`, 'system');
+        }
+      });
+    });
+
+    // Reroll all slots button
+    const rerollAllBtn = body.querySelector('#btn-reroll-all');
+    if (rerollAllBtn) {
+      rerollAllBtn.addEventListener('click', e => {
+        const id = e.currentTarget.dataset.id;
+        if (!id) return;
+        const res = this.player.rerollAllItemOptions(id);
+        if (res.ok) {
+          soundEngine?.play('critHit');
+          const summary = res.options.map((o, idx) => `${idx + 1}. ${o.stat.toUpperCase()} +${o.value}`).join(', ');
+          this.gameEngine?.onLog(`🎲 สุ่ม Option ทั้งหมดสำเร็จ! [${summary}]`, 'system');
+          this.renderEnhanceModal();
+          this.updateHUD();
+          if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
+          if (this.openWindows.has('modal-status')) this.renderStatusModal();
+        } else {
+          this.gameEngine?.onLog(`🚫 ${res.reason}`, 'system');
+        }
+      });
+    }
   }
 
   // 3. Quests Modal
