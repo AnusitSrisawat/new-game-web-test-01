@@ -65,6 +65,8 @@ export function drawLook(ctx, getImg, look, k) {
   addMain('hat', look.hat);
   const run = (z) => stages[z].forEach(f => f());
   run('behind_body');
-  draw('body_nohead', 0, 132, P.body_nohead.w, P.body_nohead.h);
+  if (!look.outfit || !look.outfit.part) {
+    draw('body_nohead', 0, 132, P.body_nohead.w, P.body_nohead.h);
+  }
   run('over_body'); run('over_outfit'); run('over_head'); run('over_hair'); run('over_hat');
 }
