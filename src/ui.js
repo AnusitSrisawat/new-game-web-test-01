@@ -1760,9 +1760,8 @@ export class UIController {
       };
 
       const stats = (it, other, eLev = 0, otherELev = 0) => STAT_ROWS.filter(([f]) => it[f] || (other && other[f])).map(([f, label]) => {
-        const mult = 1 + (eLev * 0.01);
         const rawBase = it[f] || 0;
-        const rawV = typeof rawBase === 'number' ? (f === 'speedPct' || f === 'lootSpeed' ? rawBase * mult : Math.round(rawBase * mult)) : rawBase;
+        const rawV = this.player.getEnhancedStat(rawBase, eLev, f);
         const v = typeof rawV === 'number' ? Number(rawV.toFixed(2)) : rawV;
 
         let extra = '';
@@ -1770,9 +1769,8 @@ export class UIController {
           extra += ` <span style="color:#38bdf8; font-size:0.68rem;">(+${Number((v - rawBase).toFixed(2))})</span>`;
         }
         if (other) {
-          const otherMult = 1 + (otherELev * 0.01);
           const rawOtherBase = other[f] || 0;
-          const rawO = typeof rawOtherBase === 'number' ? (f === 'speedPct' || f === 'lootSpeed' ? rawOtherBase * otherMult : Math.round(rawOtherBase * otherMult)) : rawOtherBase;
+          const rawO = this.player.getEnhancedStat(rawOtherBase, otherELev, f);
           const oVal = typeof rawO === 'number' ? Number(rawO.toFixed(2)) : rawO;
           const d = Number((v - oVal).toFixed(2));
           if (d !== 0) extra += ` <span style="color:${d > 0 ? '#4ade80' : '#f87171'};">(${d > 0 ? '+' : ''}${d})</span>`;
@@ -2541,6 +2539,7 @@ export class UIController {
   }
 
   // Enhancement & Option System Modal (ตีบวก & สุ่มออปชั่น)
+  // Enhancement & Option System Modal (ตีบวก & สุ่มออปชั่น)
   renderEnhanceModal() {
     const body = document.getElementById('modal-enhance-body');
     if (!body) return;
@@ -2561,23 +2560,33 @@ export class UIController {
       { slot: 'mount', label: 'สัตว์ขี่', icon: '🐎' }
     ];
 
-    const equippedSlots = GEAR_SLOTS.map(gs => ({
-      slot: gs.slot,
-      label: gs.label,
-      icon: gs.icon,
-      itemId: pl.equipment[gs.slot]
-    }));
+    // Filter only equipped slots that actually have an item (eliminate empty slots!)
+    const equippedItems = GEAR_SLOTS
+      .map(gs => ({
+        slot: gs.slot,
+        label: gs.label,
+        icon: gs.icon,
+        itemId: pl.equipment[gs.slot]
+      }))
+      .filter(es => es.itemId && ITEMS[es.itemId]);
 
-    const equippedIds = new Set(Object.values(pl.equipment).filter(Boolean));
+    const equippedIds = new Set(equippedItems.map(es => es.itemId));
     const bagGearIds = Object.keys(pl.inventory).filter(id => {
       const it = ITEMS[id];
       return it && pl.inventory[id] > 0 && GEAR_TYPES.includes(it.type) && !equippedIds.has(id);
     });
 
-    // Default selection
-    const allValidIds = [...equippedSlots.map(s => s.itemId).filter(Boolean), ...bagGearIds];
-    if (!this.selectedEnhanceItemId || !ITEMS[this.selectedEnhanceItemId] || !allValidIds.includes(this.selectedEnhanceItemId)) {
-      this.selectedEnhanceItemId = pl.equipment.weapon || allValidIds[0] || null;
+    // In Options tab, show ONLY items that have unlocked option slots (level >= 5)!
+    let displayEquipped = equippedItems;
+    let displayBagIds = bagGearIds;
+    if (this.enhanceTab === 'options') {
+      displayEquipped = equippedItems.filter(es => pl.getUnlockedOptionSlots(pl.getItemEnhance(es.itemId).level) > 0);
+      displayBagIds = bagGearIds.filter(id => pl.getUnlockedOptionSlots(pl.getItemEnhance(id).level) > 0);
+    }
+
+    const allDisplayIds = [...displayEquipped.map(s => s.itemId), ...displayBagIds];
+    if (!this.selectedEnhanceItemId || !ITEMS[this.selectedEnhanceItemId] || !allDisplayIds.includes(this.selectedEnhanceItemId)) {
+      this.selectedEnhanceItemId = allDisplayIds[0] || null;
     }
 
     const curItem = this.selectedEnhanceItemId ? ITEMS[this.selectedEnhanceItemId] : null;
@@ -2585,23 +2594,16 @@ export class UIController {
     const curLevel = curEnh.level;
     const unlockedSlots = pl.getUnlockedOptionSlots(curLevel);
 
-    // Mini dots helper for left column
-    const renderMiniDots = (eData) => {
-      const lev = eData ? eData.level : 0;
-      const unl = pl.getUnlockedOptionSlots(lev);
-      const opts = (eData && eData.options) ? eData.options : [];
-      let dots = '';
-      for (let i = 0; i < 5; i++) {
-        if (i < opts.length) {
-          dots += `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#38bdf8; margin:0 1px;" title="Option ${i+1}: ${opts[i].stat.toUpperCase()} +${opts[i].value}"></span>`;
-        } else if (i < unl) {
-          dots += `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#94a3b8; margin:0 1px;" title="Option ${i+1}: ว่าง (สุ่มได้)"></span>`;
-        } else {
-          dots += `<span style="display:inline-block; width:5px; height:5px; border-radius:50%; border:1px solid rgba(255,255,255,0.25); margin:0 1px;" title="ล็อก (ต้อง +${(i+1)*5})"></span>`;
-        }
-      }
-      return `<span style="display:inline-flex; align-items:center; gap:1px; margin-left:auto;">${dots}</span>`;
-    };
+    // Initialize option locks
+    if (!this.optionLocks) this.optionLocks = {};
+    if (this.selectedEnhanceItemId && !this.optionLocks[this.selectedEnhanceItemId]) {
+      this.optionLocks[this.selectedEnhanceItemId] = new Set();
+    }
+    const currentLocks = (this.selectedEnhanceItemId && this.optionLocks[this.selectedEnhanceItemId]) ? this.optionLocks[this.selectedEnhanceItemId] : new Set();
+    // Prune locks beyond unlocked slots
+    for (const lIdx of Array.from(currentLocks)) {
+      if (lIdx >= unlockedSlots) currentLocks.delete(lIdx);
+    }
 
     // 1. Top Bar: Tabs & Player Gold
     const tabsHtml = `
@@ -2626,7 +2628,7 @@ export class UIController {
       </div>
     `;
 
-    // 2. Left Column: Gear selection list
+    // 2. Left Column: Gear selection list (Larger icons, no empty slots, no option dots)
     const leftColHtml = `
       <div style="
         flex: 0 0 290px; width: 290px; display: flex; flex-direction: column; gap: 8px;
@@ -2636,27 +2638,33 @@ export class UIController {
         <div style="font-size:0.75rem; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:4px; border-bottom:1px solid rgba(255,255,255,0.06);">
           🛡️ สวมใส่อยู่ (Equipped)
         </div>
-        <div style="display:flex; flex-direction:column; gap:4px;">
-          ${equippedSlots.map(es => {
-            const it = es.itemId ? ITEMS[es.itemId] : null;
-            const eData = es.itemId ? pl.getItemEnhance(es.itemId) : null;
+        <div style="display:flex; flex-direction:column; gap:5px;">
+          ${displayEquipped.length === 0 ? `
+            <div style="font-size:0.72rem; color:#64748b; padding:8px 4px; text-align:center;">
+              ${this.enhanceTab === 'options' ? 'ไม่มีอุปกรณ์ที่ปลดล็อก Option' : 'ไม่มีอุปกรณ์ที่สวมใส่อยู่'}
+            </div>
+          ` : displayEquipped.map(es => {
+            const it = ITEMS[es.itemId];
+            const eData = pl.getItemEnhance(es.itemId);
             const lev = eData ? eData.level : 0;
-            const isSel = this.selectedEnhanceItemId === es.itemId && es.itemId;
+            const isSel = this.selectedEnhanceItemId === es.itemId;
             return `
-              <div class="enhance-item-pick ${isSel ? 'selected' : ''}" data-id="${es.itemId || ''}" style="
-                display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:6px;
-                background:${isSel ? 'rgba(59, 130, 246, 0.25)' : it ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.01)'};
-                border:1px solid ${isSel ? '#3b82f6' : it ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)'};
-                cursor:${it ? 'pointer' : 'default'}; opacity:${it ? '1' : '0.45'}; transition:all 0.12s;
+              <div class="enhance-item-pick ${isSel ? 'selected' : ''}" data-id="${es.itemId}" style="
+                display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:7px;
+                background:${isSel ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255,255,255,0.03)'};
+                border:1px solid ${isSel ? '#3b82f6' : 'rgba(255,255,255,0.07)'};
+                cursor:pointer; transition:all 0.12s;
               ">
-                <div style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); border-radius:4px; font-size:14px; flex-shrink:0;">
-                  ${it ? itemIconHtml(it.id, it.icon, 22) : es.icon}
+                <div style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.08); border-radius:6px; flex-shrink:0;">
+                  ${itemIconHtml(it.id, it.icon, 30)}
                 </div>
-                <div style="flex:1; min-width:0; font-size:0.75rem; font-weight:700; color:${it ? (isSel ? '#fff' : '#cbd5e1') : '#64748b'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:4px;">
-                  ${lev > 0 ? `<span style="background:${enhanceColor(lev)}; color:#000; font-size:0.62rem; font-weight:900; padding:1px 3px; border-radius:3px;">+${lev}</span>` : ''}
-                  <span>${it ? it.name : `${es.label} (ว่าง)`}</span>
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;">
+                  <div style="font-size:0.76rem; font-weight:700; color:${isSel ? '#fff' : '#e2e8f0'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:5px;">
+                    ${lev > 0 ? `<span style="background:${enhanceColor(lev)}; color:#000; font-size:0.64rem; font-weight:900; padding:1px 4px; border-radius:3px;">+${lev}</span>` : ''}
+                    <span>${it.name}</span>
+                  </div>
+                  <div style="font-size:0.67rem; color:#94a3b8;">${es.label}</div>
                 </div>
-                ${it ? renderMiniDots(eData) : ''}
               </div>
             `;
           }).join('')}
@@ -2665,27 +2673,33 @@ export class UIController {
         <div style="font-size:0.75rem; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:4px; border-bottom:1px solid rgba(255,255,255,0.06); margin-top:8px;">
           🎒 อุปกรณ์ในกระเป๋า (Bag)
         </div>
-        <div style="display:flex; flex-direction:column; gap:4px;">
-          ${bagGearIds.length === 0 ? `<div style="font-size:0.72rem; color:#64748b; padding:8px 4px; text-align:center;">ไม่มีอุปกรณ์อื่นในกระเป๋า</div>` : bagGearIds.map(id => {
+        <div style="display:flex; flex-direction:column; gap:5px;">
+          ${displayBagIds.length === 0 ? `
+            <div style="font-size:0.72rem; color:#64748b; padding:8px 4px; text-align:center;">
+              ${this.enhanceTab === 'options' ? 'ไม่มีอุปกรณ์ในกระเป๋าที่ปลดล็อก Option' : 'ไม่มีอุปกรณ์อื่นในกระเป๋า'}
+            </div>
+          ` : displayBagIds.map(id => {
             const it = ITEMS[id];
             const eData = pl.getItemEnhance(id);
             const lev = eData ? eData.level : 0;
             const isSel = this.selectedEnhanceItemId === id;
             return `
               <div class="enhance-item-pick ${isSel ? 'selected' : ''}" data-id="${id}" style="
-                display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:6px;
+                display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:7px;
                 background:${isSel ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255,255,255,0.03)'};
                 border:1px solid ${isSel ? '#3b82f6' : 'rgba(255,255,255,0.07)'};
                 cursor:pointer; transition:all 0.12s;
               ">
-                <div style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); border-radius:4px; font-size:14px; flex-shrink:0;">
-                  ${itemIconHtml(it.id, it.icon, 22)}
+                <div style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.08); border-radius:6px; flex-shrink:0;">
+                  ${itemIconHtml(it.id, it.icon, 30)}
                 </div>
-                <div style="flex:1; min-width:0; font-size:0.75rem; font-weight:700; color:${isSel ? '#fff' : '#cbd5e1'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:4px;">
-                  ${lev > 0 ? `<span style="background:${enhanceColor(lev)}; color:#000; font-size:0.62rem; font-weight:900; padding:1px 3px; border-radius:3px;">+${lev}</span>` : ''}
-                  <span>${it.name}</span>
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;">
+                  <div style="font-size:0.76rem; font-weight:700; color:${isSel ? '#fff' : '#e2e8f0'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:5px;">
+                    ${lev > 0 ? `<span style="background:${enhanceColor(lev)}; color:#000; font-size:0.64rem; font-weight:900; padding:1px 4px; border-radius:3px;">+${lev}</span>` : ''}
+                    <span>${it.name}</span>
+                  </div>
+                  <div style="font-size:0.67rem; color:#94a3b8;">ในกระเป๋า</div>
                 </div>
-                ${renderMiniDots(eData)}
               </div>
             `;
           }).join('')}
@@ -2697,9 +2711,14 @@ export class UIController {
     let rightColHtml = '';
     if (!curItem) {
       rightColHtml = `
-        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94a3b8; font-size:0.9rem; gap:10px;">
-          <span style="font-size:36px;">🔨</span>
-          <span>กรุณาเลือกอุปกรณ์ที่ต้องการเสริมพลังจากรายการด้านซ้าย</span>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94a3b8; font-size:0.88rem; gap:12px; padding:20px; text-align:center;">
+          <span style="font-size:42px;">${this.enhanceTab === 'options' ? '✨' : '🔨'}</span>
+          <b style="color:#e2e8f0; font-size:1rem;">${this.enhanceTab === 'options' ? 'ยังไม่มีอุปกรณ์ที่ปลดล็อกช่อง Option' : 'กรุณาเลือกอุปกรณ์ที่ต้องการเสริมพลัง'}</b>
+          <span style="font-size:0.8rem; color:#64748b; max-width:320px;">
+            ${this.enhanceTab === 'options'
+              ? 'ต้องนำอุปกรณ์ไปตีบวกในแท็บ <b>"ตีบวกอุปกรณ์"</b> ให้ถึงระดับ <b>+5</b> ขึ้นไปก่อน เพื่อปลดล็อกช่อง Option สำหรับสุ่มสเตตัส'
+              : 'เลือกอุปกรณ์จากรายการด้านซ้ายเพื่อทำการตีบวกเสริมพลัง'}
+          </span>
         </div>
       `;
     } else {
@@ -2720,9 +2739,8 @@ export class UIController {
             <div style="font-size:0.72rem; color:#94a3b8; display:flex; align-items:center; gap:8px;">
               <span>${typeLabel}</span>
               <span>·</span>
-              <span style="color:${enhanceColor(curLevel)}; font-weight:700;">ประสิทธิภาพ +${curLevel}%</span>
-              <span>·</span>
-              <span style="color:#38bdf8;">ปลดล็อก Option ${unlockedSlots}/5 ช่อง</span>
+              <span style="color:${enhanceColor(curLevel)}; font-weight:700;">ระดับตีบวก +${curLevel}</span>
+              ${this.enhanceTab === 'options' ? `<span>·</span><span style="color:#38bdf8;">ปลดล็อก Option ${unlockedSlots}/5 ช่อง</span>` : ''}
             </div>
           </div>
         </div>
@@ -2747,14 +2765,16 @@ export class UIController {
 
         const statsTableHtml = activeStats.length === 0 ? `
           <div style="padding:10px; background:rgba(0,0,0,0.25); border-radius:6px; color:#94a3b8; font-size:0.75rem; text-align:center;">
-            ไอเท็มชิ้นนี้ไม่มีสเตตัสพื้นฐาน การตีบวกจะช่วยปลดล็อกช่องสุ่ม Option (ทุกๆ +5 ปลด 1 ช่อง สูงสุด 5 ช่อง)
+            ไอเท็มชิ้นนี้ไม่มีสเตตัสพื้นฐาน (สามารถสุ่มเพิ่มออปชั่นได้ที่แท็บ สุ่มออปชั่น)
           </div>
         ` : `
           <div style="display:flex; flex-direction:column; gap:4px; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:8px 12px;">
             ${activeStats.map(([f, label]) => {
               const base = curItem[f];
-              const curVal = f === 'speedPct' || f === 'lootSpeed' ? Number((base * (1 + curLevel * 0.01)).toFixed(2)) : Math.round(base * (1 + curLevel * 0.01));
-              const nextVal = isMax ? curVal : (f === 'speedPct' || f === 'lootSpeed' ? Number((base * (1 + nextLevel * 0.01)).toFixed(2)) : Math.round(base * (1 + nextLevel * 0.01)));
+              const rawCur = pl.getEnhancedStat(base, curLevel, f);
+              const curVal = typeof rawCur === 'number' ? (f === 'speedPct' || f === 'lootSpeed' ? Number(rawCur.toFixed(2)) : rawCur) : rawCur;
+              const rawNext = isMax ? rawCur : pl.getEnhancedStat(base, nextLevel, f);
+              const nextVal = typeof rawNext === 'number' ? (f === 'speedPct' || f === 'lootSpeed' ? Number(rawNext.toFixed(2)) : rawNext) : rawNext;
               const fmt = v => f === 'lootSpeed' ? `x${v}` : f === 'speedPct' ? `+${v}%` : `+${v}`;
               return `
                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.76rem; padding:2px 0;">
@@ -2766,33 +2786,6 @@ export class UIController {
                 </div>
               `;
             }).join('')}
-          </div>
-        `;
-
-        // Milestones for Option Slots (+5, +10, +15, +20, +25)
-        const milestonesHtml = `
-          <div style="display:flex; flex-direction:column; gap:6px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:8px 12px;">
-            <div style="font-size:0.74rem; font-weight:700; color:#fbbf24; display:flex; justify-content:space-between;">
-              <span>✦ ปลดล็อกช่อง Option (${unlockedSlots}/5 ช่อง)</span>
-              <span style="color:#94a3b8; font-size:0.7rem;">ปลดทุกๆ +5 ระดับ</span>
-            </div>
-            <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px;">
-              ${[5, 10, 15, 20, 25].map((target, idx) => {
-                const isPassed = curLevel >= target;
-                const isNext = !isPassed && curLevel >= target - 5;
-                return `
-                  <div style="
-                    display:flex; flex-direction:column; align-items:center; justify-content:center; padding:5px 2px; border-radius:6px;
-                    background:${isPassed ? 'rgba(34, 197, 94, 0.15)' : isNext ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.03)'};
-                    border:1px solid ${isPassed ? '#22c55e' : isNext ? '#3b82f6' : 'rgba(255,255,255,0.08)'};
-                  ">
-                    <span style="font-size:0.68rem; font-weight:700; color:${isPassed ? '#4ade80' : isNext ? '#93c5fd' : '#64748b'};">ช่องที่ ${idx + 1}</span>
-                    <span style="font-size:0.74rem; font-weight:900; color:${isPassed ? '#fff' : isNext ? '#60a5fa' : '#94a3b8'};">+${target}</span>
-                    <span style="font-size:0.62rem; color:${isPassed ? '#4ade80' : '#64748b'};">${isPassed ? '✓ ปลดแล้ว' : '🔒 ล็อก'}</span>
-                  </div>
-                `;
-              }).join('')}
-            </div>
           </div>
         `;
 
@@ -2808,7 +2801,7 @@ export class UIController {
               <div style="display:flex; flex-direction:column; align-items:center;">
                 <span style="font-size:0.72rem; color:#94a3b8;">ระดับปัจจุบัน</span>
                 <span style="font-size:1.6rem; font-weight:900; color:${enhanceColor(curLevel)}; text-shadow:0 0 10px ${enhanceColor(curLevel)}55;">+${curLevel}</span>
-                <span style="font-size:0.68rem; color:#cbd5e1;">+${curLevel}% ประสิทธิภาพ</span>
+                <span style="font-size:0.68rem; color:#cbd5e1;">ขั้น +${curLevel}</span>
               </div>
               <span style="font-size:22px; color:#f59e0b;">➔</span>
               <div style="display:flex; flex-direction:column; align-items:center;">
@@ -2816,20 +2809,17 @@ export class UIController {
                 <span style="font-size:1.6rem; font-weight:900; color:${isMax ? '#fbbf24' : enhanceColor(nextLevel)}; text-shadow:0 0 10px ${enhanceColor(nextLevel)}55;">
                   ${isMax ? 'MAX' : `+${nextLevel}`}
                 </span>
-                <span style="font-size:0.68rem; color:#cbd5e1;">${isMax ? 'ระดับสูงสุด' : `+${nextLevel}% ประสิทธิภาพ`}</span>
+                <span style="font-size:0.68rem; color:#cbd5e1;">${isMax ? 'ระดับสูงสุด' : `ขั้น +${nextLevel}`}</span>
               </div>
             </div>
 
             <!-- Stats table -->
             ${statsTableHtml}
 
-            <!-- Option Milestones -->
-            ${milestonesHtml}
-
             <!-- Rate & Cost Card -->
             ${isMax ? `
               <div style="padding:14px; background:rgba(34, 197, 94, 0.15); border:1px solid #22c55e; border-radius:8px; text-align:center; color:#4ade80; font-weight:700; font-size:0.85rem;">
-                👑 ไอเท็มชิ้นนี้ถึงระดับสูงสุด (+25) แล้ว! ปลดล็อกช่อง Option ครบทั้ง 5 ช่อง
+                👑 ไอเท็มชิ้นนี้ถึงระดับสูงสุด (+25) แล้ว!
               </div>
             ` : `
               <div style="display:flex; flex-direction:column; gap:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 14px;">
@@ -2842,32 +2832,72 @@ export class UIController {
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; padding-top:4px; border-top:1px solid rgba(255,255,255,0.06);">
                   <span style="color:#94a3b8;">ค่าใช้จ่าย:</span>
-                  <b style="color:${canAfford ? '#f59e0b' : '#ef4444'}; font-size:0.95rem;">🪙 ${cost.toLocaleString()} Gold</b>
+                  <b style="font-size:0.95rem;">${cost === 0 ? '<span style="color:#22c55e; font-weight:800;">ฟรี (ระดับ 1-4)</span>' : `<span style="color:${canAfford ? '#f59e0b' : '#ef4444'};">🪙 ${cost.toLocaleString()} Gold</span>`}</b>
                 </div>
-                <div style="font-size:0.68rem; color:#94a3b8; font-style:italic;">
-                  🛡️ หากล้มเหลว: ระดับการตีบวกจะไม่ลดลง และไอเท็มปลอดภัยไม่แตกหัก
-                </div>
+                ${(() => {
+                  const breakRate = pl.getBreakRate(curLevel);
+                  if (curLevel < 4) {
+                    return `<div style="font-size:0.72rem; color:#4ade80; display:flex; align-items:center; gap:5px;">
+                      <span>✨</span> <b>ปลอดภัย 100%:</b> ตีบวกฟรี ไม่มีค่าใช้จ่าย และสำเร็จแน่นอน
+                    </div>`;
+                  } else if (curLevel < 10) {
+                    return `<div style="font-size:0.72rem; color:#f59e0b; display:flex; align-items:center; gap:5px;">
+                      <span>⚠️</span> <b>หากล้มเหลว:</b> ระดับลดลง 1 ขั้น (ไอเท็มไม่แตกหัก)
+                    </div>`;
+                  } else {
+                    return `<div style="font-size:0.72rem; color:#ef4444; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); border-radius:6px; padding:6px 8px; display:flex; flex-direction:column; gap:2px;">
+                      <div style="font-weight:800; color:#fca5a5; display:flex; align-items:center; gap:5px;">
+                        <span>☠️</span> คำเตือนระดับ 10+:
+                      </div>
+                      <div>• หากล้มเหลว: ระดับการตีบวกจะลดลง 1 ขั้น</div>
+                      <div style="color:#f87171; font-weight:700;">• มีโอกาส <span style="font-size:0.82rem; color:#ef4444; text-decoration:underline;">${breakRate}%</span> ที่ไอเท็มจะแตกหักสูญหาย!</div>
+                    </div>`;
+                  }
+                })()}
               </div>
             `}
 
-            <!-- Action Button -->
+            <!-- Action Buttons (x1, x5, x10) -->
             ${!isMax ? `
-              <button id="btn-do-enhance" data-id="${curItem.id}" ${canAfford ? '' : 'disabled'} style="
-                margin-top:auto; padding:10px; border:none; border-radius:8px; font-size:0.92rem; font-weight:800; cursor:${canAfford ? 'pointer' : 'not-allowed'};
-                background:${canAfford ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#475569'};
-                color:${canAfford ? '#000' : '#94a3b8'};
-                box-shadow:${canAfford ? '0 4px 14px rgba(245,158,11,0.4)' : 'none'};
-                transition:all 0.15s;
-              ">🔨 เริ่มการตีบวก (🪙 ${cost.toLocaleString()} Gold)</button>
+              <div style="margin-top:auto; display:flex; flex-direction:column; gap:6px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+                  <button class="btn-do-enhance-batch" data-count="1" data-id="${curItem.id}" ${canAfford ? '' : 'disabled'} style="
+                    padding:9px 4px; border:none; border-radius:8px; font-size:0.82rem; font-weight:800; cursor:${canAfford ? 'pointer' : 'not-allowed'};
+                    background:${canAfford ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#475569'};
+                    color:${canAfford ? '#000' : '#94a3b8'};
+                    box-shadow:${canAfford ? '0 2px 8px rgba(245,158,11,0.35)' : 'none'};
+                    transition:all 0.15s;
+                  ">🔨 ตีบวก 1 ครั้ง</button>
+
+                  <button class="btn-do-enhance-batch" data-count="5" data-id="${curItem.id}" ${canAfford ? '' : 'disabled'} style="
+                    padding:9px 4px; border:none; border-radius:8px; font-size:0.82rem; font-weight:800; cursor:${canAfford ? 'pointer' : 'not-allowed'};
+                    background:${canAfford ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#475569'};
+                    color:${canAfford ? '#fff' : '#94a3b8'};
+                    box-shadow:${canAfford ? '0 2px 8px rgba(59,130,246,0.35)' : 'none'};
+                    transition:all 0.15s;
+                  ">⚡ ตีบวก 5 ครั้ง</button>
+
+                  <button class="btn-do-enhance-batch" data-count="10" data-id="${curItem.id}" ${canAfford ? '' : 'disabled'} style="
+                    padding:9px 4px; border:none; border-radius:8px; font-size:0.82rem; font-weight:800; cursor:${canAfford ? 'pointer' : 'not-allowed'};
+                    background:${canAfford ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : '#475569'};
+                    color:${canAfford ? '#fff' : '#94a3b8'};
+                    box-shadow:${canAfford ? '0 2px 8px rgba(139,92,246,0.35)' : 'none'};
+                    transition:all 0.15s;
+                  ">🔥 ตีบวก 10 ครั้ง</button>
+                </div>
+              </div>
             ` : ''}
           </div>
         `;
       } else {
         // Tab 2: Options
-        const rerollAllCost = pl.getOptionRerollCost(null);
-        const rerollSlotCost = pl.getOptionRerollCost(0);
-        const canAffordAll = pl.gold >= rerollAllCost;
         const curOptions = curEnh.options || [];
+        const lockedIndices = Array.from(currentLocks);
+        const lockedCount = lockedIndices.length;
+        const slotsToReroll = Math.max(0, unlockedSlots - lockedCount);
+        const totalRerollCost = pl.getOptionRerollCost(slotsToReroll, lockedCount);
+        const lockSurcharge = totalRerollCost - (slotsToReroll * 1000);
+        const canAffordAll = pl.gold >= totalRerollCost;
 
         rightColHtml = `
           <div style="flex:1; display:flex; flex-direction:column; gap:10px; height:100%; min-height:0; overflow-y:auto; padding-right:4px;">
@@ -2875,9 +2905,9 @@ export class UIController {
 
             <!-- Rules info banner -->
             <div style="padding:8px 12px; background:rgba(59, 130, 246, 0.12); border:1px solid rgba(59, 130, 246, 0.3); border-radius:8px; font-size:0.73rem; color:#93c5fd; display:flex; flex-direction:column; gap:2px;">
-              <div style="font-weight:700; color:#38bdf8;">💡 กฎการสุ่ม Option:</div>
-              <div>• ปลดล็อก 1 ช่อง ทุกๆ การตีบวก +5 (ปัจจุบันปลดล็อกแล้ว <b>${unlockedSlots}/5 ช่อง</b>)</div>
-              <div>• สเตตัสพื้นฐานที่สุ่มได้: <b>STR, AGI, VIT, INT, DEX, LUK</b> (ค่าพลัง +1 ถึง +5 ต่อช่อง)</div>
+              <div style="font-weight:700; color:#38bdf8;">💡 ระบบสุ่ม Option และล็อกสเตตัส:</div>
+              <div>• สุ่มทีเดียวทุกช่องที่ปลดล็อกและไม่ได้ล็อก (ค่าสุ่มพื้นฐานช่องละ <b>1,000 Gold</b>)</div>
+              <div>• กดปุ่ม <b>"🔒 ล็อก"</b> เพื่อเก็บสเตตัสที่ชอบไว้ได้ (ยิ่งล็อกเยอะ ค่าธรรมเนียมยิ่งแพง)</div>
             </div>
 
             <!-- Option Slots List (5 slots) -->
@@ -2885,15 +2915,15 @@ export class UIController {
               ${[0, 1, 2, 3, 4].map(idx => {
                 const isUnlocked = idx < unlockedSlots;
                 const opt = isUnlocked ? curOptions[idx] : null;
-                const canAffordSlot = pl.gold >= rerollSlotCost;
+                const isLocked = currentLocks.has(idx);
                 const info = opt ? (STAT_INFO[opt.stat] || { label: opt.stat.toUpperCase(), name: opt.stat.toUpperCase(), icon: '✨', color: '#38bdf8' }) : null;
                 const tierColor = opt ? (opt.value >= 5 ? '#fbbf24' : opt.value >= 4 ? '#c084fc' : opt.value >= 3 ? '#38bdf8' : '#4ade80') : '#94a3b8';
 
                 if (!isUnlocked) {
                   return `
                     <div style="
-                      display:flex; align-items:center; justify-content:space-between; padding:8px 12px;
-                      background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.1); border-radius:8px; opacity:0.55;
+                      display:flex; align-items:center; justify-content:space-between; padding:9px 12px;
+                      background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.1); border-radius:8px; opacity:0.5;
                     ">
                       <div style="display:flex; align-items:center; gap:8px;">
                         <span style="font-size:16px;">🔒</span>
@@ -2908,44 +2938,73 @@ export class UIController {
                 return `
                   <div style="
                     display:flex; align-items:center; justify-content:space-between; padding:8px 12px;
-                    background:rgba(0,0,0,0.3); border:1px solid ${opt ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.08)'}; border-radius:8px;
+                    background:${isLocked ? 'rgba(245, 158, 11, 0.08)' : 'rgba(0,0,0,0.3)'};
+                    border:1px solid ${isLocked ? 'rgba(245, 158, 11, 0.45)' : opt ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.08)'};
+                    border-radius:8px; transition:all 0.15s;
                   ">
                     <div style="display:flex; align-items:center; gap:10px;">
-                      <div style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); border-radius:6px; font-size:16px;">
+                      <div style="width:34px; height:34px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.45); border-radius:6px; font-size:16px; border:1px solid ${isLocked ? '#f59e0b' : 'rgba(255,255,255,0.1)'};">
                         ${opt ? info.icon : '❓'}
                       </div>
                       <div>
-                        <div style="font-size:0.72rem; color:#94a3b8;">ช่องที่ ${idx + 1}</div>
+                        <div style="font-size:0.7rem; color:#94a3b8; display:flex; align-items:center; gap:5px;">
+                          <span>ช่องที่ ${idx + 1}</span>
+                          ${isLocked ? `<span style="background:#f59e0b; color:#000; font-size:0.6rem; font-weight:900; padding:1px 4px; border-radius:3px;">🔒 ล็อกอยู่</span>` : ''}
+                        </div>
                         ${opt ? `
-                          <div style="display:flex; align-items:center; gap:6px;">
-                            <b style="font-size:0.86rem; color:#f8fafc;">${info.name}</b>
+                          <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+                            <b style="font-size:0.88rem; color:#f8fafc;">${info.name}</b>
                             <span style="font-size:0.82rem; font-weight:900; color:${tierColor}; background:${tierColor}22; padding:1px 6px; border-radius:4px; border:1px solid ${tierColor}44;">+${opt.value}</span>
                           </div>
                         ` : `
-                          <div style="font-size:0.8rem; color:#f59e0b; font-style:italic;">ยังไม่ได้สุ่มสเตตัส (กดสุ่มเพื่อรับพลัง)</div>
+                          <div style="font-size:0.78rem; color:#f59e0b; font-style:italic;">ยังไม่ได้สุ่มสเตตัส (พร้อมสุ่ม)</div>
                         `}
                       </div>
                     </div>
-                    <button class="btn-reroll-slot" data-slot="${idx}" data-id="${curItem.id}" ${canAffordSlot ? '' : 'disabled'} style="
-                      padding:4px 10px; border:none; border-radius:6px; font-size:0.74rem; font-weight:700; cursor:${canAffordSlot ? 'pointer' : 'not-allowed'};
-                      background:${canAffordSlot ? 'rgba(59,130,246,0.25)' : '#475569'}; color:${canAffordSlot ? '#93c5fd' : '#94a3b8'};
-                      border:1px solid ${canAffordSlot ? '#3b82f6' : 'transparent'}; transition:all 0.12s;
-                    ">🎲 สุ่มช่องนี้ (🪙 ${rerollSlotCost})</button>
+
+                    <!-- Lock / Unlock Toggle Button -->
+                    <button class="btn-toggle-option-lock" data-slot="${idx}" style="
+                      display:flex; align-items:center; gap:4px; padding:6px 12px; border-radius:6px; font-size:0.75rem; font-weight:800; cursor:pointer;
+                      background:${isLocked ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'rgba(255,255,255,0.06)'};
+                      color:${isLocked ? '#000' : '#cbd5e1'};
+                      border:1px solid ${isLocked ? '#f59e0b' : 'rgba(255,255,255,0.18)'};
+                      box-shadow:${isLocked ? '0 2px 8px rgba(245,158,11,0.35)' : 'none'};
+                      transition:all 0.15s;
+                    ">
+                      <span>${isLocked ? '🔒 ล็อกอยู่' : '🔓 ปลดล็อก'}</span>
+                    </button>
                   </div>
                 `;
               }).join('')}
             </div>
 
-            <!-- Bulk Reroll Action -->
-            <div style="margin-top:auto; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; gap:6px;">
-              <button id="btn-reroll-all" data-id="${curItem.id}" ${unlockedSlots > 0 && canAffordAll ? '' : 'disabled'} style="
-                padding:10px; border:none; border-radius:8px; font-size:0.92rem; font-weight:800;
-                cursor:${unlockedSlots > 0 && canAffordAll ? 'pointer' : 'not-allowed'};
-                background:${unlockedSlots > 0 && canAffordAll ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : '#475569'};
-                color:${unlockedSlots > 0 && canAffordAll ? '#fff' : '#94a3b8'};
-                box-shadow:${unlockedSlots > 0 && canAffordAll ? '0 4px 14px rgba(59,130,246,0.35)' : 'none'};
-                transition:all 0.15s;
-              ">🎲 สุ่มใหม่ทุกช่องที่ปลดล็อก (🪙 ${rerollAllCost.toLocaleString()} Gold)</button>
+            <!-- Cost Summary & Bulk Reroll Action -->
+            <div style="margin-top:auto; padding:10px 14px; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem;">
+                <span style="color:#94a3b8;">สุ่มใหม่: <b style="color:#38bdf8;">${slotsToReroll} ช่อง</b> (ช่องละ 1,000 G)</span>
+                <span style="color:#cbd5e1;">🪙 ${(slotsToReroll * 1000).toLocaleString()} Gold</span>
+              </div>
+              ${lockedCount > 0 ? `
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem;">
+                  <span style="color:#fbbf24;">🔒 ค่าธรรมเนียมล็อก: <b>${lockedCount} ช่อง</b> (ยิ่งล็อกเยอะยิ่งแพง)</span>
+                  <span style="color:#fbbf24; font-weight:700;">+ 🪙 ${lockSurcharge.toLocaleString()} Gold</span>
+                </div>
+              ` : ''}
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.86rem; padding-top:4px; border-top:1px solid rgba(255,255,255,0.08);">
+                <span style="font-weight:700; color:#fff;">รวมค่าใช้จ่ายทั้งหมด:</span>
+                <b style="color:${canAffordAll ? '#fbbf24' : '#ef4444'}; font-size:1.02rem;">🪙 ${totalRerollCost.toLocaleString()} Gold</b>
+              </div>
+
+              <button id="btn-reroll-all-locks" data-id="${curItem.id}" ${unlockedSlots > 0 && slotsToReroll > 0 && canAffordAll ? '' : 'disabled'} style="
+                width:100%; padding:11px; border:none; border-radius:8px; font-size:0.95rem; font-weight:800;
+                cursor:${unlockedSlots > 0 && slotsToReroll > 0 && canAffordAll ? 'pointer' : 'not-allowed'};
+                background:${slotsToReroll === 0 ? '#475569' : (unlockedSlots > 0 && canAffordAll ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : '#475569')};
+                color:${slotsToReroll === 0 ? '#94a3b8' : (unlockedSlots > 0 && canAffordAll ? '#fff' : '#94a3b8')};
+                box-shadow:${unlockedSlots > 0 && slotsToReroll > 0 && canAffordAll ? '0 4px 14px rgba(59,130,246,0.35)' : 'none'};
+                transition:all 0.15s; margin-top:2px;
+              ">
+                ${slotsToReroll === 0 ? '🔒 ทุกล็อตถูกล็อกไว้ (ปลดล็อกอย่างน้อย 1 ช่องเพื่อสุ่ม)' : `🎲 สุ่มออปชั่นทั้งหมด (🪙 ${totalRerollCost.toLocaleString()} Gold)`}
+              </button>
               ${unlockedSlots === 0 ? `<div style="font-size:0.72rem; color:#ef4444; text-align:center;">* ต้องตีบวกไอเท็มชิ้นนี้อย่างน้อย +5 เพื่อปลดล็อกช่อง Option แรก</div>` : ''}
             </div>
           </div>
@@ -2982,64 +3041,91 @@ export class UIController {
       });
     });
 
-    // Do enhance button
-    const enhanceBtn = body.querySelector('#btn-do-enhance');
-    if (enhanceBtn) {
-      enhanceBtn.addEventListener('click', e => {
-        const id = e.currentTarget.dataset.id;
-        if (!id) return;
-        const res = this.player.enhanceItem(id);
-        if (res.ok) {
-          if (res.success) {
-            soundEngine?.play('ironGuard');
-            const unlockMsg = res.unlockedNewSlot ? ` 🔓 ปลดล็อกช่อง Option ใหม่แล้ว!` : '';
-            this.gameEngine?.onLog(`✨ ตีบวกสำเร็จ! ${ITEMS[id].name} เพิ่มเป็น +${res.newLevel}!${unlockMsg}`, 'system');
-          } else {
-            soundEngine?.play('playerHurt');
-            this.gameEngine?.onLog(`💥 ตีบวกล้มเหลว! ${ITEMS[id].name} ระดับคงเดิมที่ +${res.level}`, 'combat');
-          }
-          this.renderEnhanceModal();
-          this.updateHUD();
-          if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
-          if (this.openWindows.has('modal-status')) this.renderStatusModal();
-        } else {
-          this.gameEngine?.onLog(`🚫 ${res.reason}`, 'system');
-        }
-      });
-    }
-
-    // Reroll single slot button
-    body.querySelectorAll('.btn-reroll-slot').forEach(btn => {
+    // Do enhance buttons (1, 5, 10 attempts)
+    body.querySelectorAll('.btn-do-enhance-batch').forEach(btn => {
       btn.addEventListener('click', e => {
         const id = e.currentTarget.dataset.id;
-        const slotIdx = parseInt(e.currentTarget.dataset.slot, 10);
-        if (!id || isNaN(slotIdx)) return;
-        const res = this.player.rerollItemOptionSlot(id, slotIdx);
-        if (res.ok) {
-          soundEngine?.play('coin');
-          const info = STAT_INFO[res.option.stat] || { label: res.option.stat.toUpperCase() };
-          this.gameEngine?.onLog(`🎲 สุ่ม Option ช่องที่ ${slotIdx + 1} ได้: ${info.label} +${res.option.value}`, 'system');
-          this.renderEnhanceModal();
-          this.updateHUD();
-          if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
-          if (this.openWindows.has('modal-status')) this.renderStatusModal();
+        const count = parseInt(e.currentTarget.dataset.count, 10) || 1;
+        if (!id) return;
+        const itName = ITEMS[id]?.name || id;
+
+        if (count === 1) {
+          const res = this.player.enhanceItem(id);
+          if (res.ok) {
+            if (res.broken) {
+              soundEngine?.play('monsterDie');
+              this.gameEngine?.onLog(`💥 ไอเท็มแตกหัก! ${itName} สลายไปจากการตีบวกที่ล้มเหลว...`, 'combat');
+              this.selectedEnhanceItemId = null;
+            } else if (res.success) {
+              soundEngine?.play('ironGuard');
+              const unlockMsg = res.unlockedNewSlot ? ` 🔓 ปลดล็อกช่อง Option ใหม่แล้ว!` : '';
+              this.gameEngine?.onLog(`✨ ตีบวกสำเร็จ! ${itName} เพิ่มเป็น +${res.newLevel}!${unlockMsg}`, 'system');
+            } else {
+              soundEngine?.play('playerHurt');
+              this.gameEngine?.onLog(`💥 ตีบวกล้มเหลว! ${itName} ลดลงเหลือ +${res.level}`, 'combat');
+            }
+            this.renderEnhanceModal();
+            this.updateHUD();
+            if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
+            if (this.openWindows.has('modal-status')) this.renderStatusModal();
+          } else {
+            this.gameEngine?.onLog(`🚫 ${res.reason}`, 'system');
+          }
         } else {
-          this.gameEngine?.onLog(`🚫 ${res.reason}`, 'system');
+          // Batch enhance (5 or 10 times)
+          const res = this.player.enhanceItemBatch(id, count);
+          if (res.ok) {
+            if (res.broken) {
+              soundEngine?.play('monsterDie');
+              this.gameEngine?.onLog(`💥 ตีบวก ${res.attemptsRun} ครั้ง: ไอเท็มแตกหักสูญหาย! ${itName} สลายไป...`, 'combat');
+              this.selectedEnhanceItemId = null;
+            } else {
+              if (res.successCount > res.failCount) soundEngine?.play('ironGuard');
+              else soundEngine?.play('playerHurt');
+              const unlockMsg = res.unlockedNewSlot ? ` 🔓 ปลดล็อกช่อง Option ใหม่!` : '';
+              this.gameEngine?.onLog(`🔨 ตีบวก ${res.attemptsRun} ครั้ง: สำเร็จ ${res.successCount} ครั้ง, ล้มเหลว ${res.failCount} ครั้ง (ระดับปัจจุบัน: +${res.finalLevel})${unlockMsg}`, 'system');
+            }
+            this.renderEnhanceModal();
+            this.updateHUD();
+            if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();
+            if (this.openWindows.has('modal-status')) this.renderStatusModal();
+          } else {
+            this.gameEngine?.onLog(`🚫 ${res.reason}`, 'system');
+          }
         }
       });
     });
 
-    // Reroll all slots button
-    const rerollAllBtn = body.querySelector('#btn-reroll-all');
-    if (rerollAllBtn) {
-      rerollAllBtn.addEventListener('click', e => {
+    // Toggle option lock button
+    body.querySelectorAll('.btn-toggle-option-lock').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const slot = parseInt(e.currentTarget.dataset.slot, 10);
+        if (isNaN(slot) || !this.selectedEnhanceItemId) return;
+        if (!this.optionLocks) this.optionLocks = {};
+        if (!this.optionLocks[this.selectedEnhanceItemId]) this.optionLocks[this.selectedEnhanceItemId] = new Set();
+        const locks = this.optionLocks[this.selectedEnhanceItemId];
+        if (locks.has(slot)) {
+          locks.delete(slot);
+        } else {
+          locks.add(slot);
+        }
+        soundEngine?.play('click');
+        this.renderEnhanceModal();
+      });
+    });
+
+    // Reroll all options button (respecting locks)
+    const rerollBtn = body.querySelector('#btn-reroll-all-locks');
+    if (rerollBtn) {
+      rerollBtn.addEventListener('click', e => {
         const id = e.currentTarget.dataset.id;
         if (!id) return;
-        const res = this.player.rerollAllItemOptions(id);
+        const locks = (this.optionLocks && this.optionLocks[id]) ? Array.from(this.optionLocks[id]) : [];
+        const res = this.player.rerollItemOptionsWithLocks(id, locks);
         if (res.ok) {
           soundEngine?.play('critHit');
           const summary = res.options.map((o, idx) => `${idx + 1}. ${o.stat.toUpperCase()} +${o.value}`).join(', ');
-          this.gameEngine?.onLog(`🎲 สุ่ม Option ทั้งหมดสำเร็จ! [${summary}]`, 'system');
+          this.gameEngine?.onLog(`🎲 สุ่ม Option สำเร็จ (${res.rerolledCount} ช่อง, ล็อกไว้ ${res.lockedCount} ช่อง): [${summary}]`, 'system');
           this.renderEnhanceModal();
           this.updateHUD();
           if (this.openWindows.has('modal-inventory')) this.renderInventoryModal();

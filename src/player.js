@@ -207,16 +207,48 @@ export class Player {
   }
 
   getEnhanceRate(level) {
-    if (level < 5) return 100;
-    if (level < 10) return 85;
-    if (level < 15) return 70;
-    if (level < 20) return 50;
-    return 30;
+    if (level < 4) return 100;
+    const rate = 85 - (level - 4) * 5;
+    return Math.max(10, rate);
   }
 
   getEnhanceCost(level) {
-    const tier = Math.floor(level / 5) + 1;
-    return 150 * (level + 1) * tier;
+    if (level < 4) return 0; // 1-4 ฟรี!
+    // Scaling sharply: high levels become significantly more expensive
+    const costs = [
+      0, 0, 0, 0,
+      1500, 3000, 5500, 9000, 14000, 22000,
+      35000, 52000, 75000, 105000, 145000,
+      200000, 275000, 375000, 500000, 660000,
+      860000, 1100000, 1400000, 1800000, 2300000
+    ];
+    return costs[level] || 2500000;
+  }
+
+  // Refine stat calculation: at least +1 per refine level for discrete stats (atk, def, hp), or 1% per level for other stats
+  getEnhancedStat(baseVal, level, statKey) {
+    if (typeof baseVal !== 'number' || !baseVal) return baseVal || 0;
+    if (!level || level <= 0) return baseVal;
+
+    // Percentage / multiplier stats: exactly 1% per refine level
+    if (statKey === 'speedPct') {
+      return parseFloat((baseVal * (1 + level * 0.01)).toFixed(2));
+    }
+    if (statKey === 'lootSpeed') {
+      return parseFloat((1 + (baseVal - 1) * (1 + level * 0.01)).toFixed(2));
+    }
+
+    // Flat combat stats (atk, def, hp): at least +1 per level, or +1% of base if higher
+    const pctBonus = Math.round(baseVal * (level * 0.01));
+    const bonus = Math.max(level * 1, pctBonus);
+    return baseVal + bonus;
+  }
+
+  getBreakRate(level) {
+    if (level < 10) return 0;
+    if (level < 15) return 15;
+    if (level < 20) return 25;
+    return 35;
   }
 
   _rollOptionValue() {
@@ -226,6 +258,27 @@ export class Player {
     if (r < 85) return 3;
     if (r < 95) return 4;
     return 5;
+  }
+
+  destroyItem(itemId) {
+    if (!itemId) return;
+    // Remove from equipment if equipped
+    for (const [slot, eqId] of Object.entries(this.equipment)) {
+      if (eqId === itemId) {
+        this.equipment[slot] = slot === 'head' ? 'head_0' : null;
+        if (slot === 'mount') this.isMounted = false;
+      }
+    }
+    // Deduct count from inventory
+    if (this.inventory[itemId]) {
+      this.inventory[itemId]--;
+      if (this.inventory[itemId] <= 0) delete this.inventory[itemId];
+    }
+    // Delete enhancement data
+    if (this.itemEnhancements && this.itemEnhancements[itemId]) {
+      delete this.itemEnhancements[itemId];
+    }
+    this.saveToStorage();
   }
 
   enhanceItem(itemId) {
@@ -243,6 +296,7 @@ export class Player {
     const rate = this.getEnhanceRate(enh.level);
     const roll = Math.random() * 100;
     const prevSlots = this.getUnlockedOptionSlots(enh.level);
+    const startLevel = enh.level;
 
     if (roll < rate) {
       enh.level++;
@@ -257,64 +311,123 @@ export class Player {
         enh.options.push({ stat, value });
       }
       this.saveToStorage();
-      return { ok: true, success: true, newLevel: enh.level, unlockedNewSlot, cost };
+      return { ok: true, success: true, newLevel: enh.level, unlockedNewSlot, cost, broken: false };
     } else {
+      // Failure logic
+      const breakRate = this.getBreakRate(startLevel);
+      const breakRoll = Math.random() * 100;
+      if (startLevel >= 10 && breakRoll < breakRate) {
+        const itemName = ITEMS[itemId]?.name || itemId;
+        this.destroyItem(itemId);
+        return { ok: true, success: false, broken: true, level: 0, reason: `ไอเท็ม ${itemName} แตกหักสูญหาย!`, cost };
+      }
+
+      // If not broken, level drops by 1
+      enh.level = Math.max(0, enh.level - 1);
+      const newSlots = this.getUnlockedOptionSlots(enh.level);
+      if (enh.options && enh.options.length > newSlots) {
+        enh.options = enh.options.slice(0, newSlots);
+      }
       this.saveToStorage();
-      return { ok: true, success: false, level: enh.level, reason: 'ตีบวกล้มเหลว ระดับไม่ลดลง', cost };
+      return { ok: true, success: false, broken: false, level: enh.level, reason: `ตีบวกล้มเหลว! ระดับลดลงเหลือ +${enh.level}`, cost };
     }
   }
 
-  getOptionRerollCost(slotIndex = null) {
-    return slotIndex !== null ? 400 : 1200;
-  }
+  enhanceItemBatch(itemId, attempts = 1) {
+    if (!itemId || !ITEMS[itemId]) return { ok: false, reason: 'ไม่พบข้อมูลไอเท็ม' };
+    let successCount = 0;
+    let failCount = 0;
+    let broken = false;
+    let unlockedNewSlot = false;
+    let totalCost = 0;
+    let lastLevel = this.getItemEnhance(itemId).level;
 
-  rerollItemOptionSlot(itemId, slotIndex) {
-    if (!itemId || !ITEMS[itemId]) return { ok: false, reason: 'ไม่พบไอเท็ม' };
-    const enh = this.getItemEnhance(itemId);
-    const unlocked = this.getUnlockedOptionSlots(enh.level);
-    if (slotIndex >= unlocked) return { ok: false, reason: `ช่องที่ ${slotIndex + 1} ยังไม่ปลดล็อก (ต้องตีบวกถึง +${(slotIndex + 1) * 5})` };
-    const cost = this.getOptionRerollCost(slotIndex);
-    if (this.gold < cost) return { ok: false, reason: `ทองไม่พอ (ต้องการ 🪙 ${cost.toLocaleString()} Gold)` };
+    for (let i = 0; i < attempts; i++) {
+      if (this.getItemEnhance(itemId).level >= 25) break;
+      const curCost = this.getEnhanceCost(this.getItemEnhance(itemId).level);
+      if (this.gold < curCost) break;
 
-    this.gold -= cost;
-    if (!this.itemEnhancements[itemId]) this.itemEnhancements[itemId] = { level: enh.level, options: [] };
-    const curEnh = this.itemEnhancements[itemId];
-    if (!curEnh.options) curEnh.options = [];
-    while (curEnh.options.length < unlocked) {
-      curEnh.options.push({ stat: 'str', value: 1 });
+      const res = this.enhanceItem(itemId);
+      if (!res.ok) break;
+      totalCost += res.cost || 0;
+
+      if (res.broken) {
+        broken = true;
+        failCount++;
+        break;
+      }
+      if (res.success) {
+        successCount++;
+        if (res.unlockedNewSlot) unlockedNewSlot = true;
+        lastLevel = res.newLevel;
+      } else {
+        failCount++;
+        lastLevel = res.level;
+      }
     }
 
-    const statPool = ['str', 'agi', 'vit', 'int', 'dex', 'luk'];
-    const stat = statPool[Math.floor(Math.random() * statPool.length)];
-    const value = this._rollOptionValue();
-    curEnh.options[slotIndex] = { stat, value };
-
-    this.saveToStorage();
-    return { ok: true, option: { stat, value }, cost };
+    return {
+      ok: true,
+      attemptsRun: successCount + failCount,
+      successCount,
+      failCount,
+      broken,
+      finalLevel: broken ? 0 : lastLevel,
+      unlockedNewSlot,
+      totalCost
+    };
   }
 
-  rerollAllItemOptions(itemId) {
+  getOptionRerollCost(slotsToReroll = 1, lockedCount = 0) {
+    const baseCost = Math.max(0, slotsToReroll) * 1000;
+    const lockSurcharges = [0, 5000, 20000, 50000, 120000];
+    const lockFee = lockSurcharges[Math.min(lockedCount, lockSurcharges.length - 1)] || 0;
+    return baseCost + lockFee;
+  }
+
+  rerollItemOptionsWithLocks(itemId, lockedIndices = []) {
     if (!itemId || !ITEMS[itemId]) return { ok: false, reason: 'ไม่พบไอเท็ม' };
     const enh = this.getItemEnhance(itemId);
     const unlocked = this.getUnlockedOptionSlots(enh.level);
     if (unlocked === 0) return { ok: false, reason: 'ไอเท็มนี้ยังไม่มีช่อง Option ที่ปลดล็อก (ต้องตีบวกอย่างน้อย +5)' };
-    const cost = this.getOptionRerollCost(null);
+
+    const validLocks = lockedIndices.filter(i => i >= 0 && i < unlocked);
+    const slotsToReroll = unlocked - validLocks.length;
+    if (slotsToReroll <= 0) return { ok: false, reason: 'ทุกล็อตที่ปลดล็อกถูกล็อกไว้แล้ว กรุณาปลดล็อกอย่างน้อย 1 ช่องเพื่อสุ่ม' };
+
+    const cost = this.getOptionRerollCost(slotsToReroll, validLocks.length);
     if (this.gold < cost) return { ok: false, reason: `ทองไม่พอ (ต้องการ 🪙 ${cost.toLocaleString()} Gold)` };
 
     this.gold -= cost;
     if (!this.itemEnhancements[itemId]) this.itemEnhancements[itemId] = { level: enh.level, options: [] };
     const curEnh = this.itemEnhancements[itemId];
-    curEnh.options = [];
+    if (!Array.isArray(curEnh.options)) curEnh.options = [];
 
+    // Ensure array is filled up to unlocked count
     const statPool = ['str', 'agi', 'vit', 'int', 'dex', 'luk'];
+    while (curEnh.options.length < unlocked) {
+      curEnh.options.push({ stat: statPool[Math.floor(Math.random() * statPool.length)], value: this._rollOptionValue() });
+    }
+
+    // Reroll only the slots that are not locked
     for (let i = 0; i < unlocked; i++) {
-      const stat = statPool[Math.floor(Math.random() * statPool.length)];
-      const value = this._rollOptionValue();
-      curEnh.options.push({ stat, value });
+      if (!validLocks.includes(i)) {
+        const stat = statPool[Math.floor(Math.random() * statPool.length)];
+        const value = this._rollOptionValue();
+        curEnh.options[i] = { stat, value };
+      }
     }
 
     this.saveToStorage();
-    return { ok: true, options: curEnh.options, cost };
+    return { ok: true, options: curEnh.options, cost, rerolledCount: slotsToReroll, lockedCount: validLocks.length };
+  }
+
+  rerollItemOptionSlot(itemId, slotIndex) {
+    return this.rerollItemOptionsWithLocks(itemId, [0, 1, 2, 3, 4].filter(i => i !== slotIndex));
+  }
+
+  rerollAllItemOptions(itemId) {
+    return this.rerollItemOptionsWithLocks(itemId, []);
   }
 
   // SP: 30 + level×2 + INT×4 (+ Max SP% skills)
@@ -324,7 +437,7 @@ export class Player {
 
   get spRegen() { return parseFloat((1 + this.totalStat('int') * 0.1).toFixed(2)); }       // SP per second
 
-  // Sum of a stat over the worn outfit + gear items (+1% effectiveness per refine level)
+  // Sum of a stat over the worn outfit + gear items (+1 per level or 1% per level)
   gearSum(key) {
     let s = 0;
     for (const slot of ['hat', 'outfit', 'back', 'offhand', 'hair', 'face', 'mouth', 'head']) {
@@ -332,8 +445,7 @@ export class Player {
       const it = itId && ITEMS[itId];
       if (it && it[key]) {
         const enh = this.getItemEnhance(itId);
-        const mult = 1 + (enh.level * 0.01);
-        s += Math.round((it[key] || 0) * mult);
+        s += this.getEnhancedStat(it[key], enh.level, key);
       }
     }
     return s;
@@ -356,8 +468,8 @@ export class Player {
     let mountSpeed = 0;
     if (this.riding && this.mountItem) {
       const enh = this.getItemEnhance(this.equipment.mount);
-      const mult = 1 + (enh.level * 0.01);
-      mountSpeed = ((this.mountItem.speedPct || 0) * mult) / 100;
+      const speed = this.getEnhancedStat(this.mountItem.speedPct || 0, enh.level, 'speedPct');
+      mountSpeed = speed / 100;
     }
     const speed = 1 + agiBonus + this.skillBonus('bonusMovePct') / 100 + mountSpeed;
     return parseFloat(speed.toFixed(4));
@@ -391,8 +503,7 @@ export class Player {
     let atk = BASE_STATS.atk + (this.totalStat(main) * 3) + this.totalStat(sub) + Math.floor(this.baseLevel * 1.5);
     if (withWeapon && this.equipment.weapon && ITEMS[this.equipment.weapon]) {
       const enh = this.getItemEnhance(this.equipment.weapon);
-      const mult = 1 + (enh.level * 0.01);
-      atk += Math.round((ITEMS[this.equipment.weapon].atk || 0) * mult);
+      atk += this.getEnhancedStat(ITEMS[this.equipment.weapon].atk || 0, enh.level, 'atk');
     }
     atk += this.gearSum('atk');
     this.collectedRelics.forEach(id => {
@@ -407,8 +518,7 @@ export class Player {
     let def = BASE_STATS.def + (this.totalStat('vit') * 1.5);
     if (this.equipment.weapon && ITEMS[this.equipment.weapon]) {
       const enh = this.getItemEnhance(this.equipment.weapon);
-      const mult = 1 + (enh.level * 0.01);
-      def += Math.round((ITEMS[this.equipment.weapon].def || 0) * mult);
+      def += this.getEnhancedStat(ITEMS[this.equipment.weapon].def || 0, enh.level, 'def');
     }
     def += this.gearSum('def');
     this.collectedRelics.forEach(id => {
@@ -668,9 +778,7 @@ export class Player {
     const it = this.equipment.pet && ITEMS[this.equipment.pet];
     if (!it || !it.lootSpeed || it.lootSpeed <= 1) return 1;
     const enh = this.getItemEnhance(this.equipment.pet);
-    const mult = 1 + (enh.level * 0.01);
-    const speed = 1 + (it.lootSpeed - 1) * mult;
-    return parseFloat(speed.toFixed(2));
+    return this.getEnhancedStat(it.lootSpeed, enh.level, 'lootSpeed');
   }
 
   unequip(slot) {
