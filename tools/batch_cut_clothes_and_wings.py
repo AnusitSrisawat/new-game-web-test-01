@@ -70,7 +70,58 @@ WINGS_THEMES = [
     ("Golden Sun Deity Wings", "ปีกสุริยเทพทองคำสง่างาม"),
 ]
 
+def remove_internal_holes(mask_bool, arr, bg_col):
+    """
+    Detects and clears background regions trapped inside enclosed sprite loops
+    (e.g., between fingers, inside lion tail loop, between arm and torso, torn cloak holes).
+    Guarantees white armor, gloves, teeth, and robes stay opaque because candidate holes
+    must strictly match background canvas color, have very low variance, and be enclosed
+    by dark/black outline pixels.
+    """
+    dist = np.linalg.norm(arr - bg_col, axis=2)
+    cand_mask = (dist < 18.0) & mask_bool
+    hole_lbl, num_holes = ndi.label(cand_mask)
+    if num_holes == 0:
+        return mask_bool
+
+    objs = ndi.find_objects(hole_lbl)
+    lum = np.mean(arr, axis=2)
+    cleaned_mask = mask_bool.copy()
+
+    for i, o in enumerate(objs):
+        h_id = i + 1
+        h_mask = (hole_lbl == h_id)
+        sz = np.count_nonzero(h_mask)
+        if sz < 3:
+            continue
+
+        pts = arr[h_mask]
+        mean_c = pts.mean(axis=0)
+        std_c = pts.std()
+        bg_d = np.linalg.norm(mean_c - bg_col)
+        # Background canvas is uniform and very close to the sheet background color
+        if bg_d > 10.0 or std_c > 7.0:
+            continue
+
+        # Check the surrounding non-background contour
+        dil = ndi.binary_dilation(h_mask, iterations=6)
+        band = dil & (~h_mask)
+        border_contour = band & (dist >= 15.0)
+        if np.count_nonzero(border_contour) < 4:
+            continue
+
+        b_lum = lum[border_contour]
+        med_lum = np.median(b_lum)
+        dark100 = np.count_nonzero(b_lum < 100) / len(b_lum)
+
+        # Must be enclosed by black cartoon outlines (median luminance < 65 or majority dark pixels)
+        if med_lum < 65.0 or dark100 >= 0.55:
+            cleaned_mask[h_mask] = False
+
+    return cleaned_mask
+
 def render_item_rgba(arr, bg_col, mask_bool, h, w):
+    mask_bool = remove_internal_holes(mask_bool, arr, bg_col)
     dist_to_bg = ndi.distance_transform_edt(mask_bool)
 
     # Interior is fully solid alpha = 1.0 (prevents white gloves/teeth from being transparent)

@@ -870,7 +870,7 @@ export const PLAYER_SPRITES = {
    "h": 407
   },
   "outfit_c11_3": {
-   "w": 292,
+   "w": 291,
    "h": 403
   },
   "outfit_c11_4": {
