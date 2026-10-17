@@ -1429,11 +1429,11 @@ body, html {
   gap: 8px;
 }
 #modal-enhance {
-  width: min(920px, calc(100vw - 20px)) !important;
+  width: min(960px, calc(100vw - 20px)) !important;
   max-width: calc(100vw - 20px) !important;
-  height: min(670px, calc(100vh - 24px)) !important;
-  max-height: calc(100vh - 24px) !important;
-  left: calc(50% - 460px);
+  height: min(780px, calc(100vh - 20px)) !important;
+  max-height: calc(100vh - 20px) !important;
+  left: calc(50% - 480px);
 }
 #modal-enhance .modal-body {
   height: calc(100% - 48px);

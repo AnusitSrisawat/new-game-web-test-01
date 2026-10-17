@@ -2900,18 +2900,17 @@ export class UIController {
         const canAffordAll = pl.gold >= totalRerollCost;
 
         rightColHtml = `
-          <div style="flex:1; display:flex; flex-direction:column; gap:10px; height:100%; min-height:0; overflow-y:auto; padding-right:4px;">
+          <div style="flex:1; display:flex; flex-direction:column; gap:8px; height:100%; min-height:0; overflow-y:auto; padding-right:4px;">
             ${headerCard}
 
-            <!-- Rules info banner -->
-            <div style="padding:8px 12px; background:rgba(59, 130, 246, 0.12); border:1px solid rgba(59, 130, 246, 0.3); border-radius:8px; font-size:0.73rem; color:#93c5fd; display:flex; flex-direction:column; gap:2px;">
-              <div style="font-weight:700; color:#38bdf8;">💡 ระบบสุ่ม Option และล็อกสเตตัส:</div>
-              <div>• สุ่มทีเดียวทุกช่องที่ปลดล็อกและไม่ได้ล็อก (ค่าสุ่มพื้นฐานช่องละ <b>1,000 Gold</b>)</div>
-              <div>• กดปุ่ม <b>"🔒 ล็อก"</b> เพื่อเก็บสเตตัสที่ชอบไว้ได้ (ยิ่งล็อกเยอะ ค่าธรรมเนียมยิ่งแพง)</div>
+            <!-- Compact Rules info banner -->
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 12px; background:rgba(59, 130, 246, 0.1); border:1px solid rgba(59, 130, 246, 0.25); border-radius:7px; font-size:0.72rem; color:#93c5fd; flex-shrink:0;">
+              <span>💡 สุ่มทีเดียวทุกช่องที่ไม่ได้ล็อก (สุ่มช่องละ <b>1,000 G</b>) • กดปุ่ม <b>"🔒 ล็อก"</b> เพื่อเก็บสเตตัสที่ชอบไว้</span>
+              <span style="color:#fbbf24; font-weight:700;">(ยิ่งล็อกเยอะ ค่าธรรมเนียมยิ่งแพง)</span>
             </div>
 
             <!-- Option Slots List (5 slots) -->
-            <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; flex-direction:column; gap:5px; flex:1; min-height:0;">
               ${[0, 1, 2, 3, 4].map(idx => {
                 const isUnlocked = idx < unlockedSlots;
                 const opt = isUnlocked ? curOptions[idx] : null;
@@ -2922,12 +2921,12 @@ export class UIController {
                 if (!isUnlocked) {
                   return `
                     <div style="
-                      display:flex; align-items:center; justify-content:space-between; padding:9px 12px;
-                      background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.1); border-radius:8px; opacity:0.5;
+                      display:flex; align-items:center; justify-content:space-between; padding:7px 12px;
+                      background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.08); border-radius:7px; opacity:0.45;
                     ">
                       <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:16px;">🔒</span>
-                        <div style="font-size:0.76rem; color:#94a3b8;">
+                        <span style="font-size:15px;">🔒</span>
+                        <div style="font-size:0.74rem; color:#94a3b8;">
                           <b>ช่องที่ ${idx + 1}:</b> ล็อกอยู่ (ต้องตีบวกไอเท็มชิ้นนี้ถึง <b style="color:#f59e0b;">+${(idx + 1) * 5}</b>)
                         </div>
                       </div>
@@ -2937,39 +2936,39 @@ export class UIController {
 
                 return `
                   <div style="
-                    display:flex; align-items:center; justify-content:space-between; padding:8px 12px;
+                    display:flex; align-items:center; justify-content:space-between; padding:6px 12px;
                     background:${isLocked ? 'rgba(245, 158, 11, 0.08)' : 'rgba(0,0,0,0.3)'};
                     border:1px solid ${isLocked ? 'rgba(245, 158, 11, 0.45)' : opt ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.08)'};
-                    border-radius:8px; transition:all 0.15s;
+                    border-radius:7px; transition:all 0.12s;
                   ">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                      <div style="width:34px; height:34px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.45); border-radius:6px; font-size:16px; border:1px solid ${isLocked ? '#f59e0b' : 'rgba(255,255,255,0.1)'};">
+                    <div style="display:flex; align-items:center; gap:9px;">
+                      <div style="width:30px; height:30px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.45); border-radius:6px; font-size:15px; border:1px solid ${isLocked ? '#f59e0b' : 'rgba(255,255,255,0.1)'}; flex-shrink:0;">
                         ${opt ? info.icon : '❓'}
                       </div>
                       <div>
-                        <div style="font-size:0.7rem; color:#94a3b8; display:flex; align-items:center; gap:5px;">
+                        <div style="font-size:0.68rem; color:#94a3b8; display:flex; align-items:center; gap:5px;">
                           <span>ช่องที่ ${idx + 1}</span>
-                          ${isLocked ? `<span style="background:#f59e0b; color:#000; font-size:0.6rem; font-weight:900; padding:1px 4px; border-radius:3px;">🔒 ล็อกอยู่</span>` : ''}
+                          ${isLocked ? `<span style="background:#f59e0b; color:#000; font-size:0.58rem; font-weight:900; padding:1px 4px; border-radius:3px;">🔒 ล็อกอยู่</span>` : ''}
                         </div>
                         ${opt ? `
-                          <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
-                            <b style="font-size:0.88rem; color:#f8fafc;">${info.name}</b>
-                            <span style="font-size:0.82rem; font-weight:900; color:${tierColor}; background:${tierColor}22; padding:1px 6px; border-radius:4px; border:1px solid ${tierColor}44;">+${opt.value}</span>
+                          <div style="display:flex; align-items:center; gap:6px; margin-top:1px;">
+                            <b style="font-size:0.85rem; color:#f8fafc;">${info.name}</b>
+                            <span style="font-size:0.8rem; font-weight:900; color:${tierColor}; background:${tierColor}22; padding:1px 6px; border-radius:4px; border:1px solid ${tierColor}44;">+${opt.value}</span>
                           </div>
                         ` : `
-                          <div style="font-size:0.78rem; color:#f59e0b; font-style:italic;">ยังไม่ได้สุ่มสเตตัส (พร้อมสุ่ม)</div>
+                          <div style="font-size:0.75rem; color:#f59e0b; font-style:italic;">ยังไม่ได้สุ่มสเตตัส (พร้อมสุ่ม)</div>
                         `}
                       </div>
                     </div>
 
                     <!-- Lock / Unlock Toggle Button -->
                     <button class="btn-toggle-option-lock" data-slot="${idx}" style="
-                      display:flex; align-items:center; gap:4px; padding:6px 12px; border-radius:6px; font-size:0.75rem; font-weight:800; cursor:pointer;
+                      display:flex; align-items:center; gap:4px; padding:5px 11px; border-radius:6px; font-size:0.74rem; font-weight:800; cursor:pointer;
                       background:${isLocked ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'rgba(255,255,255,0.06)'};
                       color:${isLocked ? '#000' : '#cbd5e1'};
                       border:1px solid ${isLocked ? '#f59e0b' : 'rgba(255,255,255,0.18)'};
                       box-shadow:${isLocked ? '0 2px 8px rgba(245,158,11,0.35)' : 'none'};
-                      transition:all 0.15s;
+                      transition:all 0.12s;
                     ">
                       <span>${isLocked ? '🔒 ล็อกอยู่' : '🔓 ปลดล็อก'}</span>
                     </button>
@@ -2978,34 +2977,33 @@ export class UIController {
               }).join('')}
             </div>
 
-            <!-- Cost Summary & Bulk Reroll Action -->
-            <div style="margin-top:auto; padding:10px 14px; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; display:flex; flex-direction:column; gap:6px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem;">
-                <span style="color:#94a3b8;">สุ่มใหม่: <b style="color:#38bdf8;">${slotsToReroll} ช่อง</b> (ช่องละ 1,000 G)</span>
-                <span style="color:#cbd5e1;">🪙 ${(slotsToReroll * 1000).toLocaleString()} Gold</span>
-              </div>
-              ${lockedCount > 0 ? `
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem;">
-                  <span style="color:#fbbf24;">🔒 ค่าธรรมเนียมล็อก: <b>${lockedCount} ช่อง</b> (ยิ่งล็อกเยอะยิ่งแพง)</span>
-                  <span style="color:#fbbf24; font-weight:700;">+ 🪙 ${lockSurcharge.toLocaleString()} Gold</span>
+            <!-- Rearranged Cost Summary & Action Bar (Horizontal layout) -->
+            <div style="
+              margin-top:auto; padding:10px 14px; background:rgba(15, 23, 42, 0.8);
+              border:1px solid rgba(255,255,255,0.1); border-radius:10px;
+              display:flex; align-items:center; justify-content:space-between; gap:16px; flex-shrink:0;
+            ">
+              <div style="display:flex; flex-direction:column; gap:2px;">
+                <div style="display:flex; align-items:center; gap:8px; font-size:0.74rem; color:#94a3b8;">
+                  <span>สุ่มใหม่ <b style="color:#38bdf8;">${slotsToReroll} ช่อง</b> (1,000 G/ช่อง)</span>
+                  ${lockedCount > 0 ? `<span style="color:#64748b;">·</span><span style="color:#fbbf24;">🔒 ล็อก <b>${lockedCount} ช่อง</b> (+🪙 ${lockSurcharge.toLocaleString()} G)</span>` : ''}
                 </div>
-              ` : ''}
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.86rem; padding-top:4px; border-top:1px solid rgba(255,255,255,0.08);">
-                <span style="font-weight:700; color:#fff;">รวมค่าใช้จ่ายทั้งหมด:</span>
-                <b style="color:${canAffordAll ? '#fbbf24' : '#ef4444'}; font-size:1.02rem;">🪙 ${totalRerollCost.toLocaleString()} Gold</b>
+                <div style="display:flex; align-items:baseline; gap:6px;">
+                  <span style="font-size:0.78rem; color:#cbd5e1; font-weight:700;">รวมค่าใช้จ่าย:</span>
+                  <b style="color:${canAffordAll ? '#fbbf24' : '#ef4444'}; font-size:1.15rem; font-weight:900;">🪙 ${totalRerollCost.toLocaleString()} Gold</b>
+                </div>
               </div>
 
               <button id="btn-reroll-all-locks" data-id="${curItem.id}" ${unlockedSlots > 0 && slotsToReroll > 0 && canAffordAll ? '' : 'disabled'} style="
-                width:100%; padding:11px; border:none; border-radius:8px; font-size:0.95rem; font-weight:800;
+                padding:11px 22px; border:none; border-radius:8px; font-size:0.92rem; font-weight:800;
                 cursor:${unlockedSlots > 0 && slotsToReroll > 0 && canAffordAll ? 'pointer' : 'not-allowed'};
                 background:${slotsToReroll === 0 ? '#475569' : (unlockedSlots > 0 && canAffordAll ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : '#475569')};
                 color:${slotsToReroll === 0 ? '#94a3b8' : (unlockedSlots > 0 && canAffordAll ? '#fff' : '#94a3b8')};
-                box-shadow:${unlockedSlots > 0 && slotsToReroll > 0 && canAffordAll ? '0 4px 14px rgba(59,130,246,0.35)' : 'none'};
-                transition:all 0.15s; margin-top:2px;
+                box-shadow:${unlockedSlots > 0 && slotsToReroll > 0 && canAffordAll ? '0 4px 14px rgba(59,130,246,0.4)' : 'none'};
+                transition:all 0.15s; white-space:nowrap; flex-shrink:0;
               ">
-                ${slotsToReroll === 0 ? '🔒 ทุกล็อตถูกล็อกไว้ (ปลดล็อกอย่างน้อย 1 ช่องเพื่อสุ่ม)' : `🎲 สุ่มออปชั่นทั้งหมด (🪙 ${totalRerollCost.toLocaleString()} Gold)`}
+                ${slotsToReroll === 0 ? '🔒 ทุกล็อตถูกล็อกไว้' : `🎲 สุ่มออปชั่นทั้งหมด (🪙 ${totalRerollCost.toLocaleString()})`}
               </button>
-              ${unlockedSlots === 0 ? `<div style="font-size:0.72rem; color:#ef4444; text-align:center;">* ต้องตีบวกไอเท็มชิ้นนี้อย่างน้อย +5 เพื่อปลดล็อกช่อง Option แรก</div>` : ''}
             </div>
           </div>
         `;
