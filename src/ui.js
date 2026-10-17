@@ -1227,15 +1227,43 @@ export class UIController {
 
     // Weapon in hand (right hand)
     if (look.weapon && ITEMS[look.weapon]) {
+      const it = ITEMS[look.weapon];
       const ws = weaponSprite(look.weapon);
       const wImg = ws && getImg(ws.src);
       if (wImg) {
         ctx.save();
-        ctx.translate(8, 2);
-        ctx.rotate(0.35);
-        const dh = Math.min(ws.h * 0.36, 58);
-        const dw = dh * ws.w / ws.h;
-        ctx.drawImage(wImg, -dw / 2, -dh * 0.8, dw, dh);
+        const wType = it.weaponType || 'sword';
+        if (wType === 'bow') {
+          ctx.translate(10, 2);
+          ctx.rotate(0.08);
+          const dh = Math.min(ws.h * 0.38, 60);
+          const dw = dh * ws.w / ws.h;
+          ctx.drawImage(wImg, -dw / 2, -dh * 0.5, dw, dh);
+        } else if (wType === 'stick' || wType === 'staff') {
+          ctx.translate(8, 6);
+          ctx.rotate(0.35);
+          const dh = Math.min(ws.h * 0.40, 64);
+          const dw = dh * ws.w / ws.h;
+          ctx.drawImage(wImg, -dw / 2, -dh * 0.78, dw, dh);
+        } else if (wType === 'gun') {
+          ctx.translate(8, 4);
+          ctx.rotate(0.2);
+          const dh = Math.min(ws.h * 0.35, 52);
+          const dw = dh * ws.w / ws.h;
+          ctx.drawImage(wImg, -dw / 2, -dh * 0.65, dw, dh);
+        } else if (wType === 'book') {
+          ctx.translate(9, 6);
+          ctx.rotate(0.15);
+          const dh = Math.min(ws.h * 0.38, 50);
+          const dw = dh * ws.w / ws.h;
+          ctx.drawImage(wImg, -dw / 2, -dh * 0.5, dw, dh);
+        } else {
+          ctx.translate(8, 2);
+          ctx.rotate(0.35);
+          const dh = Math.min(ws.h * 0.36, 58);
+          const dw = dh * ws.w / ws.h;
+          ctx.drawImage(wImg, -dw / 2, -dh * 0.8, dw, dh);
+        }
         ctx.restore();
       }
     }

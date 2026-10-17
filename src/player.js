@@ -626,7 +626,7 @@ export class Player {
       }
       if (TEST_ALL_SWORDS) {
         for (const it of Object.values(ITEMS)) {
-          if (it.type === 'weapon' && it.weaponType === 'sword' && !this.inventory[it.id] && this.equipment.weapon !== it.id) {
+          if (it.type === 'weapon' && !this.inventory[it.id] && this.equipment.weapon !== it.id) {
             this.inventory[it.id] = 1;
           }
         }

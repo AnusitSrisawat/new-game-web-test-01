@@ -244,7 +244,8 @@ export const WEAPON_SPRITE_OF = {
 };
 
 // -> { src, w, h } (tip up, hilt at the bottom) or null
-export function weaponSprite(id) {
+export function weaponSprite(rawId) {
+  const id = typeof rawId === 'object' && rawId ? rawId.id : rawId;
   const name = WEAPON_SPRITE_OF[id] || (WEAPON_SPRITES[id] ? id : null);
   const wh = name && WEAPON_SPRITES[name];
   return wh ? { src: `assets/sprites/weapons/${name}.png`, w: wh[0], h: wh[1] } : null;

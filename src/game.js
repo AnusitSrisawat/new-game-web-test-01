@@ -2534,44 +2534,71 @@ export class GameEngine {
     } else if (wType === 'bow') {
       // --- ARTICULATED HUNTER LONGBOW ---
       ctx.save();
-      ctx.translate(12, 2);
-
       const isAttacking = isLocal ? this.playerEntity.isAttacking : (remoteProfile && remoteProfile.isAttacking);
       const drawProgress = isAttacking ? 1.0 : 0.0;
+      const weaponId = isLocal ? this.player.equipment.weapon : (remoteProfile && remoteProfile.weapon);
+      const wSprite = weaponId ? weaponSprite(weaponId) : null;
+      const wImg = wSprite ? this.getSheet(wSprite.src) : null;
 
-      // Curved Bow Limbs (Wood/Alloy)
-      ctx.strokeStyle = '#b45309';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(-2, 0, 20, -Math.PI * 0.5, Math.PI * 0.5);
-      ctx.stroke();
+      if (wImg) {
+        ctx.translate(10, 2);
+        ctx.rotate(isAttacking ? -0.15 : 0.08);
+        const dh = Math.min(wSprite.h * 0.38, 60);
+        const dw = dh * wSprite.w / wSprite.h;
+        ctx.drawImage(wImg, -dw / 2, -dh * 0.5, dw, dh);
 
-      // Gold Limb Tips
-      ctx.fillStyle = '#f59e0b';
-      ctx.beginPath();
-      ctx.arc(-2, -20, 3, 0, Math.PI * 2);
-      ctx.arc(-2, 20, 3, 0, Math.PI * 2);
-      ctx.fill();
+        // Nocked Arrow & drawn string when attacking
+        if (drawProgress > 0) {
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(-dw / 2, -dh * 0.42);
+          ctx.lineTo(-dw / 2 - 10, 0);
+          ctx.lineTo(-dw / 2, dh * 0.42);
+          ctx.stroke();
 
-      // Taut Bowstring (Drawn back during attack)
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(-2, -20);
-      ctx.lineTo(-2 - drawProgress * 12, 0);
-      ctx.lineTo(-2, 20);
-      ctx.stroke();
-
-      // Nocked Arrow ready to loose
-      if (drawProgress > 0) {
-        ctx.strokeStyle = '#f59e0b';
-        ctx.lineWidth = 2;
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-dw / 2 - 10, 0);
+          ctx.lineTo(16, 0);
+          ctx.stroke();
+        }
+      } else {
+        ctx.translate(12, 2);
+        // Curved Bow Limbs (Wood/Alloy)
+        ctx.strokeStyle = '#b45309';
+        ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.moveTo(-2 - drawProgress * 12, 0);
-        ctx.lineTo(16, 0);
+        ctx.arc(-2, 0, 20, -Math.PI * 0.5, Math.PI * 0.5);
         ctx.stroke();
-      }
 
+        // Gold Limb Tips
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.arc(-2, -20, 3, 0, Math.PI * 2);
+        ctx.arc(-2, 20, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Taut Bowstring (Drawn back during attack)
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-2, -20);
+        ctx.lineTo(-2 - drawProgress * 12, 0);
+        ctx.lineTo(-2, 20);
+        ctx.stroke();
+
+        // Nocked Arrow ready to loose
+        if (drawProgress > 0) {
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-2 - drawProgress * 12, 0);
+          ctx.lineTo(16, 0);
+          ctx.stroke();
+        }
+      }
       ctx.restore();
 
     } else if (wType === 'stick' || wType === 'staff') {
@@ -2585,29 +2612,44 @@ export class GameEngine {
       }
       ctx.translate(8, 6);
       ctx.rotate(swing);
-      const isStaff = wType === 'staff';
-      ctx.strokeStyle = isStaff ? '#7c3aed' : '#78350f';
-      ctx.lineWidth = isStaff ? 4 : 3;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(0, 8);
-      ctx.lineTo(0, isStaff ? -30 : -22);
-      ctx.stroke();
-      if (isStaff) {
-        ctx.fillStyle = attacking ? '#fde68a' : '#c084fc';
-        ctx.shadowColor = '#a855f7';
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.arc(0, -33, 6, 0, Math.PI * 2);
-        ctx.fill();
+
+      const weaponId = isLocal ? this.player.equipment.weapon : (remoteProfile && remoteProfile.weapon);
+      const wSprite = weaponId ? weaponSprite(weaponId) : null;
+      const wImg = wSprite ? this.getSheet(wSprite.src) : null;
+
+      if (wImg) {
+        const dh = Math.min(wSprite.h * 0.40, 64);
+        const dw = dh * wSprite.w / wSprite.h;
+        if (attacking) {
+          ctx.shadowColor = wType === 'staff' ? '#a855f7' : '#22c55e';
+          ctx.shadowBlur = 12;
+        }
+        ctx.drawImage(wImg, -dw / 2, -dh * 0.78, dw, dh);
       } else {
-        // little leaves on the twig
-        ctx.strokeStyle = '#16a34a';
-        ctx.lineWidth = 2;
+        const isStaff = wType === 'staff';
+        ctx.strokeStyle = isStaff ? '#7c3aed' : '#78350f';
+        ctx.lineWidth = isStaff ? 4 : 3;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(0, -12); ctx.lineTo(5, -17);
-        ctx.moveTo(0, -18); ctx.lineTo(-5, -23);
+        ctx.moveTo(0, 8);
+        ctx.lineTo(0, isStaff ? -30 : -22);
         ctx.stroke();
+        if (isStaff) {
+          ctx.fillStyle = attacking ? '#fde68a' : '#c084fc';
+          ctx.shadowColor = '#a855f7';
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(0, -33, 6, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // little leaves on the twig
+          ctx.strokeStyle = '#16a34a';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(0, -12); ctx.lineTo(5, -17);
+          ctx.moveTo(0, -18); ctx.lineTo(-5, -23);
+          ctx.stroke();
+        }
       }
       ctx.restore();
 
@@ -2644,8 +2686,9 @@ export class GameEngine {
       ctx.translate(hx, hy);
       ctx.rotate(swingAngle);
 
-      // Held sword picture (local player only: other players only send their weapon type)
-      const wSprite = isLocal ? weaponSprite(this.player.equipment.weapon) : null;
+      // Held sword picture (both local player & remote player)
+      const weaponId = isLocal ? this.player.equipment.weapon : (remoteProfile && remoteProfile.weapon);
+      const wSprite = weaponId ? weaponSprite(weaponId) : null;
       const wImg = wSprite ? this.getSheet(wSprite.src) : null;
       if (wImg) {
         const dh = Math.min(wSprite.h * 0.36, 58);

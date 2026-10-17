@@ -290,6 +290,7 @@ export class NetworkManager {
       riding: this.player.riding,
       name: this.player.name,
       level: this.player.baseLevel,
+      weapon: this.player.equipment.weapon || null,
       weaponType: this.player.weaponInfo.type,
       def: this.player.defense,
       hp: this.player.currentHp,
