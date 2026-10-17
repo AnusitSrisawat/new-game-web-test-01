@@ -3,7 +3,9 @@ import { ZONES, ITEMS, RELICS, CRAFTING_RECIPES, GACHA_COSTUMES, QUESTS, WEAPON_
 import { SP_POTION_IDS, SKILL_SLOTS, GACHA_SINGLE, GACHA_PACK } from './player.js';
 import { TILE_SIZE, getMapDef } from './maps.js';
 import { soundEngine } from './audio.js';
-import { itemIconHtml, relicIconHtml, monsterSprite, spriteStyle } from './sprites.js';
+import { itemIconHtml, relicIconHtml, monsterSprite, spriteStyle, weaponSprite } from './sprites.js';
+import { drawLook, MODEL } from './player_look.js';
+import { PLAYER_SPRITES } from './player_sprites.js';
 
 // cut-out of a monster picture (falls back to its emoji)
 function monsterIconHtml(mid, emoji, px) {
@@ -1070,80 +1072,537 @@ export class UIController {
 
   hideStatInfo() { document.getElementById('stat-info-tip')?.remove(); }
 
-  // 2. Inventory Modal: items only, split into tabs (crafting lives in its own window)
+  // Live Paper-doll Preview of the player character inside the inventory / equipment window
+  drawPlayerPreview(canvas) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const zoom = this.previewZoom || 1.0;
+    const panX = this.previewPanX || 0;
+    const panY = this.previewPanY || 0;
+
+    const eq = this.player.equipment || {};
+    const mountId = eq.mount;
+    const isRiding = !!(this.player.isMounted && mountId && ITEMS[mountId]);
+
+    const look = {
+      hat: ITEMS[eq.hat],
+      hair: ITEMS[eq.hair],
+      face: ITEMS[eq.face],
+      mouth: ITEMS[eq.mouth],
+      head: ITEMS[eq.head] || { part: 'head_0', partW: 131, partY: 134 },
+      outfit: ITEMS[eq.outfit],
+      back: ITEMS[eq.back],
+      shield: eq.offhand,
+      weapon: eq.weapon,
+      mount: mountId,
+      riding: isRiding
+    };
+
+    const getImg = (src) => {
+      let img = this.gameEngine ? this.gameEngine.getSheet(src) : null;
+      if (!img) {
+        if (this.gameEngine && this.gameEngine.sheetImages && this.gameEngine.sheetImages[src]) {
+          const entry = this.gameEngine.sheetImages[src];
+          if (entry.img && !entry._invHooked) {
+            entry._invHooked = true;
+            const oldOnload = entry.img.onload;
+            entry.img.onload = () => {
+              if (oldOnload) oldOnload();
+              const cv = document.getElementById('inv-player-preview');
+              if (cv) this.drawPlayerPreview(cv);
+            };
+          }
+        }
+      }
+      return img;
+    };
+
+    // Calculate base scale & coordinates
+    // In game: PLAYER_BODY_H = 58, MODEL.h = 301. Ground is at y = 24 in world units.
+    const unitScale = (isRiding ? 2.3 : 3.4) * zoom;
+    const cx = w / 2 + panX;
+    const groundY = (h - 38) + panY;
+
+    // Floor shadow / pedestal
+    const shadowW = (isRiding ? 92 : 48) * zoom;
+    const grad = ctx.createRadialGradient(cx, groundY, 4, cx, groundY, shadowW);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0.7)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(cx, groundY, shadowW, 13 * zoom, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    // Translate origin to ground (where y = 24 in world units)
+    ctx.translate(cx, groundY - 24 * unitScale);
+    ctx.scale(unitScale, unitScale);
+
+    let seatY = 0, seatClip = 0, mountFront = null;
+
+    if (isRiding && ITEMS[mountId]) {
+      const mi = ITEMS[mountId];
+      const ms = PLAYER_SPRITES.mounts[mountId];
+      const img = ms && getImg(`assets/sprites/mounts/${mountId}.png`);
+      if (img) {
+        const MOUNT_H = { mount_runner: 50, mount_wolf: 40, mount_unicorn: 62, mount_drake: 44 };
+        const SEAT = { mount_runner: [0.5, 0.4], mount_wolf: [0.52, 0.3], mount_unicorn: [0.43, 0.3], mount_drake: [0.58, 0.5] };
+        const km = (MOUNT_H[mountId] || 50) * (mi.scale || 1) / ms.h;
+        const mw = ms.w * km, mh = ms.h * km;
+        const flip = mi.flip === 'yes' ? -1 : 1;
+        const seat = [mi.seatX ?? (SEAT[mountId] ? SEAT[mountId][0] : 0.5), mi.seatY ?? (SEAT[mountId] ? SEAT[mountId][1] : 0.4)];
+        const drawMount = () => {
+          ctx.save();
+          ctx.translate((mi.offX || 0), 24 + (mi.offY || 0));
+          ctx.scale(flip, 1);
+          ctx.drawImage(img, -mw / 2, -mh, mw, mh);
+          ctx.restore();
+        };
+        if (mi.layer !== 'front') drawMount();
+        const sx = ((flip > 0 ? seat[0] : 1 - seat[0]) - 0.5) * mw + (mi.offX || 0);
+        seatY = 24 + (mi.offY || 0) - mh + seat[1] * mh;
+        ctx.translate(sx, seatY - 24 + (mi.seatDrop ?? 6));
+        seatClip = mi.seatClip ?? 0;
+        if (mi.layer === 'front') {
+          mountFront = () => {
+            ctx.save();
+            ctx.translate(-sx, -(seatY - 24 + (mi.seatDrop ?? 6)));
+            drawMount();
+            ctx.restore();
+          };
+        }
+      }
+    } else if (!isRiding && mountId && ITEMS[mountId]) {
+      // Standing beside mount: draw mount next to player as a companion
+      const mi = ITEMS[mountId];
+      const ms = PLAYER_SPRITES.mounts[mountId];
+      const img = ms && getImg(`assets/sprites/mounts/${mountId}.png`);
+      if (img) {
+        const MOUNT_H = { mount_runner: 50, mount_wolf: 40, mount_unicorn: 62, mount_drake: 44 };
+        const km = (MOUNT_H[mountId] || 50) * (mi.scale || 1) / ms.h;
+        const mw = ms.w * km * 0.72, mh = ms.h * km * 0.72;
+        const flip = mi.flip === 'yes' ? 1 : -1;
+        ctx.save();
+        ctx.translate(38 + (mi.offX || 0), 24 + (mi.offY || 0));
+        ctx.scale(flip, 1);
+        ctx.drawImage(img, -mw / 2, -mh, mw, mh);
+        ctx.restore();
+      }
+    }
+
+    // Shield (behind body)
+    const sh = look.shield && ITEMS[look.shield];
+    const simg = sh && getImg(`assets/sprites/player/parts/${look.shield}.png`);
+    const drawShield = () => {
+      if (!simg) return;
+      const sm = PLAYER_SPRITES.parts[look.shield];
+      if (!sm) return;
+      const sw = 20 * (sh.scale ?? 1), shh = sw * sm.h / sm.w;
+      ctx.save();
+      ctx.translate(5 + (sh.offX || 0), 3 + (sh.offY || 0));
+      if (sh.flip === 'yes') ctx.scale(-1, 1);
+      ctx.drawImage(simg, -sw / 2, -shh / 2, sw, shh);
+      ctx.restore();
+    };
+    if (sh && sh.layer === 'behind') drawShield();
+
+    // Player paper doll (body + outfit + wings + head + hair + face + mouth + hat)
+    {
+      const kb = (58 * (isRiding ? 0.95 : 1)) / 301;
+      ctx.save();
+      if (isRiding && seatClip > 0) {
+        ctx.beginPath();
+        ctx.rect(-80, -120, 160, 120 + 24 - seatClip);
+        ctx.clip();
+      }
+      drawLook(ctx, getImg, look, kb);
+      ctx.restore();
+    }
+
+    if (sh && sh.layer !== 'behind') drawShield();
+    if (mountFront) mountFront();
+
+    // Weapon in hand (right hand)
+    if (look.weapon && ITEMS[look.weapon]) {
+      const ws = weaponSprite(look.weapon);
+      const wImg = ws && getImg(ws.src);
+      if (wImg) {
+        ctx.save();
+        ctx.translate(8, 2);
+        ctx.rotate(0.35);
+        const dh = Math.min(ws.h * 0.36, 58);
+        const dw = dh * ws.w / ws.h;
+        ctx.drawImage(wImg, -dw / 2, -dh * 0.8, dw, dh);
+        ctx.restore();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // 2. Inventory & Equipment Modal: Left = Equipment & Live Character Preview, Right = Bag items
   renderInventoryModal() {
     const body = document.getElementById('modal-inventory-body');
     if (!body) return;
 
+    // Preserve scroll position of items grid across equips
+    const oldScrollEl = body.querySelector('.inv-grid-scroll');
+    const prevScrollTop = oldScrollEl ? oldScrollEl.scrollTop : 0;
+
     const TABS = [
+      { id: 'fashion', label: '🥋 ชุด & ปีก', match: it => ['outfit', 'back'].includes(it.type) },
       { id: 'all', label: '🎒 ทั้งหมด', match: () => true },
-      { id: 'gear', label: '🛡️ ของสวมใส่', match: it => GEAR_TYPES.includes(it.type) },
+      { id: 'combat', label: '⚔️ อาวุธ & โล่', match: it => ['weapon', 'shield'].includes(it.type) },
+      { id: 'headwear', label: '🎩 หมวก & ผม', match: it => ['hat', 'hair', 'face', 'mouth', 'head'].includes(it.type) },
       { id: 'consumable', label: '🧪 ของใช้', match: it => it.type === 'consumable' },
-      { id: 'material', label: '🦴 วัสดุจากมอนสเตอร์', match: it => it.type === 'material' }
+      { id: 'material', label: '🦴 วัสดุ', match: it => it.type === 'material' },
+      { id: 'other', label: '🐾 สัตว์เลี้ยง/ขี่', match: it => ['pet', 'mount'].includes(it.type) }
     ];
-    if (!TABS.some(t => t.id === this.invTab)) this.invTab = 'all';
+    if (!TABS.some(t => t.id === this.invTab)) this.invTab = 'fashion'; // Default to fashion for easy dressing
     const tab = TABS.find(t => t.id === this.invTab);
 
-    const weapon = ITEMS[this.player.equipment.weapon];
-    const owned = Object.keys(this.player.inventory).filter(k => ITEMS[k] && this.player.inventory[k] > 0);
+    // Equipped items: excluded from the right bag so they only appear on the left equipment slots
+    const equippedIds = new Set(Object.values(this.player.equipment).filter(Boolean));
+    const owned = Object.keys(this.player.inventory).filter(k => ITEMS[k] && this.player.inventory[k] > 0 && !equippedIds.has(k));
     const countOf = t => owned.filter(k => t.match(ITEMS[k])).length;
-    const shown = owned.filter(k => tab.match(ITEMS[k]));
 
-    const tabsHtml = TABS.map(t => `<button class="btn-inv-tab" data-tab="${t.id}" style="padding:5px 10px; border:none; border-radius:5px 5px 0 0; cursor:pointer; font-size:0.78rem; font-weight:600; background:${t.id === tab.id ? '#2563eb' : 'rgba(255,255,255,0.08)'}; color:#fff;">${t.label} (${countOf(t)})</button>`).join('');
+    const searchQ = (this.invSearch || '').trim().toLowerCase();
+    const shown = owned.filter(k => {
+      const it = ITEMS[k];
+      if (!tab.match(it)) return false;
+      if (searchQ) {
+        return (it.name && it.name.toLowerCase().includes(searchQ)) ||
+               (it.desc && it.desc.toLowerCase().includes(searchQ)) ||
+               k.toLowerCase().includes(searchQ);
+      }
+      return true;
+    });
 
-    const view = this.invView === 'equip' ? 'equip' : 'bag';
-    const viewBtn = (id, label) => `<button class="btn-inv-view" data-view="${id}" style="flex:1; padding:7px; border:none; border-bottom:3px solid ${view === id ? '#3b82f6' : 'transparent'}; background:${view === id ? 'rgba(59,130,246,0.15)' : 'transparent'}; color:${view === id ? '#fff' : '#94a3b8'}; font-weight:700; cursor:pointer;">${label}</button>`;
-    const viewsHtml = `<div style="display:flex; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1);">${viewBtn('bag', '🎒 Inventory')}${viewBtn('equip', '🛡️ อุปกรณ์สวมใส่')}</div>`;
+    // Equipped slots for the Left Column
+    const GEAR_SLOTS = [
+      { slot: 'outfit', label: 'ชุดแฟชั่น', icon: '🥋' },
+      { slot: 'back', label: 'ปีก/ผ้าคลุม', icon: '🪽' },
+      { slot: 'weapon', label: 'อาวุธขวา', icon: '⚔️' },
+      { slot: 'offhand', label: 'โล่ซ้าย', icon: '🛡️' },
+      { slot: 'hat', label: 'หมวก', icon: '🎩' },
+      { slot: 'hair', label: 'ทรงผม', icon: '💇' },
+      { slot: 'face', label: 'ใบหน้า', icon: '👀' },
+      { slot: 'mount', label: 'สัตว์ขี่', icon: '🐎' }
+    ];
 
-    const slotStyle = 'position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:6px; cursor:pointer; user-select:none;';
-    let invHtml = '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(56px, 1fr)); gap:6px; margin-top:10px;">';
+    const slotCardHtml = (gs) => {
+      const itemId = this.player.equipment[gs.slot];
+      const it = itemId ? ITEMS[itemId] : null;
+      return `
+        <div class="equip-slot-card" data-slot="${gs.slot}" data-id="${itemId || ''}" style="
+          display: flex; align-items: center; gap: 7px;
+          background: ${it ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)'};
+          border: 1px solid ${it ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255, 255, 255, 0.08)'};
+          border-radius: 8px; padding: 5px 8px; user-select: none; transition: all 0.15s;
+          cursor: ${it && gs.slot !== 'head' ? 'pointer' : 'default'};
+          height: 38px; box-sizing: border-box;
+        " title="${it ? `${it.name} (คลิก ✕ หรือการ์ดเพื่อถอดคืนกระเป๋า)` : `${gs.label} (ว่าง)`}">
+          <div style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); border-radius: 6px; flex-shrink: 0; font-size: 16px;">
+            ${it ? itemIconHtml(it.id, it.icon, 26) : `<span style="opacity: 0.35; font-size: 14px;">${gs.icon}</span>`}
+          </div>
+          <div style="flex: 1; min-width: 0; font-size: 0.74rem; font-weight: 700; color: ${it ? '#93c5fd' : '#64748b'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            ${gs.label}
+          </div>
+          ${it && gs.slot !== 'head' ? `
+            <button class="btn-slot-unequip" data-slot="${gs.slot}" title="ถอดชิ้นนี้คืนกระเป๋า" style="
+              width: 20px; height: 20px; border: none; border-radius: 4px;
+              background: rgba(239, 68, 68, 0.25); color: #fca5a5;
+              font-size: 0.7rem; font-weight: 700; cursor: pointer;
+              display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            ">✕</button>
+          ` : ''}
+        </div>
+      `;
+    };
+
+    const slotsGridHtml = `
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%;">
+        ${GEAR_SLOTS.map(slotCardHtml).join('')}
+      </div>
+    `;
+
+    // Tabs HTML
+    const tabsHtml = TABS.map(t => {
+      const active = t.id === tab.id;
+      return `<button class="btn-inv-tab" data-tab="${t.id}" style="
+        padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer;
+        font-size: 0.76rem; font-weight: 700; transition: all 0.15s;
+        background: ${active ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : 'rgba(255,255,255,0.06)'};
+        color: ${active ? '#fff' : '#94a3b8'};
+        box-shadow: ${active ? '0 2px 6px rgba(37,99,235,0.4)' : 'none'};
+      ">${t.label} <span style="font-size: 0.68rem; opacity: 0.85;">(${countOf(t)})</span></button>`;
+    }).join('');
+
+    // Item slots in bag
+    const slotStyle = 'position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; cursor:pointer; user-select:none; transition:all 0.12s;';
+    let invHtml = '<div class="inv-items-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(56px, 1fr)); gap:6px;">';
     if (shown.length === 0) {
-      invHtml += '<p style="color:#94a3b8; font-size:0.85rem; grid-column:1/-1;">ไม่มีไอเทมในหมวดนี้ ออกไปฟาร์มมอนสเตอร์กันเถอะ!</p>';
+      invHtml += '<div style="color:#94a3b8; font-size:0.85rem; grid-column:1/-1; padding:30px 10px; text-align:center;">ไม่มีไอเทมในหมวดนี้ หรือถูกสวมใส่อยู่</div>';
     } else {
       shown.forEach(k => {
         const item = ITEMS[k];
-        const isOn = Object.values(this.player.equipment).includes(k);
         invHtml += `
-          <div class="inv-slot" data-id="${k}" style="${slotStyle} border:1px solid ${isOn ? '#2563eb' : 'rgba(255,255,255,0.1)'};">
-            <span style="font-size:26px; display:flex;">${itemIconHtml(k, item.icon, 40)}</span>
-            <span style="position:absolute; right:3px; bottom:1px; font-size:0.68rem; color:#f59e0b; text-shadow:0 0 3px #000;">${this.player.inventory[k] > 1 ? this.player.inventory[k] : ''}</span>
+          <div class="inv-slot" data-id="${k}" title="${item.name}" style="${slotStyle} border:1px solid rgba(255,255,255,0.1);">
+            <span style="font-size:28px; display:flex;">${itemIconHtml(k, item.icon, 40)}</span>
+            <span style="position:absolute; right:3px; bottom:1px; font-size:0.68rem; color:#f59e0b; text-shadow:0 0 3px #000; font-weight:700;">${this.player.inventory[k] > 1 ? this.player.inventory[k] : ''}</span>
           </div>`;
       });
     }
     invHtml += '</div>';
 
-    const gearRow = (label, it, slot = '') => `
-      <div class="inv-slot" data-id="${it ? it.id : ''}" style="display:flex; gap:12px; align-items:center; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; margin-bottom:8px;">
-        <div style="font-size:30px; display:flex;">${it ? itemIconHtml(it.id, it.icon, 44) : '—'}</div>
-        <div style="font-size:0.85rem;">
-          <div style="color:#94a3b8; font-size:0.72rem;">${label}</div>
-          <div style="font-weight:700;">${it ? it.name : 'ไม่มี'}</div>
-          ${it ? `<div style="color:#fde68a;">${it.atk ? `ATK +${it.atk}` : ''}${it.atk && it.def ? ' · ' : ''}${it.def ? `DEF +${it.def}` : ''}${it.lootSpeed ? `⚡ เก็บของ x${it.lootSpeed}` : ''}</div>` : ''}
-          ${it && it.desc ? `<div style="color:#94a3b8; font-size:0.72rem;">${it.desc}</div>` : ''}
-          ${it && slot ? `<button class="btn-unequip" data-slot="${slot}" style="margin-top:4px; padding:2px 10px; border:none; border-radius:4px; background:#64748b; color:#fff; cursor:pointer; font-size:0.72rem;">ถอด</button>` : ''}
+    body.innerHTML = `
+      <div class="inv-two-col" style="display: flex; gap: 14px; align-items: stretch; height: 100%; min-height: 0; box-sizing: border-box; overflow: hidden;">
+        <!-- LEFT COLUMN: Character Live Preview & Equipment Slots -->
+        <div class="inv-left-col" style="
+          flex: 0 0 316px; width: 316px; display: flex; flex-direction: column; gap: 8px;
+          background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 12px; padding: 10px; box-sizing: border-box;
+          height: 100%; min-height: 0; overflow-y: auto;
+        ">
+          <!-- Character Preview Frame -->
+          <div style="
+            position: relative; width: 100%; border-radius: 10px;
+            background: radial-gradient(circle at 50% 35%, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 1));
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            box-shadow: inset 0 0 25px rgba(0,0,0,0.7), 0 4px 15px rgba(0,0,0,0.4);
+            display: flex; flex-direction: column; align-items: center; padding: 6px 6px 8px 6px; box-sizing: border-box; flex-shrink: 0;
+          ">
+            <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #94a3b8; font-weight: 700; margin-bottom: 4px; padding: 0 4px;">
+              <span>👤 ${this.player.name} · <b style="color: #38bdf8;">Lv.${this.player.baseLevel}</b></span>
+              ${this.player.equipment.mount ? `
+                <button id="btn-preview-toggle-mount" title="คลิกเพื่อสลับระหว่างขี่สัตว์ หรือ ยืนปกติ" style="
+                  padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; font-weight: 700;
+                  border: 1px solid ${this.player.isMounted ? 'rgba(245, 158, 11, 0.8)' : 'rgba(255, 255, 255, 0.15)'};
+                  background: ${this.player.isMounted ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(217, 119, 6, 0.45))' : 'rgba(255, 255, 255, 0.06)'};
+                  color: ${this.player.isMounted ? '#fef08a' : '#94a3b8'};
+                  box-shadow: ${this.player.isMounted ? '0 0 8px rgba(245,158,11,0.4)' : 'none'};
+                ">
+                  ${this.player.isMounted ? '🏇 ขี่สัตว์พาหนะ' : '🚶 ยืนปกติ'}
+                </button>
+              ` : ''}
+            </div>
+
+            <!-- Canvas Viewport -->
+            <div style="position: relative; width: 100%; height: 285px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.25);">
+              <canvas id="inv-player-preview" width="294" height="285" style="width: 294px; height: 285px; image-rendering: auto; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.65)); cursor: grab;"></canvas>
+
+              <!-- Zoom Controls overlay on top-right -->
+              <div style="
+                position: absolute; top: 6px; right: 6px; display: flex; align-items: center; gap: 4px;
+                background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(4px); padding: 2px 6px;
+                border-radius: 16px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+              ">
+                <button id="btn-preview-zoom-out" title="ซูมออก (-)" style="width: 20px; height: 20px; border-radius: 50%; border: none; background: rgba(255,255,255,0.12); color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">−</button>
+                <span id="inv-preview-zoom-val" style="font-size: 0.68rem; color: #38bdf8; font-weight: 700; min-width: 38px; text-align: center;">${Math.round((this.previewZoom || 1) * 100)}%</span>
+                <button id="btn-preview-zoom-in" title="ซูมเข้า (+)" style="width: 20px; height: 20px; border-radius: 50%; border: none; background: rgba(255,255,255,0.12); color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">+</button>
+                <button id="btn-preview-zoom-reset" title="รีเซ็ตขนาด 100%" style="margin-left: 2px; padding: 1px 5px; border-radius: 4px; border: none; background: rgba(255,255,255,0.08); color: #cbd5e1; font-size: 0.65rem; font-weight: 600; cursor: pointer;">↺</button>
+              </div>
+            </div>
+
+            <div style="font-size: 0.65rem; color: #64748b; margin-top: 4px;">🔍 ใช้ลูกกลิ้งเมาส์ซูม · ลากเพื่อเลื่อนดูรายละเอียด</div>
+          </div>
+
+          <!-- Equipment Slots Grid -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px; flex-shrink: 0;">
+            <span style="font-size: 0.78rem; font-weight: 700; color: #fbbf24;">🛡️ ช่องอุปกรณ์ที่สวมใส่</span>
+            <button id="btn-unequip-fashion-all" style="
+              border: none; background: transparent; color: #f87171;
+              font-size: 0.7rem; font-weight: 600; cursor: pointer; text-decoration: underline;
+            ">ถอดชุด & ปีก</button>
+          </div>
+          ${slotsGridHtml}
         </div>
-      </div>`;
 
-    body.innerHTML = viewsHtml + (view === 'equip' ? `
-      ${gearRow('🎩 หมวก', ITEMS[this.player.equipment.hat], 'hat')}
-      ${gearRow('💇 ทรงผม', ITEMS[this.player.equipment.hair], 'hair')}
-      ${gearRow('👀 หน้าตา', ITEMS[this.player.equipment.face], 'face')}
-      ${gearRow('👄 ปาก', ITEMS[this.player.equipment.mouth], 'mouth')}
-      ${gearRow('🙂 หัว', ITEMS[this.player.equipment.head], 'head')}
-      ${gearRow('🥋 ชุด', ITEMS[this.player.equipment.outfit], 'outfit')}
-      ${gearRow('🪽 ปีก / ผ้าคลุม', ITEMS[this.player.equipment.back], 'back')}
-      ${gearRow('✋ มือขวา (อาวุธ)', weapon)}
-      ${gearRow('🛡️ มือซ้าย (โล่)', ITEMS[this.player.equipment.offhand], 'offhand')}
-      ${gearRow('🐾 สัตว์เลี้ยง', ITEMS[this.player.equipment.pet], 'pet')}
-      ${gearRow('🐎 สัตว์ขี่' + (this.player.riding ? ' (กำลังขี่)' : ''), ITEMS[this.player.equipment.mount], 'mount')}
-      <div style="margin-top:8px; font-size:0.78rem; color:#94a3b8;">ดับเบิลคลิกไอเทมในแท็บ Inventory เพื่อสวมใส่ · กด "ถอด" เพื่อเก็บ · กด <kbd>R</kbd> ขึ้นขี่/ลงจากสัตว์ขี่</div>
-    ` : `
-      <div style="display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,0.15);">${tabsHtml}</div>
-      ${invHtml}
-      <div style="margin-top:12px; font-size:0.78rem; color:#94a3b8;">เลื่อนเมาส์ไปที่ไอเทมเพื่อดูรายละเอียด · ดับเบิลคลิกเพื่อสวมใส่/ใช้ · 🔨 คราฟต์ที่ <b>โต๊ะคราฟต์</b> <kbd>B</kbd></div>
-    `);
+        <!-- RIGHT COLUMN: Items Grid with Tabs & Search -->
+        <div class="inv-right-col" style="flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; height: 100%; min-height: 0; overflow: hidden;">
+          <!-- Top Row: Tabs + Search -->
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; justify-content: space-between; flex-shrink: 0;">
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;">${tabsHtml}</div>
+            <input type="text" id="inv-search-input" value="${this.invSearch || ''}" placeholder="🔍 ค้นหาไอเทม..." style="
+              width: 125px; padding: 5px 8px; font-size: 0.74rem; border-radius: 6px;
+              background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); color: #fff;
+            "/>
+          </div>
 
-    // Hover tooltip in a separate floating window
+          <!-- Scrollable Items Grid -->
+          <div class="inv-grid-scroll" style="
+            flex: 1 1 0; min-height: 0; overflow-y: auto; padding-right: 4px;
+            background: rgba(0,0,0,0.22); border-radius: 8px; padding: 8px;
+            border: 1px solid rgba(255,255,255,0.06);
+          ">
+            ${invHtml}
+          </div>
+
+          <!-- Bottom Summary Bar -->
+          <div style="
+            display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+            font-size: 0.75rem; color: #94a3b8; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 6px;
+          ">
+            <span>🪙 <b style="color:#fbbf24;">${(this.player.gold || 0).toLocaleString()}</b> Gold · 🎟️ <b style="color:#38bdf8;">${this.player.gachaTokens || 0}</b> Token</span>
+            <span>⚡ คลิกไอเทมฝั่งขวาเพื่อสวมใส่ · คลิก ✕ ฝั่งซ้ายเพื่อถอดคืน</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Render Character on Preview Canvas
+    const previewCanvas = document.getElementById('inv-player-preview');
+    if (previewCanvas) {
+      this.drawPlayerPreview(previewCanvas);
+
+      // Mouse Wheel Zoom
+      previewCanvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.15 : -0.15;
+        this.previewZoom = Math.max(0.4, Math.min(2.5, +( (this.previewZoom || 1) + delta ).toFixed(2)));
+        this.drawPlayerPreview(previewCanvas);
+        const zoomLbl = document.getElementById('inv-preview-zoom-val');
+        if (zoomLbl) zoomLbl.textContent = Math.round(this.previewZoom * 100) + '%';
+      }, { passive: false });
+
+      // Drag to Pan
+      let isDragging = false;
+      let startX = 0, startY = 0;
+      previewCanvas.addEventListener('mousedown', e => {
+        isDragging = true;
+        startX = e.clientX - (this.previewPanX || 0);
+        startY = e.clientY - (this.previewPanY || 0);
+        previewCanvas.style.cursor = 'grabbing';
+      });
+      const onMove = e => {
+        if (!isDragging) return;
+        this.previewPanX = e.clientX - startX;
+        this.previewPanY = e.clientY - startY;
+        this.drawPlayerPreview(previewCanvas);
+      };
+      const onUp = () => {
+        if (isDragging) {
+          isDragging = false;
+          const cv = document.getElementById('inv-player-preview');
+          if (cv) cv.style.cursor = 'grab';
+        }
+      };
+      window.removeEventListener('mousemove', this._invPanMove);
+      window.removeEventListener('mouseup', this._invPanUp);
+      this._invPanMove = onMove;
+      this._invPanUp = onUp;
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    }
+
+    // Zoom Buttons
+    const updateZoomDisplay = () => {
+      const zoomLbl = document.getElementById('inv-preview-zoom-val');
+      if (zoomLbl) zoomLbl.textContent = Math.round((this.previewZoom || 1) * 100) + '%';
+      const cv = document.getElementById('inv-player-preview');
+      if (cv) this.drawPlayerPreview(cv);
+    };
+
+    body.querySelector('#btn-preview-zoom-in')?.addEventListener('click', () => {
+      this.previewZoom = Math.min(2.5, +( (this.previewZoom || 1) + 0.2 ).toFixed(2));
+      updateZoomDisplay();
+    });
+
+    body.querySelector('#btn-preview-zoom-out')?.addEventListener('click', () => {
+      this.previewZoom = Math.max(0.4, +( (this.previewZoom || 1) - 0.2 ).toFixed(2));
+      updateZoomDisplay();
+    });
+
+    body.querySelector('#btn-preview-zoom-reset')?.addEventListener('click', () => {
+      this.previewZoom = 1.0;
+      this.previewPanX = 0;
+      this.previewPanY = 0;
+      updateZoomDisplay();
+    });
+
+    // Mount Toggle Button
+    body.querySelector('#btn-preview-toggle-mount')?.addEventListener('click', () => {
+      this.player.isMounted = !this.player.isMounted;
+      this.player.saveToStorage();
+      this.renderInventoryModal();
+      this.updateHUD();
+    });
+
+    // Restore scroll position
+    const newScrollEl = body.querySelector('.inv-grid-scroll');
+    if (newScrollEl && prevScrollTop) {
+      newScrollEl.scrollTop = prevScrollTop;
+    }
+
+    // Bind Search Input
+    const searchInput = body.querySelector('#inv-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', e => {
+        this.invSearch = e.target.value;
+        this.renderInventoryModal();
+        const inp = document.getElementById('inv-search-input');
+        if (inp) {
+          inp.focus();
+          inp.selectionStart = inp.selectionEnd = inp.value.length;
+        }
+      });
+    }
+
+    // Bind Category Tabs
+    body.querySelectorAll('.btn-inv-tab').forEach(b => {
+      b.addEventListener('click', e => {
+        this.invTab = e.currentTarget.dataset.tab;
+        this.renderInventoryModal();
+      });
+    });
+
+    // Bind Unequip All Fashion Button
+    const unequipAllBtn = body.querySelector('#btn-unequip-fashion-all');
+    if (unequipAllBtn) {
+      unequipAllBtn.addEventListener('click', () => {
+        this.player.unequip('outfit');
+        this.player.unequip('back');
+        this.gameEngine?.onLog('🥋 ถอดชุดและปีกทั้งหมดคืนกระเป๋า', 'system');
+        this.renderInventoryModal();
+        this.updateHUD();
+      });
+    }
+
+    // Bind Slot Unequip Buttons
+    body.querySelectorAll('.btn-slot-unequip').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const slot = e.currentTarget.dataset.slot;
+        const itId = this.player.equipment[slot];
+        const it = itId && ITEMS[itId];
+        this.player.unequip(slot);
+        if (it) this.gameEngine?.onLog(`ถอด ${it.name} คืนกระเป๋า`, 'system');
+        this.renderInventoryModal();
+        this.updateHUD();
+      });
+    });
+
+    // Bind clicking on the equip slot card itself to unequip
+    body.querySelectorAll('.equip-slot-card').forEach(card => {
+      card.addEventListener('click', e => {
+        if (e.target.closest('.btn-slot-unequip')) return;
+        const slot = card.dataset.slot;
+        if (!slot || slot === 'head') return;
+        const itId = this.player.equipment[slot];
+        if (itId) {
+          const it = ITEMS[itId];
+          this.player.unequip(slot);
+          if (it) this.gameEngine?.onLog(`ถอด ${it.name} คืนกระเป๋า`, 'system');
+          this.renderInventoryModal();
+          this.updateHUD();
+        }
+      });
+    });
+
+    // Tooltip handling
     let tip = document.getElementById('inv-tooltip');
     if (!tip) {
       tip = document.createElement('div');
@@ -1152,11 +1611,13 @@ export class UIController {
       document.body.appendChild(tip);
     }
     tip.style.display = 'none';
+
     const STAT_ROWS = [['atk', 'ATK'], ['def', 'DEF'], ['hp', 'Max HP'], ['speedPct', 'ความเร็วเดิน'], ['heal', 'HP ฟื้นฟู'], ['sp', 'SP ฟื้นฟู'], ['lootSpeed', 'เก็บของ']];
     const row = (label, val, extra = '') => `<div style="display:grid; grid-template-columns:78px 1fr; gap:6px; padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.06);"><span style="color:#94a3b8;">${label}</span><span style="text-align:right; font-weight:600;">${val}${extra}</span></div>`;
     const panel = (title, inner, border) => `<div style="min-width:170px; max-width:220px; padding:8px 10px; background:rgba(15,23,42,0.97); border:1px solid ${border}; border-radius:8px;">${title}${inner}</div>`;
     const tipHtml = (k) => {
       const item = ITEMS[k];
+      if (!item) return '';
       const isGear = GEAR_TYPES.includes(item.type);
       const curId = isGear ? this.player.equipment[SLOT_OF_TYPE[item.type]] : null;
       const cur = (curId && curId !== k) ? ITEMS[curId] : null;
@@ -1171,62 +1632,71 @@ export class UIController {
         return row(label, f === 'lootSpeed' ? `x${v}` : f === 'speedPct' ? `+${v}%` : `+${v}`, extra);
       }).join('');
       const typeLabel = { weapon: 'อาวุธ (มือขวา)', hat: 'หมวก', hair: 'ทรงผม', face: 'หน้าตา', mouth: 'ปาก', head: 'หัว', outfit: 'ชุด', back: 'ปีก / ผ้าคลุม', shield: 'โล่ (มือซ้าย)', mount: 'สัตว์ขี่', pet: 'สัตว์เลี้ยง (Pet)', consumable: 'ของใช้', material: 'วัสดุ' }[item.type] || '';
-      const lv = item.reqLevel > 1 ? row('เลเวลที่ต้องการ', `Lv.${item.reqLevel}`, '') .replace('<span style="text-align:right; font-weight:600;">', `<span style="text-align:right; font-weight:600; color:${this.player.baseLevel >= item.reqLevel ? '#e2e8f0' : '#ef4444'};">`) : '';
-      const hint = isGear ? (curId === k ? '<div style="color:#4ade80; margin-top:4px;">สวมอยู่</div>' : '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อสวมใส่</div>')
+      const lv = item.reqLevel > 1 ? row('เลเวลที่ต้องการ', `Lv.${item.reqLevel}`, '').replace('<span style="text-align:right; font-weight:600;">', `<span style="text-align:right; font-weight:600; color:${this.player.baseLevel >= item.reqLevel ? '#e2e8f0' : '#ef4444'};">`) : '';
+      const hint = isGear ? (curId === k ? '<div style="color:#4ade80; margin-top:4px;">สวมอยู่ (คลิกเพื่อถอด)</div>' : '<div style="color:#60a5fa; margin-top:4px;">คลิกเพื่อสวมใส่ทันที</div>')
         : (item.type === 'consumable' ? '<div style="color:#60a5fa; margin-top:4px;">ดับเบิลคลิกเพื่อใช้</div>' : '');
       const main = panel(head(item, typeLabel, '#94a3b8'), stats(item, cur) + lv + (item.desc ? `<div style="color:#cbd5e1; margin-top:4px; font-size:0.72rem;">${item.desc}</div>` : '') + hint, '#3b82f6');
       if (!cur) return main;
       const cmp = panel(head(cur, 'ที่สวมอยู่ตอนนี้', '#4ade80'), stats(cur, null) + (cur.desc ? `<div style="color:#cbd5e1; margin-top:4px; font-size:0.72rem;">${cur.desc}</div>` : ''), '#16a34a');
       return main + cmp;
     };
-    body.querySelectorAll('.inv-slot').forEach(el => {
+
+    body.querySelectorAll('.inv-slot, .equip-slot-card').forEach(el => {
       const k = el.dataset.id;
       if (!k || !ITEMS[k]) return;
-      el.addEventListener('mouseenter', () => { el.dataset.bc = el.style.borderColor; el.style.borderColor = '#fbbf24'; el.style.boxShadow = '0 0 0 1px #fbbf24'; tip.innerHTML = tipHtml(k); tip.style.display = 'flex'; });
+      el.addEventListener('mouseenter', () => {
+        tip.innerHTML = tipHtml(k);
+        tip.style.display = 'flex';
+      });
       el.addEventListener('mousemove', e => {
         const w = tip.offsetWidth, h = tip.offsetHeight;
         tip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 6) + 'px';
         tip.style.top = Math.min(e.clientY + 14, window.innerHeight - h - 6) + 'px';
       });
-      el.addEventListener('mouseleave', () => { tip.style.display = 'none'; el.style.borderColor = el.dataset.bc || ''; el.style.boxShadow = ''; });
-      el.addEventListener('dblclick', () => {
+      el.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    });
+
+    // Single Click on item slots -> Immediate Equip / Toggle!
+    body.querySelectorAll('.inv-slot').forEach(el => {
+      const k = el.dataset.id;
+      if (!k || !ITEMS[k]) return;
+      el.addEventListener('click', () => {
         tip.style.display = 'none';
         const item = ITEMS[k];
         if (GEAR_TYPES.includes(item.type)) {
-          const res = this.player.equipItem(k);
-          if (!res.ok) { this.gameEngine.onLog(`🚫 สวมใส่ ${item.name} ไม่ได้: ${res.reason}`, 'system'); return; }
-          this.gameEngine.onLog(`🛡️ สวมใส่ ${item.name}`, 'system');
-        } else if (item.type !== 'material' && (item.heal > 0 || item.sp > 0 || item.exp > 0)) {
+          const slot = SLOT_OF_TYPE[item.type];
+          if (this.player.equipment[slot] === k) {
+            this.player.unequip(slot);
+            this.gameEngine?.onLog(`ถอด ${item.name}`, 'system');
+          } else {
+            const res = this.player.equipItem(k);
+            if (!res.ok) {
+              this.gameEngine?.onLog(`🚫 สวมใส่ ${item.name} ไม่ได้: ${res.reason}`, 'system');
+              return;
+            }
+            this.gameEngine?.onLog(`🛡️ สวมใส่ ${item.name}`, 'system');
+          }
+          this.renderInventoryModal();
+          this.updateHUD();
+        }
+      });
+
+      // Double-click for consumable usage
+      el.addEventListener('dblclick', () => {
+        const item = ITEMS[k];
+        if (item.type !== 'material' && (item.heal > 0 || item.sp > 0 || item.exp > 0)) {
+          tip.style.display = 'none';
           const res = this.player.useItem(k);
           if (res) {
             const parts = [];
             if (item.heal > 0) parts.push(`HP +${res.healed}`);
             if (item.sp > 0) parts.push(`SP +${res.restored}`);
             if (item.exp > 0) parts.push(`EXP +${res.exp}`);
-            this.gameEngine.onLog(`🧪 ใช้ ${res.itemName}: ${parts.join(' · ')}`, 'system');
+            this.gameEngine?.onLog(`🧪 ใช้ ${res.itemName}: ${parts.join(' · ')}`, 'system');
           }
-        } else return;
-        this.renderInventoryModal();
-        this.updateHUD();
-      });
-    });
-
-    body.querySelectorAll('.btn-unequip').forEach(b => b.addEventListener('click', e => {
-      e.stopPropagation();
-      this.player.unequip(e.currentTarget.dataset.slot);
-      this.renderInventoryModal();
-      this.updateHUD();
-    }));
-
-    body.querySelectorAll('.btn-inv-view').forEach(b => b.addEventListener('click', e => {
-      this.invView = e.currentTarget.dataset.view;
-      this.renderInventoryModal();
-    }));
-
-    body.querySelectorAll('.btn-inv-tab').forEach(b => {
-      b.addEventListener('click', e => {
-        this.invTab = e.currentTarget.dataset.tab;
-        this.renderInventoryModal();
+          this.renderInventoryModal();
+          this.updateHUD();
+        }
       });
     });
   }

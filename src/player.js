@@ -351,7 +351,28 @@ export class Player {
     if (!TEST_ALL_SWORDS && item.reqLevel && this.baseLevel < item.reqLevel) {
       return { ok: false, reason: `ต้องการเลเวล ${item.reqLevel} ขึ้นไป (ตอนนี้ Lv.${this.baseLevel})` };
     }
-    this.equipment[SLOT_OF[item.type]] = itemId;
+    const slot = SLOT_OF[item.type];
+    const prevId = this.equipment[slot];
+
+    // Return previously equipped item to bag if different
+    if (prevId && prevId !== itemId) {
+      this.inventory[prevId] = (this.inventory[prevId] || 0) + 1;
+    }
+
+    // Assign new equipment
+    this.equipment[slot] = itemId;
+
+    // Deduct newly equipped item from bag/inventory so it moves to equipped slot
+    if (this.inventory[itemId]) {
+      this.inventory[itemId]--;
+      if (this.inventory[itemId] <= 0) delete this.inventory[itemId];
+    }
+
+    // Automatically enable riding when a mount is equipped
+    if (slot === 'mount') {
+      this.isMounted = true;
+    }
+
     this.saveToStorage();
     return { ok: true };
   }
@@ -479,7 +500,11 @@ export class Player {
   }
 
   unequip(slot) {
-    if (slot === 'weapon' || slot === 'head' || !(slot in this.equipment)) return false; // always keep a head
+    if (slot === 'head' || !(slot in this.equipment)) return false; // always keep a head
+    const itId = this.equipment[slot];
+    if (itId) {
+      this.inventory[itId] = (this.inventory[itId] || 0) + 1;
+    }
     this.equipment[slot] = null;
     if (slot === 'mount') this.isMounted = false;
     this.saveToStorage();
@@ -574,6 +599,13 @@ export class Player {
         });
         // items that no longer exist (e.g. the removed apple) leave the bag / hotbar
         for (const id of Object.keys(this.inventory)) if (!ITEMS[id]) delete this.inventory[id];
+        // Ensure equipped items are not duplicated in inventory
+        for (const [slot, id] of Object.entries(this.equipment)) {
+          if (id && this.inventory[id]) {
+            this.inventory[id]--;
+            if (this.inventory[id] <= 0) delete this.inventory[id];
+          }
+        }
         this.hotbar = this.hotbar.map(h => (typeof h === 'string' && !ITEMS[h] ? null : h));
         if (!this.equipment.weapon && !this.inventory.wooden_stick) this.inventory.wooden_stick = 1;
         if (!this.mountItem) this.isMounted = false;

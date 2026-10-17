@@ -1370,6 +1370,54 @@ body, html {
   max-width: none;
   transition: opacity 0.15s ease;
 }
+#modal-inventory {
+  width: min(960px, 98vw);
+  height: min(670px, 90vh);
+  left: calc(50% - 480px);
+}
+#modal-inventory .modal-body {
+  height: calc(100% - 48px);
+  max-height: calc(100% - 48px);
+  padding: 12px 14px;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+.inv-grid-scroll::-webkit-scrollbar,
+.inv-left-col::-webkit-scrollbar {
+  width: 6px;
+}
+.inv-grid-scroll::-webkit-scrollbar-track,
+.inv-left-col::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+}
+.inv-grid-scroll::-webkit-scrollbar-thumb,
+.inv-left-col::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+.inv-grid-scroll::-webkit-scrollbar-thumb:hover,
+.inv-left-col::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.6);
+}
+@media (max-width: 960px) {
+  #modal-inventory {
+    left: 1vw !important;
+    width: 98vw !important;
+    height: 94vh !important;
+  }
+  .inv-two-col {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+  .inv-left-col {
+    flex: none !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+}
 .game-modal.active { transform: none; }
 .game-modal .modal-header { user-select: none; }
 
