@@ -4,6 +4,7 @@
 Usage: python tools/batch_cut_clothes_and_wings.py
 """
 import glob
+import itertools
 import json
 import os
 import sys
@@ -69,63 +70,14 @@ WINGS_THEMES = [
     ("Golden Sun Deity Wings", "ปีกสุริยเทพทองคำสง่างาม"),
 ]
 
-def cut_asset(crop_pil, is_wing=False):
-    arr = np.array(crop_pil.convert('RGB'), dtype=np.float32)
-    h, w, _ = arr.shape
-
-    borders = np.concatenate([arr[0, :, :], arr[-1, :, :], arr[:, 0, :], arr[:, -1, :]])
-    bg_col = np.median(borders, axis=0)
-    dist = np.linalg.norm(arr - bg_col, axis=2)
-
-    tol = 15.0 if is_wing else 12.0
-    is_bg = (dist < tol).astype(np.uint8)
-    mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
-    for x in range(w):
-        if is_bg[0, x] == 1: cv2.floodFill(is_bg, mask, (x, 0), 2)
-        if is_bg[h - 1, x] == 1: cv2.floodFill(is_bg, mask, (x, h - 1), 2)
-    for y in range(h):
-        if is_bg[y, 0] == 1: cv2.floodFill(is_bg, mask, (0, y), 2)
-        if is_bg[y, w - 1] == 1: cv2.floodFill(is_bg, mask, (w - 1, y), 2)
-
-    outer_bg = (is_bg == 2)
-    fg = ~outer_bg
-    fg_solid = ndi.binary_fill_holes(fg)
-
-    lbl, n = ndi.label(fg_solid)
-    if n > 0:
-        objs = ndi.find_objects(lbl)
-        if not is_wing:
-            # Clothes: select the full outfit (must have y_stop > 1050 and height > 400)
-            valid_idx = []
-            for i, o in enumerate(objs):
-                if o[0].stop > 1050 and (o[0].stop - o[0].start) > 400:
-                    valid_idx.append(i + 1)
-            if valid_idx:
-                keep_mask = np.isin(lbl, valid_idx)
-            else:
-                sizes = [np.count_nonzero(lbl == (i + 1)) for i in range(n)]
-                keep_mask = (lbl == (np.argmax(sizes) + 1))
-            fg_solid = keep_mask
-        else:
-            # Wings: keep components > 1.5% of max size within y: 150..1380
-            sizes = [np.count_nonzero(lbl == (i + 1)) for i in range(n)]
-            max_size = max(sizes) if sizes else 1
-            keep_mask = np.zeros_like(fg_solid)
-            for i, o in enumerate(objs):
-                sz = sizes[i]
-                if sz > max_size * 0.015 and o[0].stop > 150 and o[0].start < 1380:
-                    keep_mask |= (lbl == (i + 1))
-            fg_solid = keep_mask
-
-    # Anti-aliasing alpha matting
+def render_item_rgba(arr, bg_col, dist, mask_bool, h, w):
     d_low = 5.0
     d_high = 18.0
     alpha = np.zeros((h, w), dtype=np.float32)
-    alpha[fg_solid] = np.clip((dist[fg_solid] - d_low) / (d_high - d_low), 0.0, 1.0)
-    alpha[fg_solid & (dist >= d_high)] = 1.0
+    alpha[mask_bool] = np.clip((dist[mask_bool] - d_low) / (d_high - d_low), 0.0, 1.0)
+    alpha[mask_bool & (dist >= d_high)] = 1.0
     alpha = alpha * alpha * (3.0 - 2.0 * alpha)
 
-    # Decontaminate background color from borders
     edge_mask = (alpha > 0.01) & (alpha < 0.99)
     arr_corr = arr.copy()
     for ch in range(3):
@@ -143,14 +95,157 @@ def cut_asset(crop_pil, is_wing=False):
     if bbox:
         out_im = out_im.crop(bbox)
 
-    # Scale by 0.5 to keep file size compact and crisp
     target_w = max(1, round(out_im.width * 0.5))
     target_h = max(1, round(out_im.height * 0.5))
     out_im = out_im.resize((target_w, target_h), Image.Resampling.LANCZOS)
     return out_im
 
+def extract_clothes_from_sheet(sheet_img):
+    arr = np.array(sheet_img.convert('RGB'), dtype=np.float32)
+    h, w, _ = arr.shape
+    borders = np.concatenate([arr[0, :, :], arr[-1, :, :], arr[:, 0, :], arr[:, -1, :]])
+    bg_col = np.median(borders, axis=0)
+    dist = np.linalg.norm(arr - bg_col, axis=2)
+    is_bg = (dist < 12.0).astype(np.uint8)
+    mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+    for x in range(w):
+        if is_bg[0, x] == 1: cv2.floodFill(is_bg, mask, (x, 0), 2)
+        if is_bg[h - 1, x] == 1: cv2.floodFill(is_bg, mask, (x, h - 1), 2)
+    for y in range(h):
+        if is_bg[y, 0] == 1: cv2.floodFill(is_bg, mask, (0, y), 2)
+        if is_bg[y, w - 1] == 1: cv2.floodFill(is_bg, mask, (w - 1, y), 2)
+    outer_bg = (is_bg == 2)
+    fg = ~outer_bg
+    fg_solid = ndi.binary_fill_holes(fg)
+    lbl, n = ndi.label(fg_solid)
+    objs = ndi.find_objects(lbl)
+
+    outfit_comps = []
+    for i, o in enumerate(objs):
+        if o[0].stop > 1000 and (o[0].stop - o[0].start) > 400:
+            cx = (o[1].start + o[1].stop) / 2.0
+            outfit_comps.append((i + 1, cx))
+    outfit_comps.sort(key=lambda x: x[1])
+
+    if len(outfit_comps) != 4:
+        sizes = [(np.count_nonzero(lbl == (i + 1)), i + 1, (o[1].start + o[1].stop) / 2.0)
+                 for i, o in enumerate(objs) if o[0].stop > 800]
+        sizes.sort(key=lambda x: -x[0])
+        outfit_comps = [(x[1], x[2]) for x in sizes[:4]]
+        outfit_comps.sort(key=lambda x: x[1])
+
+    out_images = []
+    for comp_id, _ in outfit_comps:
+        comp_mask = (lbl == comp_id)
+        out_im = render_item_rgba(arr, bg_col, dist, comp_mask, h, w)
+        out_images.append(out_im)
+    return out_images
+
+def extract_wings_from_sheet(sheet_img):
+    arr = np.array(sheet_img.convert('RGB'), dtype=np.float32)
+    h, w, _ = arr.shape
+    borders = np.concatenate([arr[0, :, :], arr[-1, :, :], arr[:, 0, :], arr[:, -1, :]])
+    bg_col = np.median(borders, axis=0)
+    dist = np.linalg.norm(arr - bg_col, axis=2)
+    is_bg = (dist < 15.0).astype(np.uint8)
+    mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+    for x in range(w):
+        if is_bg[0, x] == 1: cv2.floodFill(is_bg, mask, (x, 0), 2)
+        if is_bg[h - 1, x] == 1: cv2.floodFill(is_bg, mask, (x, h - 1), 2)
+    for y in range(h):
+        if is_bg[y, 0] == 1: cv2.floodFill(is_bg, mask, (0, y), 2)
+        if is_bg[y, w - 1] == 1: cv2.floodFill(is_bg, mask, (w - 1, y), 2)
+    outer_bg = (is_bg == 2)
+    fg = ~outer_bg
+    fg_solid = ndi.binary_fill_holes(fg)
+    lbl, n = ndi.label(fg_solid)
+    objs = ndi.find_objects(lbl)
+
+    main_comps = []
+    for i, o in enumerate(objs):
+        sz = np.count_nonzero(lbl == (i + 1))
+        if sz > 15000 and o[0].stop > 200 and o[0].start < 1350:
+            center_x = (o[1].start + o[1].stop) / 2.0
+            main_comps.append({
+                'id': i + 1,
+                'sz': sz,
+                'x1': o[1].start,
+                'x2': o[1].stop,
+                'y1': o[0].start,
+                'y2': o[0].stop,
+                'cx': center_x
+            })
+    main_comps.sort(key=lambda c: c['cx'])
+    M = len(main_comps)
+
+    best_partition = None
+    best_score = float('inf')
+    for p in itertools.product([1, 2], repeat=4):
+        if sum(p) != M: continue
+        score = 0.0
+        cur_idx = 0
+        valid = True
+        for group_size in p:
+            if group_size == 1:
+                cur_idx += 1
+            else:
+                c1 = main_comps[cur_idx]
+                c2 = main_comps[cur_idx + 1]
+                ratio = max(c1['sz'], c2['sz']) / min(c1['sz'], c2['sz'])
+                y_diff = abs(c1['y1'] - c2['y1']) + abs(c1['y2'] - c2['y2'])
+                if ratio > 2.5:
+                    valid = False
+                    break
+                score += (ratio - 1.0) * 100.0 + y_diff * 0.1
+                cur_idx += 2
+        if valid and score < best_score:
+            best_score = score
+            best_partition = p
+
+    if best_partition is None:
+        slot_centers = [(c + 0.5) * w / 4.0 for c in range(4)]
+        items_labels = [[] for _ in range(4)]
+        for mc in main_comps:
+            slot = int(np.argmin([abs(mc['cx'] - sc) for sc in slot_centers]))
+            items_labels[slot].append(mc['id'])
+    else:
+        items_labels = [[] for _ in range(4)]
+        cur_idx = 0
+        for slot, group_size in enumerate(best_partition):
+            for _ in range(group_size):
+                items_labels[slot].append(main_comps[cur_idx]['id'])
+                cur_idx += 1
+
+    item_centers = []
+    for slot in range(4):
+        if items_labels[slot]:
+            slot_mask = np.isin(lbl, items_labels[slot])
+            ys, xs = np.where(slot_mask)
+            item_centers.append(float(np.mean(xs)))
+        else:
+            item_centers.append((slot + 0.5) * w / 4.0)
+
+    for i, o in enumerate(objs):
+        comp_id = i + 1
+        if any(comp_id in items_labels[s] for s in range(4)):
+            continue
+        sz = np.count_nonzero(lbl == comp_id)
+        if sz < 15 or o[0].stop < 150 or o[0].start > 1380:
+            continue
+        comp_mask = (lbl == comp_id)
+        ys, xs = np.where(comp_mask)
+        cx = float(np.mean(xs))
+        closest_slot = int(np.argmin([abs(cx - ic) for ic in item_centers]))
+        items_labels[closest_slot].append(comp_id)
+
+    out_images = []
+    for slot in range(4):
+        slot_mask = np.isin(lbl, items_labels[slot])
+        out_im = render_item_rgba(arr, bg_col, dist, slot_mask, h, w)
+        out_images.append(out_im)
+    return out_images
+
 def process_all():
-    import cv2
     clothes_files = sorted(glob.glob(os.path.join(CLOTHES_DIR, '*.jpg')))
     wings_files = sorted(glob.glob(os.path.join(WINGS_DIR, '*.jpg')))
 
@@ -159,13 +254,9 @@ def process_all():
     for s_idx, f in enumerate(clothes_files):
         theme_en, theme_th = CLOTHES_THEMES[s_idx] if s_idx < len(CLOTHES_THEMES) else (f"Outfit Set {s_idx+1}", f"ชุดเซ็ตที่ {s_idx+1}")
         sheet_img = Image.open(f)
-        w, h = sheet_img.size
         print(f"  Clothes Sheet #{s_idx+1:02d}: {os.path.basename(f)} ({theme_en})")
-        for c in range(4):
-            x1, x2 = int(c * w / 4), int((c + 1) * w / 4)
-            crop = sheet_img.crop((x1, 0, x2, h))
-            cut = cut_asset(crop, is_wing=False)
-
+        cut_images = extract_clothes_from_sheet(sheet_img)
+        for c, cut in enumerate(cut_images):
             part_id = f"outfit_c{s_idx+1:02d}_{c+1}"
             out_path = os.path.join(PARTS_DIR, f"{part_id}.png")
             cut.save(out_path, optimize=True)
@@ -197,13 +288,9 @@ def process_all():
     for s_idx, f in enumerate(wings_files):
         theme_en, theme_th = WINGS_THEMES[s_idx] if s_idx < len(WINGS_THEMES) else (f"Wings Set {s_idx+1}", f"ปีกเซ็ตที่ {s_idx+1}")
         sheet_img = Image.open(f)
-        w, h = sheet_img.size
         print(f"  Wings Sheet #{s_idx+1:02d}: {os.path.basename(f)} ({theme_en})")
-        for c in range(4):
-            x1, x2 = int(c * w / 4), int((c + 1) * w / 4)
-            crop = sheet_img.crop((x1, 0, x2, h))
-            cut = cut_asset(crop, is_wing=True)
-
+        cut_images = extract_wings_from_sheet(sheet_img)
+        for c, cut in enumerate(cut_images):
             part_id = f"back_w{s_idx+1:02d}_{c+1}"
             out_path = os.path.join(PARTS_DIR, f"{part_id}.png")
             cut.save(out_path, optimize=True)
