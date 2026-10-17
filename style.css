@@ -1384,23 +1384,122 @@ body, html {
   display: flex;
   flex-direction: column;
 }
+#modal-info {
+  width: min(880px, 96vw);
+  height: min(650px, 88vh);
+  left: calc(50% - 440px);
+}
+#modal-info .modal-body {
+  height: calc(100% - 48px);
+  max-height: calc(100% - 48px);
+  padding: 12px 14px;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mon-grid-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.mon-grid-scroll::-webkit-scrollbar,
 .inv-grid-scroll::-webkit-scrollbar,
 .inv-left-col::-webkit-scrollbar {
   width: 6px;
 }
+.mon-grid-scroll::-webkit-scrollbar-track,
 .inv-grid-scroll::-webkit-scrollbar-track,
 .inv-left-col::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.25);
   border-radius: 4px;
 }
+.mon-grid-scroll::-webkit-scrollbar-thumb,
 .inv-grid-scroll::-webkit-scrollbar-thumb,
 .inv-left-col::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 4px;
 }
+.mon-grid-scroll::-webkit-scrollbar-thumb:hover,
 .inv-grid-scroll::-webkit-scrollbar-thumb:hover,
 .inv-left-col::-webkit-scrollbar-thumb:hover {
   background: rgba(245, 158, 11, 0.6);
+}
+.mon-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+  gap: 12px;
+}
+.mon-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  min-height: 195px;
+  gap: 6px;
+}
+.mon-card:hover {
+  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #f59e0b;
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.25), 0 0 10px rgba(245, 158, 11, 0.15);
+}
+.mon-card-avatar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0;
+  position: relative;
+  width: 100%;
+  min-height: 130px;
+}
+.mon-card-avatar::before {
+  content: '';
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+.mon-card-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #f8fafc;
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 2px;
+}
+.mon-card-sub {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #7dd3fc;
+  background: rgba(14, 165, 233, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 2px 10px;
+  border-radius: 12px;
+  text-align: center;
+}
+@media (max-width: 900px) {
+  #modal-info {
+    left: 2vw !important;
+    width: 96vw !important;
+    height: 90vh !important;
+  }
 }
 @media (max-width: 960px) {
   #modal-inventory {
@@ -1502,3 +1601,174 @@ body, html {
   background: rgba(15, 23, 42, 0.86); border: 1px solid rgba(251, 191, 36, 0.55); box-shadow: 0 4px 12px rgba(0,0,0,0.5); cursor: help; }
 .buff-icon.server { border-color: rgba(236, 72, 153, 0.8); }
 .buff-icon .bi-txt { position: absolute; right: 1px; bottom: -1px; font-size: 0.62rem; font-weight: 800; color: #fde68a; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+
+/* ========================================================
+   GAME DATABASE (ข้อมูลเกม) TABS & CARDS
+   ======================================================== */
+.db-tabs {
+  display: flex;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.db-tab-btn {
+  flex: 1;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.16s ease;
+}
+.db-tab-btn:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.06);
+}
+.db-tab-btn.active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(217, 119, 6, 0.15) 100%);
+  color: #fbbf24;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+/* Item DB Cards */
+.item-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+  gap: 10px;
+}
+.item-db-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  user-select: none;
+  min-height: 130px;
+  gap: 5px;
+}
+.item-db-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #38bdf8;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
+}
+.item-db-card .item-avatar {
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+}
+.item-db-card .item-name {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item-db-card .item-badge {
+  font-size: 0.67rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 8px;
+  text-align: center;
+  max-width: 95%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Relic DB Cards */
+.relic-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.relic-db-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 10px;
+  background: radial-gradient(circle at top, rgba(168, 85, 247, 0.14) 0%, rgba(15, 23, 42, 0.65) 85%);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+  min-height: 145px;
+  gap: 6px;
+}
+.relic-db-card:hover {
+  transform: translateY(-3px);
+  background: radial-gradient(circle at top, rgba(168, 85, 247, 0.24) 0%, rgba(15, 23, 42, 0.8) 85%);
+  border-color: #c084fc;
+  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.35);
+}
+.relic-db-card .relic-avatar {
+  width: 58px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.38);
+  border-radius: 10px;
+  border: 1.5px solid rgba(192, 132, 252, 0.45);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.25);
+}
+.relic-db-card .relic-name {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #fae8ff;
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.relic-db-card .relic-bonus {
+  font-size: 0.67rem;
+  font-weight: 700;
+  color: #fbcfe8;
+  background: rgba(236, 72, 153, 0.18);
+  border: 1px solid rgba(236, 72, 153, 0.35);
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-align: center;
+  width: 90%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.relic-db-card .relic-mon {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

@@ -536,7 +536,7 @@ export class GameEngine {
   handleMouseMove(screenX, screenY) {
     const worldX = screenX / this.zoom + this.camera.x;
     const worldY = screenY / this.zoom + this.camera.y;
-    let best = null, bestD = 65;
+    let best = null, bestD = 85;
     for (const m of this.monsters) {
       if (m.isDead || m.map !== this.currentZone.id) continue;
       const d = Math.hypot(worldX - m.x, worldY - m.y);
@@ -551,8 +551,9 @@ export class GameEngine {
     const t = performance.now() / 1000;
     const x = m.x + (m.knockbackX || 0);
     const y = m.y + (m.knockbackY || 0) + 26;
-    const size = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
-    const rx = Math.max(30, size * 0.5), ry = rx * 0.38;
+    const baseSize = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
+    const size = baseSize * 1.95;
+    const rx = Math.max(38, size * 0.28), ry = rx * 0.38;
     ctx.save();
     if (kind === 'target') {
       const pulse = 1 + Math.sin(t * 6) * 0.06;
@@ -2834,9 +2835,11 @@ export class GameEngine {
     ctx.globalAlpha = alpha;
 
     // Shadow (shrinks while the body does)
+    const baseSize = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
+    const size = baseSize * 1.95; // scaled to match player character height (~180-195px)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
     ctx.beginPath();
-    ctx.ellipse(x, y + 26, 22 * Math.min(1, scaleX), 9 * Math.min(1, Math.max(scaleY, 0.3)), 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y + 26, (size * 0.22) * Math.min(1, scaleX), (size * 0.08) * Math.min(1, Math.max(scaleY, 0.3)), 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.translate(x, y);
@@ -2851,7 +2854,6 @@ export class GameEngine {
     const sheet = sp ? this.getSheet(sp.src) : null;
     if (sheet) {
       // transparent cut-out standing on the ground (feet near the shadow)
-      const size = (MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92;
       const dh = size * sp.sh / sp.sw;
       ctx.save();
       if (isFlashing && 'filter' in ctx) ctx.filter = 'brightness(2.2)';
@@ -2874,13 +2876,14 @@ export class GameEngine {
     if (dying) return; // no stars / name / HP bar while dying
 
     // Stunned spinning stars
+    const dh = sp ? (size * sp.sh / sp.sw) : 36;
     if (m.stunTimer > 0) {
       ctx.save();
       const stunAngle = Date.now() / 180;
       for (let i = 0; i < 3; i++) {
         const a = stunAngle + (i * Math.PI * 2) / 3;
-        const sx = x + Math.cos(a) * 20;
-        const sy = y - 36 + Math.sin(a) * 8;
+        const sx = x + Math.cos(a) * (size * 0.22);
+        const sy = y - (sp ? (dh - 28 + 20) : 36) + Math.sin(a) * 8;
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('⭐', sx, sy);
@@ -2896,7 +2899,7 @@ export class GameEngine {
     ctx.fillStyle = '#ffffff';
     ctx.shadowColor = 'rgba(0,0,0,0.9)';
     ctx.shadowBlur = 4;
-    const labelUp = sp ? 28 + (((MONSTERS[m.templateId] && MONSTERS[m.templateId].size) || m.size || 92) * sp.sh / sp.sw) * 0.4 + 4 : 28; // cut-out pictures are taller than the old emoji
+    const labelUp = sp ? (dh - 28 + 14) : 28;
     ctx.fillText(`${m.name} Lv.${m.level}`, x, y - labelUp - 4);
 
     const hpPct = Math.max(0, m.currentHp / m.maxHp);

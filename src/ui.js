@@ -10,7 +10,7 @@ import { PLAYER_SPRITES } from './player_sprites.js';
 // cut-out of a monster picture (falls back to its emoji)
 function monsterIconHtml(mid, emoji, px) {
   const sp = monsterSprite(mid);
-  return sp ? `<span style="${spriteStyle(sp, px)}"></span>` : (emoji || '🐾');
+  return sp ? `<span style="${spriteStyle(sp, px)}"></span>` : `<span style="font-size:${Math.round(px * 0.7)}px; line-height:1; display:inline-block; vertical-align:middle;">${emoji || '🐾'}</span>`;
 }
 
 const GEAR_TYPES = ['weapon', 'hat', 'hair', 'face', 'mouth', 'head', 'outfit', 'back', 'armor', 'shield', 'mount', 'pet'];
@@ -263,6 +263,8 @@ export class UIController {
     if (modal) modal.classList.remove('active');
     this.openWindows.delete(modalId);
     this.saveWindowState();
+    const monTip = document.getElementById('mon-tooltip');
+    if (monTip) monTip.style.display = 'none';
   }
 
   bringToFront(modal) {
@@ -1729,58 +1731,532 @@ export class UIController {
     });
   }
 
-  // Info window: every monster with stats, drops (%), pet/relic chance and the maps it lives in (with warp)
+  // Game Database (ข้อมูลเกม) window: Multi-tab Encyclopedia (Monsters, Items by Category, and Relics)
   renderInfoModal() {
     const body = document.getElementById('modal-info-body');
     if (!body) return;
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const q = (this.infoSearch || '').trim().toLowerCase();
+    const curTab = this.dbTab || 'monsters';
+    const curMonFilter = this.dbMonFilter || 'all';
+    const curItemFilter = this.dbItemFilter || 'all';
     const pct = (v) => `${Math.round(v * 10000) / 100}%`;
-    // where each monster lives: what the server actually spawned (Studio spawns), else the map's static list
+
+    // Where each monster lives
     const mapsOf = (mid) => {
       const set = new Set(this.gameEngine.monsters.filter(m => m.templateId === mid).map(m => m.map));
       if (!set.size) ZONES.forEach(z => { if ((z.monsterIds || []).includes(mid)) set.add(z.id); });
       return ZONES.filter(z => set.has(z.id));
     };
     const here = this.gameEngine.currentZone.id;
-    const cards = Object.entries(MONSTERS).filter(([id, m]) => !q || `${id} ${m.name}`.toLowerCase().includes(q)).sort((a, b) => a[1].level - b[1].level).map(([id, m]) => {
-      const chip = 'display:inline-flex;gap:3px;align-items:center;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,0.06);white-space:nowrap;';
-      const drops = (m.drops || []).map(d => {
-        const it = ITEMS[d.itemId];
-        return it ? `<span style="${chip}" title="${esc(it.name)}">${itemIconHtml(d.itemId, it.icon, 16)} ${esc(it.name)} <b style="color:#fbbf24;">${pct(d.chance)}</b></span>` : '';
+
+    // Reverse drop lookup: which monsters drop this item
+    const dropsFrom = (itemId) => {
+      const res = [];
+      for (const [mid, m] of Object.entries(MONSTERS)) {
+        const d = (m.drops || []).find(x => x.itemId === itemId);
+        if (d) res.push({ mid, m, chance: d.chance });
+        if (itemId === `pet_${mid}` && m.petChance) res.push({ mid, m, chance: m.petChance, isPet: true });
+        const r = RELICS[itemId];
+        if (r && r.monsterId === mid && m.relicChance) res.push({ mid, m, chance: m.relicChance, isRelic: true });
+      }
+      return res;
+    };
+
+    // 1. Top Section Tabs (หัวข้อหลัก)
+    const MAIN_TABS = [
+      { id: 'monsters', label: '👹 มอนสเตอร์' },
+      { id: 'items', label: '🎒 ไอเท็ม' },
+      { id: 'relics', label: '💎 สมบัติ' }
+    ];
+
+    const mainTabsHtml = `<div class="db-tabs">
+      ${MAIN_TABS.map(t => {
+        const active = curTab === t.id;
+        return `<button class="db-tab-btn ${active ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>`;
+      }).join('')}
+    </div>`;
+
+    // 2. Tab-specific content generation
+    let subFiltersHtml = '';
+    let gridContentHtml = '';
+    let countText = '';
+    let searchPlaceholder = '🔍 ค้นหาข้อมูลเกม...';
+
+    if (curTab === 'monsters') {
+      searchPlaceholder = '🔍 ค้นหามอนสเตอร์, เลเวล, ไอเทมดรอป, หรือแมพ...';
+      const allList = Object.entries(MONSTERS).sort((a, b) => a[1].level - b[1].level);
+      const filtered = allList.filter(([id, m]) => {
+        if (curMonFilter === 'pet' && !m.petChance) return false;
+        if (curMonFilter === 'relic' && !Object.values(RELICS).some(r => r.monsterId === id)) return false;
+        if (!q) return true;
+        const maps = mapsOf(id);
+        const dropNames = (m.drops || []).map(d => ITEMS[d.itemId]?.name || '').join(' ').toLowerCase();
+        const mapNames = maps.map(z => z.name).join(' ').toLowerCase();
+        const text = `${id} ${m.name} ${dropNames} ${mapNames}`.toLowerCase();
+        return text.includes(q);
+      });
+
+      const MON_FILTERS = [
+        { id: 'all', label: '🌐 ทั้งหมด' },
+        { id: 'pet', label: '🐾 สัตว์เลี้ยง' },
+        { id: 'relic', label: '💎 สมบัติลับ' }
+      ];
+
+      subFiltersHtml = MON_FILTERS.map(f => {
+        const active = curMonFilter === f.id;
+        return `<button class="info-mon-filter-btn" data-filter="${f.id}" style="padding:4px 10px; border-radius:6px; border:1px solid ${active ? '#f59e0b' : 'rgba(255,255,255,0.1)'}; background:${active ? 'rgba(245,158,11,0.2)' : 'rgba(0,0,0,0.3)'}; color:${active ? '#fbbf24' : '#94a3b8'}; font-size:0.73rem; cursor:pointer; font-weight:${active ? '700' : '500'}; transition:all 0.15s ease;">${f.label}</button>`;
+      }).join(' ');
+
+      const cardsHtml = filtered.map(([id, m]) => {
+        return `<div class="mon-card" data-mon="${id}">
+          <div class="mon-card-avatar">
+            ${monsterIconHtml(id, m.emoji, 136)}
+          </div>
+          <div class="mon-card-name" title="${esc(m.name)}">${esc(m.name)}</div>
+          <div class="mon-card-sub">Lv.${m.level}</div>
+        </div>`;
       }).join('');
-      const total = (m.drops || []).reduce((a, d) => a + d.chance, 0);
+
+      gridContentHtml = filtered.length ? `<div class="mon-grid-container">${cardsHtml}</div>` : '<div style="text-align:center; color:#64748b; padding:40px 0; font-size:0.85rem;">ไม่พบมอนสเตอร์ที่ตรงกับเงื่อนไข</div>';
+      countText = `พบ <b>${filtered.length}</b> / ${allList.length}`;
+
+    } else if (curTab === 'items') {
+      searchPlaceholder = '🔍 ค้นหาไอเท็ม, สเตตัส, คำอธิบาย...';
+      const ITEM_FILTERS = [
+        { id: 'all', label: '🌐 ทั้งหมด' },
+        { id: 'weapon', label: '⚔️ อาวุธ' },
+        { id: 'armor', label: '🥋 ชุด' },
+        { id: 'hat', label: '🪖 หมวก' },
+        { id: 'shield', label: '🛡️ โล่' },
+        { id: 'pet', label: '🐾 สัตว์เลี้ยง' },
+        { id: 'mount', label: '🏇 สัตว์ขี่' },
+        { id: 'back', label: '🪽 ปีก / ประดับ' },
+        { id: 'consumable', label: '🧪 ยา / ของใช้' },
+        { id: 'material', label: '📦 วัตถุดิบ' }
+      ];
+
+      subFiltersHtml = ITEM_FILTERS.map(f => {
+        const active = curItemFilter === f.id;
+        return `<button class="info-item-filter-btn" data-filter="${f.id}" style="padding:4px 10px; border-radius:6px; border:1px solid ${active ? '#38bdf8' : 'rgba(255,255,255,0.1)'}; background:${active ? 'rgba(56,189,248,0.2)' : 'rgba(0,0,0,0.3)'}; color:${active ? '#7dd3fc' : '#94a3b8'}; font-size:0.73rem; cursor:pointer; font-weight:${active ? '700' : '500'}; transition:all 0.15s ease; white-space:nowrap;">${f.label}</button>`;
+      }).join(' ');
+
+      const allList = Object.values(ITEMS);
+      const filtered = allList.filter(it => {
+        if (curItemFilter === 'weapon' && it.type !== 'weapon') return false;
+        if (curItemFilter === 'armor' && it.type !== 'outfit' && it.type !== 'armor') return false;
+        if (curItemFilter === 'hat' && it.type !== 'hat') return false;
+        if (curItemFilter === 'shield' && it.type !== 'shield') return false;
+        if (curItemFilter === 'pet' && it.type !== 'pet') return false;
+        if (curItemFilter === 'mount' && it.type !== 'mount') return false;
+        if (curItemFilter === 'back' && it.type !== 'back') return false;
+        if (curItemFilter === 'consumable' && it.type !== 'consumable') return false;
+        if (curItemFilter === 'material' && it.type !== 'material') return false;
+
+        if (!q) return true;
+        const text = `${it.id} ${it.name} ${it.desc || ''} ${it.type || ''}`.toLowerCase();
+        return text.includes(q);
+      });
+
+      const itemBadgeHtml = (it) => {
+        if (it.atk) return `<span class="item-badge" style="background:rgba(239,68,68,0.18); border:1px solid rgba(239,68,68,0.35); color:#fca5a5;">⚔️ ATK +${it.atk}</span>`;
+        if (it.def) return `<span class="item-badge" style="background:rgba(59,130,246,0.18); border:1px solid rgba(59,130,246,0.35); color:#93c5fd;">🛡️ DEF +${it.def}</span>`;
+        if (it.speedPct) return `<span class="item-badge" style="background:rgba(16,185,129,0.18); border:1px solid rgba(16,185,129,0.35); color:#6ee7b7;">🏇 วิ่ง +${it.speedPct}%</span>`;
+        if (it.lootSpeed) return `<span class="item-badge" style="background:rgba(236,72,153,0.18); border:1px solid rgba(236,72,153,0.35); color:#f472b6;">🐾 เก็บ x${it.lootSpeed}</span>`;
+        if (it.heal) return `<span class="item-badge" style="background:rgba(244,63,94,0.18); border:1px solid rgba(244,63,94,0.35); color:#fda4af;">❤️ +${it.heal} HP</span>`;
+        if (it.sp) return `<span class="item-badge" style="background:rgba(14,165,233,0.18); border:1px solid rgba(14,165,233,0.35); color:#7dd3fc;">💧 +${it.sp} SP</span>`;
+        if (it.exp) return `<span class="item-badge" style="background:rgba(234,179,8,0.18); border:1px solid rgba(234,179,8,0.35); color:#fde047;">⭐ +${it.exp} EXP</span>`;
+        if (it.hp) return `<span class="item-badge" style="background:rgba(34,197,94,0.18); border:1px solid rgba(34,197,94,0.35); color:#86efac;">❤️ +${it.hp} HP</span>`;
+        if (it.price) return `<span class="item-badge" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#cbd5e1;">💰 ${it.price.toLocaleString()}G</span>`;
+        return `<span class="item-badge" style="background:rgba(100,116,139,0.15); border:1px solid rgba(100,116,139,0.25); color:#94a3b8;">${esc(it.type || 'ไอเท็ม')}</span>`;
+      };
+
+      const cardsHtml = filtered.map(it => {
+        return `<div class="item-db-card" data-item="${it.id}">
+          <div class="item-avatar">
+            ${itemIconHtml(it.id, it.icon, 44)}
+          </div>
+          <div class="item-name" title="${esc(it.name)}">${esc(it.name)}</div>
+          ${itemBadgeHtml(it)}
+        </div>`;
+      }).join('');
+
+      gridContentHtml = filtered.length ? `<div class="item-grid-container">${cardsHtml}</div>` : '<div style="text-align:center; color:#64748b; padding:40px 0; font-size:0.85rem;">ไม่พบไอเท็มที่ตรงกับเงื่อนไข</div>';
+      countText = `พบ <b>${filtered.length}</b> / ${allList.length}`;
+
+    } else if (curTab === 'relics') {
+      searchPlaceholder = '🔍 ค้นหาสมบัติลับ, มอนสเตอร์เจ้าของ, หรือบัฟสเตตัส...';
+      const allList = Object.values(RELICS);
+      const filtered = allList.filter(r => {
+        if (!q) return true;
+        const m = MONSTERS[r.monsterId];
+        const text = `${r.id} ${r.name} ${r.bonusText || ''} ${r.desc || ''} ${m ? m.name : ''}`.toLowerCase();
+        return text.includes(q);
+      });
+
+      const cardsHtml = filtered.map(r => {
+        const m = MONSTERS[r.monsterId];
+        return `<div class="relic-db-card" data-relic="${r.id}">
+          <div class="relic-avatar">
+            ${relicIconHtml(r.id, r.icon, 46)}
+          </div>
+          <div class="relic-name" title="${esc(r.name)}">${esc(r.name)}</div>
+          <div class="relic-bonus" title="${esc(r.bonusText || '')}">✨ ${esc(r.bonusText || 'บัฟถาวร')}</div>
+          <div class="relic-mon">${m ? `${m.emoji || '👾'} ${esc(m.name)}` : 'มอนสเตอร์ลึกลับ'}</div>
+        </div>`;
+      }).join('');
+
+      gridContentHtml = filtered.length ? `<div class="relic-grid-container">${cardsHtml}</div>` : '<div style="text-align:center; color:#64748b; padding:40px 0; font-size:0.85rem;">ไม่พบสมบัติที่ตรงกับเงื่อนไข</div>';
+      countText = `พบ <b>${filtered.length}</b> / ${allList.length}`;
+    }
+
+    // Modal Body HTML assembly
+    body.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${mainTabsHtml}
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" id="info-search" placeholder="${searchPlaceholder}" value="${esc(this.infoSearch || '')}" style="flex:1; padding:7px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:#fff; font-size:0.8rem; outline:none;">
+          <div style="font-size:0.75rem; color:#94a3b8; white-space:nowrap; padding:0 4px;">${countText}</div>
+        </div>
+        ${subFiltersHtml ? `<div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:2px;">${subFiltersHtml}</div>` : ''}
+      </div>
+      <div class="mon-grid-scroll" style="margin-top:6px;">
+        ${gridContentHtml}
+      </div>
+    `;
+
+    // Tooltip Handling
+    let tip = document.getElementById('mon-tooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'mon-tooltip';
+      tip.style.cssText = 'position:fixed; z-index:99999; display:none; pointer-events:none; width:310px; background:rgba(15,23,42,0.97); border:1.5px solid #f59e0b; border-radius:10px; padding:12px; box-shadow:0 12px 30px rgba(0,0,0,0.85), 0 0 15px rgba(245,158,11,0.25); color:#fff; font-size:0.75rem; backdrop-filter:blur(12px);';
+      document.body.appendChild(tip);
+    }
+    tip.style.display = 'none';
+
+    // Tooltip HTML for Monsters
+    const monTipHtml = (id) => {
+      const m = MONSTERS[id];
+      if (!m) return '';
       const relic = Object.values(RELICS).find(r => r.monsterId === id);
       const maps = mapsOf(id);
-      const mapBtns = maps.length ? maps.map(z => z.id === here
-        ? `<span style="padding:1px 6px;border-radius:4px;background:#16a34a;font-size:0.68rem;">📍 ${esc(z.name)}</span>`
-        : `<button class="info-warp" data-zone="${z.id}" data-mon="${id}" style="padding:1px 6px;border:none;border-radius:4px;background:#2563eb;color:#fff;cursor:pointer;font-size:0.68rem;">🚀 ${esc(z.name)}</button>`).join(' ')
-        : '<span style="color:#94a3b8;font-size:0.7rem;">ยังไม่มีในแมพไหน</span>';
-      return `<div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px 8px;display:flex;gap:8px;">
-        <div style="width:40px;flex:none;text-align:center;font-size:26px;">${monsterIconHtml(id, m.emoji, 40)}</div>
-        <div style="flex:1;min-width:0;font-size:0.72rem;line-height:1.35;">
-          <div><b style="font-size:0.82rem;">${esc(m.name)}</b> <span style="color:#7dd3fc;">Lv.${m.level}</span> <span style="color:#94a3b8;">HP ${m.hp.toLocaleString()} • ATK ${m.atk} • DEF ${m.def} • EXP ${m.exp.toLocaleString()}</span></div>
-          <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;align-items:center;"><span title="ไอเทมที่ดรอป (สุ่มครั้งเดียว)">🎁</span>${drops || '<span style="color:#64748b;">ไม่มี</span>'}<span style="${chip}color:#94a3b8;">🚫 <b style="color:#e2e8f0;">${pct(Math.max(0, 1 - total))}</b></span></div>
-          <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;align-items:center;"><span title="สุ่มแยก">✨</span><span style="${chip}">🐾 Pet <span style="color:#94a3b8;">x${ITEMS['pet_' + id]?.lootSpeed || 1}</span> <b style="color:#ec4899;">${pct(m.petChance || 0)}</b></span>${relic ? `<span style="${chip}" title="${esc(relic.bonusText || '')}">${relicIconHtml(relic.id, relic.icon, 18)} ${esc(relic.name)} <b style="color:#a855f7;">${pct(m.relicChance || 0)}</b></span>` : ''}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;align-items:center;">🗺️ ${mapBtns}</div>
-        </div></div>`;
-    }).join('');
-    body.innerHTML = `<input type="text" id="info-search" placeholder="ค้นหามอนสเตอร์..." value="${esc(this.infoSearch || '')}" style="width:100%;margin-bottom:6px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:#fff;">
-      ${cards ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:6px;">${cards}</div>` : '<p style="color:#94a3b8;">ไม่พบมอนสเตอร์</p>'}`;
-    const inp = document.getElementById('info-search');
-    inp.addEventListener('input', () => {
-      this.infoSearch = inp.value;
-      const pos = inp.selectionStart;
-      this.renderInfoModal();
-      const n = document.getElementById('info-search');
-      n.focus(); n.setSelectionRange(pos, pos);
+      const total = (m.drops || []).reduce((a, d) => a + d.chance, 0);
+      const missChance = Math.max(0, 1 - total);
+
+      const dropsHtml = (m.drops || []).map(d => {
+        const it = ITEMS[d.itemId];
+        if (!it) return '';
+        const pctColor = d.chance >= 0.2 ? '#4ade80' : d.chance >= 0.05 ? '#fbbf24' : '#c084fc';
+        return `<div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+          <span style="display:inline-flex; align-items:center; gap:6px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+            ${itemIconHtml(d.itemId, it.icon, 18)}
+            <span style="font-size:0.73rem; color:#e2e8f0;">${esc(it.name)}</span>
+          </span>
+          <b style="color:${pctColor}; font-size:0.75rem; flex:none;">${pct(d.chance)}</b>
+        </div>`;
+      }).join('');
+
+      const mapNames = maps.map(z => `<span style="padding:2px 7px; border-radius:4px; background:rgba(37,99,235,0.4); border:1px solid rgba(59,130,246,0.6); color:#93c5fd; font-size:0.68rem;">🗺️ ${esc(z.name)}</span>`).join(' ');
+
+      return `
+        <div style="display:flex; gap:12px; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
+          <div style="width:64px; height:64px; flex:none; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:10px; border:1px solid rgba(255,255,255,0.1);">
+            ${monsterIconHtml(id, m.emoji, 60)}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:0.96rem; font-weight:800; color:#fbbf24; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(m.name)}</div>
+            <div style="display:flex; gap:5px; margin-top:3px; align-items:center; font-size:0.68rem;">
+              <span style="background:rgba(14,165,233,0.25); color:#38bdf8; padding:1px 6px; border-radius:4px; font-weight:700;">Lv.${m.level}</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px; margin:8px 0; background:rgba(0,0,0,0.4); padding:6px 8px; border-radius:6px; border:1px solid rgba(255,255,255,0.06); font-size:0.72rem;">
+          <div><span style="color:#f87171;">❤️ HP:</span> <b style="color:#fff;">${m.hp.toLocaleString()}</b></div>
+          <div><span style="color:#fbbf24;">⚔️ ATK:</span> <b style="color:#fff;">${m.atk}</b></div>
+          <div><span style="color:#60a5fa;">🛡️ DEF:</span> <b style="color:#fff;">${m.def}</b></div>
+          <div><span style="color:#c084fc;">⭐ EXP:</span> <b style="color:#fff;">${m.exp.toLocaleString()}</b></div>
+        </div>
+
+        <div style="margin-top:8px;">
+          <div style="font-weight:700; color:#cbd5e1; font-size:0.74rem; margin-bottom:4px; display:flex; justify-content:space-between;">
+            <span>🎁 ไอเทมที่ดรอป (Item Drops)</span>
+            <span style="color:#94a3b8; font-weight:400; font-size:0.68rem;">🚫 ไม่ได้ของ ${pct(missChance)}</span>
+          </div>
+          <div style="background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:4px 8px;">
+            ${dropsHtml || '<div style="color:#64748b; font-size:0.72rem; padding:4px 0;">ไม่มีไอเทมดรอป</div>'}
+          </div>
+        </div>
+
+        <div style="margin-top:8px; display:flex; flex-direction:column; gap:4px; font-size:0.72rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 7px; background:rgba(236,72,153,0.1); border:1px solid rgba(236,72,153,0.25); border-radius:5px;">
+            <span style="display:inline-flex; align-items:center; gap:4px; color:#f472b6;">
+              🐾 <b>Pet สัตว์เลี้ยง</b> <span style="color:#cbd5e1; font-size:0.68rem;">(เก็บของ x${ITEMS['pet_' + id]?.lootSpeed || 1})</span>
+            </span>
+            <b style="color:#ec4899;">${pct(m.petChance || 0)}</b>
+          </div>
+          ${relic ? `
+          <div style="padding:4px 7px; background:rgba(168,85,247,0.12); border:1px solid rgba(168,85,247,0.3); border-radius:5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="display:inline-flex; align-items:center; gap:4px; color:#c084fc;">
+                ${relicIconHtml(relic.id, relic.icon, 16)} <b>${esc(relic.name)}</b>
+              </span>
+              <b style="color:#a855f7;">${pct(m.relicChance || 0)}</b>
+            </div>
+            ${relic.bonusText ? `<div style="color:#e9d5ff; font-size:0.66rem; margin-top:2px;">✨ ${esc(relic.bonusText)}</div>` : ''}
+          </div>` : ''}
+        </div>
+
+        <div style="margin-top:8px; font-size:0.72rem;">
+          <div style="font-weight:700; color:#94a3b8; margin-bottom:3px;">🗺️ ถิ่นที่อยู่อาศัย (Habitat):</div>
+          <div style="display:flex; flex-wrap:wrap; gap:4px;">
+            ${mapNames || '<span style="color:#64748b;">ยังไม่มีในแมพไหน</span>'}
+          </div>
+        </div>
+
+        <div style="margin-top:10px; padding-top:6px; border-top:1px dashed rgba(255,255,255,0.12); text-align:center; color:#38bdf8; font-size:0.72rem; font-weight:700;">
+          🚀 คลิกที่การ์ดเพื่อวาร์ปไปหาทันที
+        </div>
+      `;
+    };
+
+    // Tooltip HTML for Items
+    const itemTipHtml = (id) => {
+      const it = ITEMS[id];
+      if (!it) return '';
+      const drops = dropsFrom(id);
+      const recipes = CRAFTING_RECIPES.filter(r => r.resultItemId === id);
+
+      const typeLabels = {
+        weapon: 'อาวุธ', outfit: 'ชุดเครื่องแต่งกาย', armor: 'ชุดเกราะ', hat: 'หมวก / ศีรษะ',
+        shield: 'โล่ (มือซ้าย)', pet: 'สัตว์เลี้ยง (Pet)', mount: 'สัตว์ขี่ (Mount)',
+        back: 'ปีก / ผ้าคลุม', consumable: 'ยาและของใช้', material: 'วัตถุดิบ'
+      };
+      const typeText = typeLabels[it.type] || it.type || 'ไอเท็ม';
+
+      const statList = [];
+      if (it.atk) statList.push(`<div><span style="color:#fbbf24;">⚔️ ATK:</span> <b style="color:#fff;">+${it.atk}</b></div>`);
+      if (it.def) statList.push(`<div><span style="color:#60a5fa;">🛡️ DEF:</span> <b style="color:#fff;">+${it.def}</b></div>`);
+      if (it.hp) statList.push(`<div><span style="color:#4ade80;">❤️ HP:</span> <b style="color:#fff;">+${it.hp}</b></div>`);
+      if (it.speedPct) statList.push(`<div><span style="color:#34d399;">⚡ Move Speed:</span> <b style="color:#fff;">+${it.speedPct}%</b></div>`);
+      if (it.lootSpeed) statList.push(`<div><span style="color:#f472b6;">🐾 เก็บของเร็ว:</span> <b style="color:#fff;">x${it.lootSpeed}</b></div>`);
+      if (it.heal) statList.push(`<div><span style="color:#f87171;">❤️ ฟื้นฟู HP:</span> <b style="color:#fff;">+${it.heal}</b></div>`);
+      if (it.sp) statList.push(`<div><span style="color:#38bdf8;">💧 ฟื้นฟู SP:</span> <b style="color:#fff;">+${it.sp}</b></div>`);
+      if (it.exp) statList.push(`<div><span style="color:#facc15;">⭐ เพิ่ม EXP:</span> <b style="color:#fff;">+${it.exp}</b></div>`);
+
+      const dropsHtml = drops.map(d => {
+        const maps = mapsOf(d.mid);
+        const mapStr = maps.map(m => m.name).join(', ') || 'ไม่มีข้อมูล';
+        return `<div style="display:flex; justify-content:space-between; align-items:center; font-size:0.7rem; padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+          <span style="color:#e2e8f0;">${d.m.emoji || '👾'} <b>${esc(d.m.name)}</b> <span style="color:#94a3b8; font-size:0.65rem;">(Lv.${d.m.level} • ${mapStr})</span></span>
+          <b style="color:#fbbf24;">${pct(d.chance)}</b>
+        </div>`;
+      }).join('');
+
+      return `
+        <div style="display:flex; gap:12px; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
+          <div style="width:58px; height:58px; flex:none; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:10px; border:1px solid rgba(255,255,255,0.1);">
+            ${itemIconHtml(id, it.icon, 46)}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:0.96rem; font-weight:800; color:#38bdf8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(it.name)}</div>
+            <div style="display:flex; gap:6px; margin-top:3px; align-items:center; font-size:0.68rem;">
+              <span style="background:rgba(56,189,248,0.2); color:#7dd3fc; padding:1px 6px; border-radius:4px; font-weight:600;">${typeText}</span>
+              ${it.reqLevel ? `<span style="background:rgba(245,158,11,0.2); color:#fbbf24; padding:1px 6px; border-radius:4px; font-weight:600;">Lv.${it.reqLevel}+</span>` : ''}
+              ${it.price ? `<span style="color:#cbd5e1; margin-left:auto;">💰 ${it.price.toLocaleString()}G</span>` : ''}
+            </div>
+          </div>
+        </div>
+
+        ${statList.length ? `
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px; margin:8px 0; background:rgba(0,0,0,0.4); padding:6px 8px; border-radius:6px; border:1px solid rgba(255,255,255,0.06); font-size:0.72rem;">
+          ${statList.join('')}
+        </div>` : ''}
+
+        ${it.desc ? `<div style="margin:8px 0; font-size:0.72rem; color:#cbd5e1; line-height:1.4; background:rgba(255,255,255,0.03); padding:6px 8px; border-radius:6px;">${esc(it.desc)}</div>` : ''}
+
+        ${dropsHtml ? `
+        <div style="margin-top:8px;">
+          <div style="font-weight:700; color:#fbbf24; font-size:0.73rem; margin-bottom:4px;">🎁 ดรอปจากมอนสเตอร์:</div>
+          <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:4px 8px; max-height:110px; overflow-y:auto;">
+            ${dropsHtml}
+          </div>
+        </div>` : ''}
+
+        ${recipes.length ? `
+        <div style="margin-top:8px;">
+          <div style="font-weight:700; color:#34d399; font-size:0.73rem; margin-bottom:4px;">🔨 คราฟต์ได้ที่โต๊ะช่างตีเหล็ก:</div>
+          <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:4px 8px; font-size:0.7rem; color:#cbd5e1;">
+            ${recipes.map(r => `<div>ค่าทำ: <b style="color:#fde047;">${r.goldCost}G</b> • วัตถุดิบ: ${r.materials.map(m => `${ITEMS[m.itemId]?.name || m.itemId} x${m.count}`).join(', ')}</div>`).join('')}
+          </div>
+        </div>` : ''}
+      `;
+    };
+
+    // Tooltip HTML for Relics
+    const relicTipHtml = (id) => {
+      const r = RELICS[id];
+      if (!r) return '';
+      const m = MONSTERS[r.monsterId];
+      const maps = r.monsterId ? mapsOf(r.monsterId) : [];
+      const mapStr = maps.map(z => z.name).join(', ') || 'ไม่มีข้อมูล';
+
+      return `
+        <div style="display:flex; gap:12px; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
+          <div style="width:60px; height:60px; flex:none; display:flex; align-items:center; justify-content:center; background:rgba(168,85,247,0.15); border-radius:10px; border:1px solid rgba(168,85,247,0.4); box-shadow:0 0 12px rgba(168,85,247,0.3);">
+            ${relicIconHtml(id, r.icon, 48)}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:0.96rem; font-weight:800; color:#c084fc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(r.name)}</div>
+            <div style="display:flex; gap:6px; margin-top:3px; align-items:center; font-size:0.68rem;">
+              <span style="background:rgba(168,85,247,0.25); color:#d8b4fe; padding:1px 6px; border-radius:4px; font-weight:700;">💎 สมบัติลับถาวร</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin:8px 0; background:rgba(236,72,153,0.15); border:1px solid rgba(236,72,153,0.35); padding:6px 10px; border-radius:6px; font-size:0.75rem; color:#fbcfe8; font-weight:700; text-align:center;">
+          ✨ ${esc(r.bonusText || 'บัฟสเตตัสถาวร')}
+        </div>
+
+        ${r.desc ? `<div style="margin:8px 0; font-size:0.72rem; color:#cbd5e1; line-height:1.4; background:rgba(255,255,255,0.03); padding:6px 8px; border-radius:6px;">${esc(r.desc)}</div>` : ''}
+
+        ${m ? `
+        <div style="margin-top:8px; font-size:0.72rem;">
+          <div style="font-weight:700; color:#fbbf24; margin-bottom:3px;">👾 ดรอปจากมอนสเตอร์:</div>
+          <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:6px 8px; display:flex; justify-content:space-between; align-items:center;">
+            <span>${m.emoji || '👾'} <b>${esc(m.name)}</b> <span style="color:#94a3b8; font-size:0.68rem;">(Lv.${m.level} • 🗺️ ${mapStr})</span></span>
+            <b style="color:#ec4899;">${pct(m.relicChance || 0.001)}</b>
+          </div>
+        </div>
+
+        <div style="margin-top:10px; padding-top:6px; border-top:1px dashed rgba(255,255,255,0.12); text-align:center; color:#38bdf8; font-size:0.72rem; font-weight:700;">
+          🚀 คลิกที่การ์ดเพื่อวาร์ปไปหา ${esc(m.name)} ทันที
+        </div>` : ''}
+      `;
+    };
+
+    // Tooltip position helper
+    const updateTipPos = (e) => {
+      const w = tip.offsetWidth || 310;
+      const h = tip.offsetHeight || 300;
+      let left = e.clientX + 16;
+      let top = e.clientY + 12;
+      if (left + w > window.innerWidth - 10) left = e.clientX - w - 16;
+      if (top + h > window.innerHeight - 10) top = window.innerHeight - h - 10;
+      if (top < 10) top = 10;
+      tip.style.left = left + 'px';
+      tip.style.top = top + 'px';
+    };
+
+    // Event binding: Monster Cards
+    body.querySelectorAll('.mon-card').forEach(card => {
+      const id = card.dataset.mon;
+      card.addEventListener('mouseenter', () => {
+        tip.innerHTML = monTipHtml(id);
+        tip.style.display = 'block';
+      });
+      card.addEventListener('mousemove', updateTipPos);
+      card.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+      card.addEventListener('click', () => {
+        tip.style.display = 'none';
+        const mon = MONSTERS[id];
+        const maps = mapsOf(id);
+        if (!maps.length) return;
+        const targetZone = maps.find(z => z.id !== here) || maps[0];
+        if (targetZone.id === here) {
+          if (this.gameEngine && this.gameEngine.onLog) {
+            this.gameEngine.onLog(`📍 คุณอยู่ในแผนที่ "${targetZone.name}" ที่มี ${mon ? mon.name : ''} อยู่แล้ว!`, 'system');
+          }
+          return;
+        }
+        this.showConfirm(`ต้องการเดินทางไป "${targetZone.name}" เพื่อล่า ${mon ? mon.name : ''} หรือไม่?`, () => this.gameEngine.changeMap(targetZone.id));
+      });
     });
-    body.querySelectorAll('.info-warp').forEach(b => b.addEventListener('click', e => {
-      const zone = ZONES.find(z => z.id === e.currentTarget.dataset.zone);
-      const mon = MONSTERS[e.currentTarget.dataset.mon];
-      if (!zone) return;
-      this.showConfirm(`ต้องการเดินทางไป "${zone.name}" เพื่อล่า ${mon ? mon.name : ''} หรือไม่?`, () => this.gameEngine.changeMap(zone.id));
-    }));
+
+    // Event binding: Item Cards
+    body.querySelectorAll('.item-db-card').forEach(card => {
+      const id = card.dataset.item;
+      card.addEventListener('mouseenter', () => {
+        tip.innerHTML = itemTipHtml(id);
+        tip.style.display = 'block';
+      });
+      card.addEventListener('mousemove', updateTipPos);
+      card.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+      card.addEventListener('click', () => {
+        const drops = dropsFrom(id);
+        if (drops.length) {
+          const targetMid = drops[0].mid;
+          const mon = MONSTERS[targetMid];
+          const maps = mapsOf(targetMid);
+          if (!maps.length) return;
+          const targetZone = maps.find(z => z.id !== here) || maps[0];
+          this.showConfirm(`ต้องการเดินทางไป "${targetZone.name}" เพื่อฟาร์มดรอปไอเท็มนี้จาก ${mon ? mon.name : ''} หรือไม่?`, () => {
+            tip.style.display = 'none';
+            this.gameEngine.changeMap(targetZone.id);
+          });
+        }
+      });
+    });
+
+    // Event binding: Relic Cards
+    body.querySelectorAll('.relic-db-card').forEach(card => {
+      const id = card.dataset.relic;
+      card.addEventListener('mouseenter', () => {
+        tip.innerHTML = relicTipHtml(id);
+        tip.style.display = 'block';
+      });
+      card.addEventListener('mousemove', updateTipPos);
+      card.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+      card.addEventListener('click', () => {
+        const r = RELICS[id];
+        if (!r || !r.monsterId) return;
+        const mon = MONSTERS[r.monsterId];
+        const maps = mapsOf(r.monsterId);
+        if (!maps.length) return;
+        const targetZone = maps.find(z => z.id !== here) || maps[0];
+        this.showConfirm(`ต้องการเดินทางไป "${targetZone.name}" เพื่อล่า ${mon ? mon.name : ''} ชิงสมบัติ "${r.name}" หรือไม่?`, () => {
+          tip.style.display = 'none';
+          this.gameEngine.changeMap(targetZone.id);
+        });
+      });
+    });
+
+    // Top Section Tabs (มอนสเตอร์, ไอเท็ม, สมบัติ)
+    body.querySelectorAll('.db-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.dbTab = btn.dataset.tab;
+        this.renderInfoModal();
+      });
+    });
+
+    // Monster Subfilter Buttons
+    body.querySelectorAll('.info-mon-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.dbMonFilter = btn.dataset.filter;
+        this.renderInfoModal();
+      });
+    });
+
+    // Item Subfilter Buttons
+    body.querySelectorAll('.info-item-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.dbItemFilter = btn.dataset.filter;
+        this.renderInfoModal();
+      });
+    });
+
+    // Search input handler
+    const inp = document.getElementById('info-search');
+    if (inp) {
+      inp.addEventListener('input', () => {
+        this.infoSearch = inp.value;
+        const pos = inp.selectionStart;
+        this.renderInfoModal();
+        const n = document.getElementById('info-search');
+        if (n) { n.focus(); n.setSelectionRange(pos, pos); }
+      });
+    }
   }
 
   // Skills window: 4-slot loadout, learned skills, skill books (learn / sell), book gacha
