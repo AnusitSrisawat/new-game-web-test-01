@@ -70,14 +70,18 @@ WINGS_THEMES = [
     ("Golden Sun Deity Wings", "ปีกสุริยเทพทองคำสง่างาม"),
 ]
 
-def render_item_rgba(arr, bg_col, dist, mask_bool, h, w):
-    d_low = 5.0
-    d_high = 18.0
-    alpha = np.zeros((h, w), dtype=np.float32)
-    alpha[mask_bool] = np.clip((dist[mask_bool] - d_low) / (d_high - d_low), 0.0, 1.0)
-    alpha[mask_bool & (dist >= d_high)] = 1.0
-    alpha = alpha * alpha * (3.0 - 2.0 * alpha)
+def render_item_rgba(arr, bg_col, mask_bool, h, w):
+    dist_to_bg = ndi.distance_transform_edt(mask_bool)
 
+    # Interior is fully solid alpha = 1.0 (prevents white gloves/teeth from being transparent)
+    alpha = np.zeros((h, w), dtype=np.float32)
+    alpha[dist_to_bg >= 2.0] = 1.0
+    # Clean anti-aliasing along outer contour (no white halo)
+    edge_band = (dist_to_bg >= 0.8) & (dist_to_bg < 2.0)
+    alpha[edge_band] = (dist_to_bg[edge_band] - 0.8) / (2.0 - 0.8)
+    alpha[edge_band] = alpha[edge_band] * alpha[edge_band] * (3.0 - 2.0 * alpha[edge_band])
+
+    # Decontaminate background color from edge pixels (eliminates white fringe)
     edge_mask = (alpha > 0.01) & (alpha < 0.99)
     arr_corr = arr.copy()
     for ch in range(3):
@@ -137,7 +141,7 @@ def extract_clothes_from_sheet(sheet_img):
     out_images = []
     for comp_id, _ in outfit_comps:
         comp_mask = (lbl == comp_id)
-        out_im = render_item_rgba(arr, bg_col, dist, comp_mask, h, w)
+        out_im = render_item_rgba(arr, bg_col, comp_mask, h, w)
         out_images.append(out_im)
     return out_images
 
@@ -216,32 +220,43 @@ def extract_wings_from_sheet(sheet_img):
                 items_labels[slot].append(main_comps[cur_idx]['id'])
                 cur_idx += 1
 
-    item_centers = []
+    # Wing bounding boxes of main components
+    slot_bounds = []
     for slot in range(4):
         if items_labels[slot]:
             slot_mask = np.isin(lbl, items_labels[slot])
             ys, xs = np.where(slot_mask)
-            item_centers.append(float(np.mean(xs)))
+            slot_bounds.append({
+                'min_x': xs.min(), 'max_x': xs.max(), 'center_x': float(np.mean(xs)),
+                'min_y': ys.min(), 'max_y': ys.max()
+            })
         else:
-            item_centers.append((slot + 0.5) * w / 4.0)
+            cx = (slot + 0.5) * w / 4.0
+            slot_bounds.append({'min_x': cx - 200, 'max_x': cx + 200, 'center_x': cx, 'min_y': 200, 'max_y': 1200})
 
+    # Assign extra components (particles, runes) ONLY if vertically within the wing area
+    # Rejects bottom text labels (e.g. on sheets 3, 7, 15, 19)
     for i, o in enumerate(objs):
         comp_id = i + 1
         if any(comp_id in items_labels[s] for s in range(4)):
             continue
         sz = np.count_nonzero(lbl == comp_id)
-        if sz < 15 or o[0].stop < 150 or o[0].start > 1380:
+        if sz < 15:
             continue
         comp_mask = (lbl == comp_id)
         ys, xs = np.where(comp_mask)
         cx = float(np.mean(xs))
-        closest_slot = int(np.argmin([abs(cx - ic) for ic in item_centers]))
+        cy = float(np.mean(ys))
+        closest_slot = int(np.argmin([abs(cx - slot_bounds[s]['center_x']) for s in range(4)]))
+        sb = slot_bounds[closest_slot]
+        if o[0].start > sb['max_y'] - 5 or cy < sb['min_y'] - 60:
+            continue
         items_labels[closest_slot].append(comp_id)
 
     out_images = []
     for slot in range(4):
         slot_mask = np.isin(lbl, items_labels[slot])
-        out_im = render_item_rgba(arr, bg_col, dist, slot_mask, h, w)
+        out_im = render_item_rgba(arr, bg_col, slot_mask, h, w)
         out_images.append(out_im)
     return out_images
 
